@@ -50,6 +50,10 @@ return [
         ],
     ],
 
+    // Days a past_due subscriber keeps access after the paid period ends while
+    // 2Checkout retries the charge. Covers all three dunning emails.
+    'dunning_grace_days' => (int) env('BILLING_DUNNING_GRACE_DAYS', 14),
+
     'rank' => [
         'free'   => 0,
         'pro'    => 1,

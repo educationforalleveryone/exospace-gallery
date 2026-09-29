@@ -19,7 +19,8 @@ class CheckPlanExpiry
                 if (
                     $user->plan !== 'free' &&
                     $user->plan_expires_at !== null &&
-                    $user->plan_expires_at->isPast()
+                    $user->plan_expires_at->isPast() &&
+                    ! $user->isInDunningGrace()
                 ) {
                     $limits = User::planLimits('free');
 

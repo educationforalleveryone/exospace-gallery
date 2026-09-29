@@ -266,6 +266,16 @@ class User extends Authenticatable implements MustVerifyEmail
             && $this->subscription_status === 'active';
     }
 
+    public function isInDunningGrace(): bool
+    {
+        return $this->hasSubscription()
+            && $this->subscription_status === 'past_due'
+            && $this->plan_expires_at
+            && $this->plan_expires_at->copy()
+                ->addDays((int) config('plans.dunning_grace_days', 0))
+                ->isFuture();
+    }
+
     public function hasCancelledSubscription(): bool
     {
         return $this->hasSubscription()

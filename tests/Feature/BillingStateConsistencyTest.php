@@ -66,7 +66,7 @@ class BillingStateConsistencyTest extends TestCase
     public function test_forced_expiry_marks_past_due_subscription_as_expired(): void
     {
         $user = User::factory()->pro()->create([
-            'plan_expires_at'     => now()->subDay(),
+            'plan_expires_at'     => now()->subDays((int) config('plans.dunning_grace_days') + 1),
             'subscription_id'     => 'SUB-EXP-2',
             'subscription_status' => 'past_due',
         ]);
@@ -76,6 +76,35 @@ class BillingStateConsistencyTest extends TestCase
         $user->refresh();
         $this->assertEquals('free', $user->plan);
         $this->assertEquals('expired', $user->subscription_status);
+    }
+
+    public function test_past_due_subscription_keeps_access_during_dunning_grace(): void
+    {
+        $user = User::factory()->pro()->create([
+            'plan_expires_at'     => now()->subDay(),
+            'subscription_id'     => 'SUB-GRACE-1',
+            'subscription_status' => 'past_due',
+            'dunning_step'        => 1,
+        ]);
+
+        $this->actingAs($user)->get('/admin/dashboard');
+
+        $user->refresh();
+        $this->assertEquals('pro', $user->plan, '2Checkout is still retrying; access must survive until the grace window closes.');
+        $this->assertEquals('past_due', $user->subscription_status);
+    }
+
+    public function test_active_subscription_gets_no_grace_after_expiry(): void
+    {
+        $user = User::factory()->pro()->create([
+            'plan_expires_at'     => now()->subDay(),
+            'subscription_id'     => 'SUB-GRACE-2',
+            'subscription_status' => 'active',
+        ]);
+
+        $this->actingAs($user)->get('/admin/dashboard');
+
+        $this->assertEquals('free', $user->refresh()->plan);
     }
 
     public function test_cancelled_subscription_is_left_untouched_by_forced_expiry(): void
@@ -234,6 +263,140 @@ class BillingStateConsistencyTest extends TestCase
             'user_id'    => $user->id,
             'invoice_id' => $invoiceId,
         ]);
+    }
+
+    public function test_late_failure_for_downgraded_account_does_not_restart_dunning(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $user = User::factory()->create([
+            'email'               => 'late-fail@example.com',
+            'plan'                => 'free',
+            'subscription_id'     => 'SUB-LATE-1',
+            'subscription_status' => 'expired',
+        ]);
+
+        $saleId = 'SALE-LATE-1';
+        $invoiceId = 'INV-LATE-FAIL-1';
+
+        $this->postWebhook([
+            'message_type'      => 'RECURRING_INSTALLMENT_FAILED',
+            'message_id'        => 'MSG-LATE-FAIL-1',
+            'sale_id'           => $saleId,
+            'vendor_id'         => 'V-CONS',
+            'invoice_id'        => $invoiceId,
+            'md5_hash'          => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id'=> 'SUB-LATE-1',
+            'customer_email'    => $user->email,
+        ])->assertOk();
+
+        $user->refresh();
+        $this->assertEquals('expired', $user->subscription_status);
+        $this->assertNull($user->dunning_step);
+        \Illuminate\Support\Facades\Mail::assertNothingQueued();
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
+    }
+
+    public function test_failed_installment_on_live_subscription_marks_past_due_and_starts_dunning(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+
+        $user = User::factory()->pro()->create([
+            'email'               => 'live-fail@example.com',
+            'subscription_id'     => 'SUB-LIVE-1',
+            'subscription_status' => 'active',
+        ]);
+
+        $saleId = 'SALE-LIVE-1';
+        $invoiceId = 'INV-LIVE-FAIL-1';
+
+        $this->postWebhook([
+            'message_type'      => 'RECURRING_INSTALLMENT_FAILED',
+            'message_id'        => 'MSG-LIVE-FAIL-1',
+            'sale_id'           => $saleId,
+            'vendor_id'         => 'V-CONS',
+            'invoice_id'        => $invoiceId,
+            'md5_hash'          => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id'=> 'SUB-LIVE-1',
+            'customer_email'    => $user->email,
+        ])->assertOk();
+
+        $user->refresh();
+        $this->assertEquals('past_due', $user->subscription_status);
+        $this->assertEquals(1, $user->dunning_step);
+    }
+
+    public function test_successful_retry_after_downgrade_restores_the_paid_plan(): void
+    {
+        $user = User::factory()->create([
+            'email'               => 'late-pay@example.com',
+            'plan'                => 'free',
+            'max_galleries'       => 1,
+            'max_images'          => 10,
+            'subscription_id'     => 'SUB-LATE-2',
+            'subscription_status' => 'expired',
+            'plan_expires_at'     => now()->subDays(20),
+            'dunning_step'        => 3,
+        ]);
+
+        $saleId = 'SALE-LATE-2';
+        $invoiceId = 'INV-LATE-OK-1';
+
+        $this->postWebhook([
+            'message_type'      => 'RECURRING_INSTALLMENT_SUCCESS',
+            'message_id'        => 'MSG-LATE-OK-1',
+            'sale_id'           => $saleId,
+            'vendor_id'         => 'V-CONS',
+            'invoice_id'        => $invoiceId,
+            'md5_hash'          => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id'=> 'SUB-LATE-2',
+            'customer_email'    => $user->email,
+            'item_id_1'         => self::PRODUCT_ID_STUDIO,
+            'item_list_amount_1'=> '99.00',
+            'list_currency'     => 'USD',
+            'item_billing_cycle_next_date' => now()->addMonth()->toDateString(),
+        ])->assertOk();
+
+        $user->refresh();
+        $this->assertEquals('studio', $user->plan, 'A customer who paid must not stay on Free.');
+        $this->assertEquals(999, $user->max_galleries);
+        $this->assertEquals(500, $user->max_images);
+        $this->assertEquals('active', $user->subscription_status);
+        $this->assertNull($user->dunning_step);
+        $this->assertTrue($user->plan_expires_at->isFuture());
+    }
+
+    public function test_new_purchase_clears_stale_dunning_state(): void
+    {
+        $user = User::factory()->pro()->create([
+            'email'               => 'fresh-order@example.com',
+            'subscription_id'     => 'SUB-OLD-DUN',
+            'subscription_status' => 'past_due',
+            'dunning_step'        => 2,
+            'dunning_last_sent_at'=> now()->subDays(4),
+        ]);
+
+        $saleId = 'SALE-FRESH-1';
+        $invoiceId = 'INV-FRESH-1';
+
+        $this->postWebhook([
+            'message_type'       => 'ORDER_CREATED',
+            'message_id'         => 'MSG-FRESH-1',
+            'sale_id'            => $saleId,
+            'vendor_id'          => 'V-CONS',
+            'invoice_id'         => $invoiceId,
+            'md5_hash'           => $this->md5For($saleId, $invoiceId),
+            'customer_email'     => $user->email,
+            'item_id_1'          => self::PRODUCT_ID_PRO,
+            'item_list_amount_1' => '29.00',
+            'list_currency'      => 'USD',
+            'recurring_order_id' => 'SUB-NEW-DUN',
+        ])->assertOk();
+
+        $user->refresh();
+        $this->assertEquals('active', $user->subscription_status);
+        $this->assertNull($user->dunning_step);
+        $this->assertNull($user->dunning_last_sent_at);
     }
 
     public function test_legacy_email_matched_renewal_without_local_subscription_id_still_extends(): void

@@ -152,23 +152,7 @@ class WebhookController extends Controller
         $previousSubscriptionId = $user->subscription_id;
         $previousSubscriptionActive = $user->hasActiveSubscription() || $user->subscription_status === 'past_due';
 
-        // Recurring products are sold through the same buy-link flow, so they
-        // must resolve to a plan too. Unset IDs are skipped so an empty
-        // item_id_1 can never match a null config value.
-        $productMap = [];
-        foreach ([
-            'product_id_pro'            => 'pro',
-            'recurring_product_id_pro'  => 'pro',
-            'product_id_studio'         => 'studio',
-            'recurring_product_id_studio' => 'studio',
-        ] as $configKey => $plan) {
-            $configuredId = (string) config("services.2checkout.{$configKey}");
-            if ($configuredId !== '') {
-                $productMap[$configuredId] = ['plan' => $plan];
-            }
-        }
-
-        $planConfig = $productMap[(string) $productId] ?? null;
+        $planConfig = $this->planConfigForProduct($productId);
 
         if (! $planConfig) {
             Log::warning('2Checkout: Unknown product ID received', [
@@ -221,6 +205,8 @@ class WebhookController extends Controller
                             'subscription_status'     => 'active',
                             'subscription_ends_at'    => $subscriptionEndsAt,
                             'subscription_cancelled_at' => null,
+                            'dunning_step'            => null,
+                            'dunning_last_sent_at'    => null,
                         ])->save();
                     } else {
                         // One-time purchase (existing behavior)
@@ -228,6 +214,8 @@ class WebhookController extends Controller
                             'plan'            => $planConfig['plan'],
                             'plan_started_at' => now(),
                             'plan_expires_at' => null,
+                            'dunning_step'         => null,
+                            'dunning_last_sent_at' => null,
                         ])->save();
 
                         if ($previousSubscriptionActive && $previousSubscriptionId) {
@@ -933,6 +921,27 @@ class WebhookController extends Controller
         ];
     }
 
+    private function planConfigForProduct(?string $productId): ?array
+    {
+        // Recurring products are sold through the same buy-link flow, so they
+        // must resolve to a plan too. Unset IDs are skipped so an empty
+        // item_id_1 can never match a null config value.
+        $productMap = [];
+        foreach ([
+            'product_id_pro'              => 'pro',
+            'recurring_product_id_pro'    => 'pro',
+            'product_id_studio'           => 'studio',
+            'recurring_product_id_studio' => 'studio',
+        ] as $configKey => $plan) {
+            $configuredId = (string) config("services.2checkout.{$configKey}");
+            if ($configuredId !== '') {
+                $productMap[$configuredId] = ['plan' => $plan];
+            }
+        }
+
+        return $productMap[(string) $productId] ?? null;
+    }
+
     private function handleRecurringSuccess(Request $request)
     {
         $invoiceId = $request->input('invoice_id');
@@ -1001,6 +1010,19 @@ class WebhookController extends Controller
                         'dunning_step'         => null,
                         'dunning_last_sent_at' => null,
                     ])->save();
+
+                    // A retry that succeeds after the grace period lands on an
+                    // already-downgraded account; the customer paid, so restore the plan.
+                    $paidPlan = $this->planConfigForProduct($productId)['plan'] ?? null;
+                    if ($user->plan === 'free' && $paidPlan) {
+                        $limits = User::planLimits($paidPlan);
+                        $user->forceFill([
+                            'plan'            => $paidPlan,
+                            'plan_started_at' => now(),
+                            'max_galleries'   => $limits['max_galleries'],
+                            'max_images'      => $limits['max_images'],
+                        ])->save();
+                    }
 
                     // Record the renewal transaction.
                     $transactionId = \DB::table('transactions')->insertGetId([
@@ -1090,6 +1112,16 @@ class WebhookController extends Controller
         try {
             $lock->block(5, function () use ($user, $invoiceId, $subscriptionId) {
                 $user->refresh();
+
+                // A late failure for a subscription that was already cancelled,
+                // expired or downgraded must not resurrect dunning for a free account.
+                if ($user->plan === 'free' || in_array($user->subscription_status, ['cancelled', 'expired'], true)) {
+                    Log::info('2Checkout: recurring failure ignored — subscription no longer live', [
+                        'user_id'         => $user->id,
+                        'subscription_id' => $subscriptionId,
+                    ]);
+                    return;
+                }
 
                 $user->forceFill([
                     'subscription_status' => 'past_due',
