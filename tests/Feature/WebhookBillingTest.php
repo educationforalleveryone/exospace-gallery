@@ -190,6 +190,51 @@ class WebhookBillingTest extends TestCase
         $this->assertDatabaseMissing('transactions', ['user_id' => $user->id]);
     }
 
+    public function test_purchase_closes_duplicate_pending_upgrades_the_plan_satisfies(): void
+    {
+        $user = User::factory()->create(['email' => 'account@example.com']);
+        $paidLink = PendingUpgrade::createForUser($user, 'pro', self::PRODUCT_ID_PRO);
+        $duplicateClick = PendingUpgrade::createForUser($user, 'pro', self::PRODUCT_ID_PRO);
+        $lowerTierAttempt = PendingUpgrade::createForUser($user, 'pro', self::PRODUCT_ID_PRO);
+        $higherTier = PendingUpgrade::createForUser($user, 'studio', self::PRODUCT_ID_STUDIO);
+
+        $this->postWebhook($this->validIpnPayload([
+            'external-reference' => $paidLink->plaintext_token,
+            'item_id_1'          => self::PRODUCT_ID_PRO,
+        ]))->assertOk();
+
+        $this->assertEquals('converted', $paidLink->fresh()->status);
+        $this->assertEquals('expired', $duplicateClick->fresh()->status);
+        $this->assertEquals('expired', $lowerTierAttempt->fresh()->status);
+        $this->assertEquals('pending', $higherTier->fresh()->status, 'A Pro purchase must not close an open Studio checkout.');
+    }
+
+    public function test_purchase_matched_by_email_still_closes_pending_upgrades(): void
+    {
+        $user = User::factory()->create(['email' => 'buyer@example.com']);
+        $pending = PendingUpgrade::createForUser($user, 'studio', self::PRODUCT_ID_STUDIO);
+
+        $this->postWebhook($this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_STUDIO,
+        ]))->assertOk();
+
+        $this->assertEquals('expired', $pending->fresh()->status);
+    }
+
+    public function test_purchase_does_not_touch_other_users_pending_upgrades(): void
+    {
+        $buyer = User::factory()->create(['email' => 'buyer@example.com']);
+        $other = User::factory()->create();
+        $otherPending = PendingUpgrade::createForUser($other, 'pro', self::PRODUCT_ID_PRO);
+
+        $this->postWebhook($this->validIpnPayload([
+            'item_id_1' => self::PRODUCT_ID_PRO,
+        ]))->assertOk();
+
+        $this->assertEquals('pending', $otherPending->fresh()->status);
+        $this->assertEquals('pro', $buyer->fresh()->plan);
+    }
+
     public function test_order_created_for_unknown_user_returns_200(): void
     {
         $payload = $this->validIpnPayload([

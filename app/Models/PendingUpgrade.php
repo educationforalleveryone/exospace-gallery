@@ -73,6 +73,27 @@ class PendingUpgrade extends Model
         return $this->belongsTo(Transaction::class);
     }
 
+    /**
+     * Close every other open checkout the purchased plan already satisfies, so
+     * duplicate clicks don't leave "awaiting payment" rows behind or trigger
+     * abandoned-cart emails for an upgrade the user has already bought.
+     */
+    public static function expireSatisfiedBy(int $userId, string $purchasedPlan): void
+    {
+        $rank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
+        $purchasedRank = $rank[$purchasedPlan] ?? 0;
+
+        $satisfiedPlans = array_keys(array_filter(
+            $rank,
+            fn (int $planRank) => $planRank > 0 && $planRank <= $purchasedRank,
+        ));
+
+        static::where('user_id', $userId)
+            ->where('status', 'pending')
+            ->whereIn('plan', $satisfiedPlans)
+            ->update(['status' => 'expired']);
+    }
+
     public function markConverted(int $transactionId): void
     {
         $this->forceFill([

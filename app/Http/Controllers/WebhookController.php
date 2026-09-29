@@ -253,6 +253,8 @@ class WebhookController extends Controller
                         'updated_at'     => now(),
                     ]);
 
+                    \App\Models\PendingUpgrade::expireSatisfiedBy($user->id, $planConfig['plan']);
+
                     // ── Mark the pending_upgrade as converted ──────────
                     if ($pendingUpgrade) {
                         $pendingUpgrade->markConverted($transactionId);
