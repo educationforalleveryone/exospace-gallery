@@ -35,6 +35,9 @@ class ReconcileSubscriptions extends Command
         $users = User::query()
             ->whereIn('plan', ['pro', 'studio'])
             ->whereNotNull('subscription_id')
+            // A null expiry is a lifetime one-time purchase; it keeps the id of the
+            // subscription it superseded, which 2Checkout rightly reports as ended.
+            ->whereNotNull('plan_expires_at')
             ->orderByDesc('plan_started_at')
             ->limit($limit)
             ->get();
@@ -107,16 +110,22 @@ class ReconcileSubscriptions extends Command
                 continue;
             }
 
+            $fromPlan = $user->plan;
+
             app(PlanDowngradeService::class)->downgradeToFree($user, 'Subscription reconciliation: 2Checkout reports subscription ended');
+
+            if (in_array($user->subscription_status, ['active', 'past_due'], true)) {
+                $user->forceFill(['subscription_status' => 'expired'])->save();
+            }
 
             AdminAuditLog::record('subscription.reconciled_downgrade', $user, [
                 'subscription_id' => $user->subscription_id,
-                'from_plan'       => $user->plan,
+                'from_plan'       => $fromPlan,
                 'reason'          => '2CO reports subscription ended; local expiry already past',
             ]);
 
             $this->alertDrift($user, 'auto-downgraded',
-                "User {$user->id} ({$user->email}) held plan '{$user->plan}' with a subscription 2Checkout "
+                "User {$user->id} ({$user->email}) held plan '{$fromPlan}' with a subscription 2Checkout "
                 . "reports as ended, and the local paid period had already expired. Automatically downgraded "
                 . 'to free (missed cancellation webhook).');
             $downgraded++;
@@ -125,6 +134,9 @@ class ReconcileSubscriptions extends Command
         $freeWithLiveRef = User::query()
             ->where('plan', 'free')
             ->whereNotNull('subscription_id')
+            // Expired/cancelled accounts legitimately keep their old reference.
+            ->where(fn ($q) => $q->whereNull('subscription_status')
+                ->orWhereIn('subscription_status', ['active', 'past_due']))
             ->limit($limit)
             ->pluck('email', 'id');
 

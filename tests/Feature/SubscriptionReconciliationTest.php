@@ -50,6 +50,54 @@ class SubscriptionReconciliationTest extends TestCase
         ]);
     }
 
+    public function test_downgrade_marks_local_subscription_expired_and_audits_original_plan(): void
+    {
+        $user = $this->subscribedUser(['plan' => 'studio', 'subscription_status' => 'active']);
+
+        Http::fake([$this->apiUrl($user) => Http::response(['SubscriptionEnabled' => false])]);
+
+        $this->artisan('exospace:reconcile-subscriptions')->assertExitCode(0);
+
+        $user->refresh();
+        $this->assertSame('free', $user->plan);
+        $this->assertSame('expired', $user->subscription_status, 'A free account must not keep reporting an active subscription.');
+
+        $audit = AdminAuditLog::where('action', 'subscription.reconciled_downgrade')->firstOrFail();
+        $this->assertSame('studio', $audit->payload['from_plan'] ?? null);
+    }
+
+    public function test_lifetime_purchase_that_superseded_a_subscription_is_never_downgraded(): void
+    {
+        $user = $this->subscribedUser([
+            'plan_expires_at'     => null,
+            'subscription_status' => 'cancelled',
+        ]);
+
+        Http::fake([$this->apiUrl($user) => Http::response(['SubscriptionEnabled' => false])]);
+
+        $this->artisan('exospace:reconcile-subscriptions')->assertExitCode(0);
+
+        $this->assertSame('pro', $user->refresh()->plan, 'A one-time purchase has no expiry and must survive its superseded subscription ending.');
+        Http::assertNothingSent();
+    }
+
+    public function test_expired_free_user_with_old_reference_does_not_raise_live_reference_alert(): void
+    {
+        User::factory()->create([
+            'plan'                => 'free',
+            'subscription_id'     => 'SUB-OLD',
+            'subscription_status' => 'expired',
+        ]);
+
+        $alertSpy = \Mockery::mock(OperationalAlertService::class);
+        $alertSpy->shouldNotReceive('alert');
+        $this->instance(OperationalAlertService::class, $alertSpy);
+
+        Http::fake(['*' => Http::response([])]);
+
+        $this->artisan('exospace:reconcile-subscriptions')->assertExitCode(0);
+    }
+
     public function test_dead_subscription_inside_paid_period_is_not_downgraded(): void
     {
         $user = $this->subscribedUser(['plan_expires_at' => now()->addDays(10)]);
