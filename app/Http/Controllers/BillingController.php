@@ -396,7 +396,9 @@ class BillingController extends Controller
         $result = $this->planLock->withUserLock($user->id, function () use ($user, $targetPlan) {
             $user->refresh();
 
-            if ($user->hasActiveSubscription()) {
+            // A past_due subscription is still retrying at 2Checkout; leaving it
+            // live would bill a customer who has already been downgraded.
+            if ($user->hasActiveSubscription() || ($user->hasSubscription() && $user->subscription_status === 'past_due')) {
                 try {
                     $response = $this->twoCheckout->cancelSubscription($user->subscription_id);
 
@@ -440,12 +442,8 @@ class BillingController extends Controller
                 app(\App\Services\PlanDowngradeService::class)
                     ->downgradeToFree($user, 'Self-serve downgrade');
             } else {
-                $limits = \App\Models\User::planLimits($targetPlan);
-                $user->forceFill([
-                    'plan'          => $targetPlan,
-                    'max_galleries' => $limits['max_galleries'],
-                    'max_images'    => $limits['max_images'],
-                ])->save();
+                app(\App\Services\PlanDowngradeService::class)
+                    ->downgradeToPro($user, 'Self-serve downgrade');
             }
 
             AdminAuditLog::record('plan.downgraded', $user, [

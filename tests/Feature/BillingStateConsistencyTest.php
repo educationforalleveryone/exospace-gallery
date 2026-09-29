@@ -319,6 +319,26 @@ class BillingStateConsistencyTest extends TestCase
         Http::assertSent(fn ($request) => str_contains($request->url(), '/subscriptions/SUB-DG-1/cancel'));
     }
 
+    public function test_downgrade_with_past_due_subscription_cancels_it_at_2checkout(): void
+    {
+        $user = User::factory()->studio()->create([
+            'subscription_id'      => 'SUB-DG-PD',
+            'subscription_status'  => 'past_due',
+            'subscription_ends_at' => now()->addDays(3),
+        ]);
+
+        $this->actingAs($user)
+            ->post(route('billing.downgrade'), ['plan' => 'free'])
+            ->assertRedirect(route('billing.index'))
+            ->assertSessionHas('success');
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/subscriptions/SUB-DG-PD/cancel'));
+
+        $user->refresh();
+        $this->assertSame('cancelled', $user->subscription_status, 'A retrying subscription must not be left live after a downgrade.');
+        $this->assertSame('studio', $user->plan, 'Access runs to the end of the paid period, as for an active subscription.');
+    }
+
     public function test_downgrade_without_subscription_changes_plan_immediately(): void
     {
         $user = User::factory()->studio()->create([

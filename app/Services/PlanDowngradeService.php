@@ -44,7 +44,61 @@ class PlanDowngradeService
             });
     }
 
+    public function downgradeToPro(User $user, string $reason): void
+    {
+        $limits = User::planLimits('pro');
+
+        $user->forceFill([
+            'plan'          => 'pro',
+            'max_galleries' => $limits['max_galleries'],
+            'max_images'    => $limits['max_images'],
+        ])->save();
+
+        Log::info('PlanDowngradeService: user downgraded to pro', [
+            'user_id' => $user->id,
+            'reason'  => $reason,
+        ]);
+
+        // Custom domains are the only Studio feature that stays live without a
+        // plan check; logos are gated at render time, so their files are kept.
+        $user->galleries()
+            ->whereNotNull('custom_domain')
+            ->chunkById(50, function ($galleries) use ($reason) {
+                foreach ($galleries as $gallery) {
+                    $this->releaseCustomDomain($gallery, $reason);
+                }
+            });
+    }
+
     public function cleanupGalleryStudioResources(Gallery $gallery, string $reason = ''): void
+    {
+        $this->releaseCustomDomain($gallery, $reason);
+
+        $fileFields = ['custom_logo_path', 'curtain_logo_path', 'audio_path'];
+
+        $updates = [];
+        foreach ($fileFields as $field) {
+            $path = $gallery->getOriginal($field);
+            if (empty($path)) {
+                continue;
+            }
+
+            $this->deletePublicDiskFile($path);
+            $updates[$field] = null;
+
+            Log::info('PlanDowngradeService: cleared file field', [
+                'gallery_id' => $gallery->id,
+                'field'      => $field,
+                'reason'     => $reason,
+            ]);
+        }
+
+        if (! empty($updates)) {
+            $gallery->forceFill($updates)->save();
+        }
+    }
+
+    private function releaseCustomDomain(Gallery $gallery, string $reason): void
     {
         $customDomain = $gallery->getOriginal('custom_domain');
 
@@ -81,29 +135,6 @@ class PlanDowngradeService
                 'domain'     => $customDomain,
                 'reason'     => $reason,
             ]);
-        }
-
-        $fileFields = ['custom_logo_path', 'curtain_logo_path', 'audio_path'];
-
-        $updates = [];
-        foreach ($fileFields as $field) {
-            $path = $gallery->getOriginal($field);
-            if (empty($path)) {
-                continue;
-            }
-
-            $this->deletePublicDiskFile($path);
-            $updates[$field] = null;
-
-            Log::info('PlanDowngradeService: cleared file field', [
-                'gallery_id' => $gallery->id,
-                'field'      => $field,
-                'reason'     => $reason,
-            ]);
-        }
-
-        if (! empty($updates)) {
-            $gallery->forceFill($updates)->save();
         }
     }
 

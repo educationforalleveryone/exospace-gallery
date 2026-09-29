@@ -94,6 +94,41 @@ class PlanDowngradeIsolationTest extends TestCase
         $this->assertEquals('studio', $userB->plan, 'User B was downgraded by downgrading User A.');
     }
 
+    public function test_downgrade_to_pro_releases_custom_domain_but_keeps_uploaded_files(): void
+    {
+        [$user, $gallery] = $this->createStudioUserWithGallery('to-pro');
+        [$otherUser, $otherGallery] = $this->createStudioUserWithGallery('bystander');
+
+        $paths = [
+            'logo'    => $gallery->custom_logo_path,
+            'curtain' => $gallery->curtain_logo_path,
+            'audio'   => $gallery->audio_path,
+        ];
+
+        $mock = \Mockery::mock(\App\Services\CoolifyDomainManager::class);
+        $mock->shouldReceive('removeDomain')->once()->with('to-pro.example.com')
+            ->andReturn(['success' => true, 'message' => 'mocked']);
+        $this->app->instance(\App\Services\CoolifyDomainManager::class, $mock);
+
+        app(PlanDowngradeService::class)->downgradeToPro($user, 'Test: studio to pro');
+
+        $user->refresh();
+        $this->assertSame('pro', $user->plan);
+        $this->assertSame(5, $user->max_galleries);
+        $this->assertSame(100, $user->max_images);
+
+        $gallery->refresh();
+        $this->assertNull($gallery->custom_domain);
+        $this->assertNull($gallery->custom_domain_verified_at);
+        $this->assertSame($paths['logo'], $gallery->custom_logo_path, 'Logo files are gated at render time and must survive a Studio to Pro downgrade.');
+        $this->assertSame($paths['curtain'], $gallery->curtain_logo_path);
+        $this->assertSame($paths['audio'], $gallery->audio_path, 'Pro includes background music.');
+        $this->assertTrue(Storage::disk('public')->exists(\Illuminate\Support\Str::after($paths['audio'], 'storage/')));
+
+        $this->assertSame('studio', $otherUser->refresh()->plan);
+        $this->assertSame('bystander.example.com', $otherGallery->refresh()->custom_domain);
+    }
+
     public function test_downgrading_user_with_no_studio_fields_is_a_safe_noop(): void
     {
         $user = User::factory()->studio()->create();
