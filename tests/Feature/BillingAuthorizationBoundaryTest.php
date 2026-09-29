@@ -75,8 +75,8 @@ class BillingAuthorizationBoundaryTest extends TestCase
     private function md5For(string $saleId, string $invoiceId): string
     {
         // Official 2Checkout INS md5_hash formula:
-        // UPPER(MD5(UPPER(MD5(SALE_ID)) . VENDOR_ID . INVOICE_ID . SECRET_WORD))
-        $stringToHash = strtoupper(md5($saleId))
+        // UPPER(MD5(SALE_ID . VENDOR_ID . INVOICE_ID . SECRET_WORD))
+        $stringToHash = $saleId
             . self::VENDOR_ID
             . $invoiceId
             . self::SECRET_WORD;

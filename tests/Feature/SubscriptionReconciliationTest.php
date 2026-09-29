@@ -178,7 +178,7 @@ class SubscriptionReconciliationTest extends TestCase
         $vendorId = $payload['vendor_id'] ?? 'V12345';
         $secretWord = 'test-secret-word';
 
-        $stringToHash = strtoupper(md5($saleId))
+        $stringToHash = $saleId
                       . $vendorId
                       . $invoiceId
                       . $secretWord;

@@ -42,7 +42,12 @@ class WebhookController extends Controller
             }
         }
 
-        $response = $this->processVerifiedWebhook($request, $messageId, $messageType);
+        try {
+            $response = $this->processVerifiedWebhook($request, $messageId, $messageType);
+        } catch (\Throwable $e) {
+            $this->markWebhookFailed($messageId, $messageType);
+            throw $e;
+        }
         $this->finalizeWebhook($messageId, $messageType, $response);
 
         return $response;
@@ -374,8 +379,8 @@ class WebhookController extends Controller
         $lock = \Illuminate\Support\Facades\Cache::lock("2co:refund:{$invoiceId}", 120);
 
         try {
-            $lock->block(5, function () use ($invoiceId, $request) {
-                \DB::transaction(function () use ($invoiceId, $request) {
+            $invoiceUnrecorded = $lock->block(5, function () use ($invoiceId, $request) {
+                return \DB::transaction(function () use ($invoiceId, $request) {
                     $transaction = \DB::table('transactions')
                         ->where('invoice_id', $invoiceId)
                         ->lockForUpdate()
@@ -385,7 +390,7 @@ class WebhookController extends Controller
                         Log::warning('2Checkout: REFUND_ISSUED for unknown invoice', [
                             'invoice_id' => $invoiceId,
                         ]);
-                        return;
+                        return true;
                     }
 
                     if ($transaction->status === 'refunded' || $transaction->status === 'partial_refund') {
@@ -499,6 +504,10 @@ class WebhookController extends Controller
             return response('Internal error', 500);
         }
 
+        if ($invoiceUnrecorded) {
+            return response('Invoice not yet recorded', 503);
+        }
+
         return response('Refund processed', 200);
     }
 
@@ -513,8 +522,8 @@ class WebhookController extends Controller
         $lock = \Illuminate\Support\Facades\Cache::lock("2co:chargeback:{$invoiceId}", 120);
 
         try {
-            $lock->block(5, function () use ($invoiceId) {
-                \DB::transaction(function () use ($invoiceId) {
+            $invoiceUnrecorded = $lock->block(5, function () use ($invoiceId) {
+                return \DB::transaction(function () use ($invoiceId) {
                     $transaction = \DB::table('transactions')
                         ->where('invoice_id', $invoiceId)
                         ->lockForUpdate()
@@ -524,7 +533,7 @@ class WebhookController extends Controller
                         Log::warning('2Checkout: CHARGEBACK_REPORTED for unknown invoice', [
                             'invoice_id' => $invoiceId,
                         ]);
-                        return;
+                        return true;
                     }
 
                     if ($transaction->status === 'chargeback') {
@@ -594,6 +603,10 @@ class WebhookController extends Controller
                 'error'      => $e->getMessage(),
             ]);
             return response('Internal error', 500);
+        }
+
+        if ($invoiceUnrecorded) {
+            return response('Invoice not yet recorded', 503);
         }
 
         return response('Chargeback processed', 200);
@@ -737,8 +750,8 @@ class WebhookController extends Controller
         }
 
         // Official 2Checkout INS md5_hash formula:
-        // UPPER(MD5(UPPER(MD5(SALE_ID)) . VENDOR_ID . INVOICE_ID . SECRET_WORD))
-        $stringToHash = strtoupper(md5((string) $request->input('sale_id', '')))
+        // UPPER(MD5(SALE_ID . VENDOR_ID . INVOICE_ID . SECRET_WORD))
+        $stringToHash = (string) $request->input('sale_id', '')
                       . (string) $request->input('vendor_id', '')
                       . (string) $request->input('invoice_id', '')
                       . $secretWord;

@@ -54,6 +54,31 @@ class WebhookSecurityTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_md5_hash_matches_the_documented_ins_formula_and_rejects_the_double_md5_variant(): void
+    {
+        config()->set('services.2checkout.secret_word', 'tango');
+        config()->set('services.2checkout.buy_link_secret_word', null);
+
+        $payload = [
+            'message_type' => 'ORDER_CREATED',
+            'message_id'   => 'msg-formula-vector',
+            'sale_id'      => '4838212958',
+            'vendor_id'    => '1817037',
+            'invoice_id'   => '4838212967',
+        ];
+
+        // UPPER(MD5(sale_id . vendor_id . invoice_id . secret_word)), precomputed.
+        $this->postJson('/webhooks/2checkout', $payload + [
+            'md5_hash' => 'B82CB2A5744D5DB315D8FE3E00CE7DF2',
+        ])->assertStatus(200);
+
+        // UPPER(MD5(UPPER(MD5(sale_id)) . vendor_id . invoice_id . secret_word)), precomputed.
+        $this->postJson('/webhooks/2checkout', array_merge($payload, [
+            'message_id' => 'msg-formula-vector-double-md5',
+            'md5_hash'   => '9485077812EDC3F7A4A740D28C3C1A1F',
+        ]))->assertStatus(403);
+    }
+
     public function test_2co4_replay_protection_handles_duplicate_concurrent_inserts(): void
     {
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
@@ -127,7 +152,7 @@ class WebhookSecurityTest extends TestCase
     private function md5HashFor(string $saleId, string $vendorId, string $invoiceId, string $secretWord = 'TESTSECRET'): string
     {
         return strtoupper(md5(
-            strtoupper(md5($saleId)) . $vendorId . $invoiceId . $secretWord
+            $saleId . $vendorId . $invoiceId . $secretWord
         ));
     }
 

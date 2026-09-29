@@ -35,7 +35,7 @@ class WebhookBillingTest extends TestCase
         $invoiceId = $overrides['invoice_id'] ?? 'INV-' . uniqid();
         $vendorId = $overrides['vendor_id'] ?? self::VENDOR_ID;
 
-        $stringToHash = strtoupper(md5($saleId))
+        $stringToHash = $saleId
                       . $vendorId
                       . $invoiceId
                       . self::SECRET_WORD;

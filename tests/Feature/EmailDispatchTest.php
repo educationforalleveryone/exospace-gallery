@@ -44,7 +44,7 @@ class EmailDispatchTest extends TestCase
 
         $saleId = 'SALE-' . uniqid();
         $invoiceId = 'INV-' . uniqid();
-        $stringToHash = strtoupper(md5($saleId))
+        $stringToHash = $saleId
                       . 'V123'
                       . $invoiceId
                       . 'test-secret';

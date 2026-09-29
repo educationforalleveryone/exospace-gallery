@@ -37,7 +37,7 @@ class WebhookLedgerAndReplayTest extends TestCase
         $invoiceId = $overrides['invoice_id'] ?? 'INV-' . uniqid();
         $vendorId = $overrides['vendor_id'] ?? self::VENDOR_ID;
 
-        $stringToHash = strtoupper(md5($saleId))
+        $stringToHash = $saleId
                       . $vendorId
                       . $invoiceId
                       . self::SECRET_WORD;
@@ -157,6 +157,70 @@ class WebhookLedgerAndReplayTest extends TestCase
         $this->assertSame('processed', $row->status, 'failed row must be claimable by the retry');
         $this->assertSame(1, Transaction::where('invoice_id', $payload['invoice_id'])->count());
         $this->assertSame('pro', User::where('email', 'buyer@example.com')->first()->plan);
+    }
+
+    public function test_exception_outside_the_handlers_marks_the_row_failed_so_the_retry_reprocesses(): void
+    {
+        User::factory()->create(['email' => 'buyer@example.com']);
+        $payload = $this->validIpnPayload();
+
+        // The buyer lookup runs before any handler-level error handling.
+        $databaseDown = true;
+        DB::listen(function ($query) use (&$databaseDown) {
+            if ($databaseDown && str_contains($query->sql, 'from "users"')) {
+                throw new \RuntimeException('simulated database outage');
+            }
+        });
+
+        $this->postWebhook($payload)->assertStatus(500);
+        $this->assertSame('failed', $this->ledgerRow($payload['message_id'])->status);
+
+        $databaseDown = false;
+        $this->postWebhook($payload)->assertOk();
+
+        $this->assertSame('processed', $this->ledgerRow($payload['message_id'])->status);
+        $this->assertSame(1, Transaction::where('invoice_id', $payload['invoice_id'])->count());
+    }
+
+    public function test_refund_arriving_before_its_order_is_retried_instead_of_dropped(): void
+    {
+        $buyer = User::factory()->create(['email' => 'buyer@example.com']);
+        $order = $this->validIpnPayload();
+        $refund = $this->validIpnPayload([
+            'message_type' => 'REFUND_ISSUED',
+            'sale_id'      => $order['sale_id'],
+            'invoice_id'   => $order['invoice_id'],
+        ]);
+
+        // Refund overtakes the order: nothing to refund yet, so it must not be acknowledged.
+        $this->postWebhook($refund)->assertStatus(503);
+        $this->assertSame('failed', $this->ledgerRow($refund['message_id'], 'REFUND_ISSUED')->status);
+
+        $this->postWebhook($order)->assertOk();
+        $this->assertSame('pro', $buyer->fresh()->plan);
+
+        // The provider redelivers the same refund message and it now applies.
+        $this->postWebhook($refund)->assertOk();
+
+        $this->assertSame('processed', $this->ledgerRow($refund['message_id'], 'REFUND_ISSUED')->status);
+        $this->assertSame('refunded', Transaction::where('invoice_id', $order['invoice_id'])->value('status'));
+        $this->assertSame('free', $buyer->fresh()->plan);
+    }
+
+    public function test_chargeback_for_an_unrecorded_invoice_is_retried_instead_of_dropped(): void
+    {
+        $chargeback = $this->validIpnPayload(['message_type' => 'CHARGEBACK_REPORTED']);
+
+        $this->postWebhook($chargeback)->assertStatus(503);
+
+        $this->assertSame('failed', $this->ledgerRow($chargeback['message_id'], 'CHARGEBACK_REPORTED')->status);
+    }
+
+    public function test_refund_route_signals_retry_for_an_unrecorded_invoice(): void
+    {
+        $refund = $this->validIpnPayload(['message_type' => 'REFUND_ISSUED']);
+
+        $this->postJson('/webhooks/2checkout/refund', $refund)->assertStatus(503);
     }
 
     public function test_stale_processing_row_is_claimable_but_fresh_one_is_not(): void
@@ -335,7 +399,7 @@ class WebhookLedgerAndReplayTest extends TestCase
 
         $saleId = 'SALE-REPLAY-1';
         $invoiceId = 'INV-REPLAY-1';
-        $stringToHash = strtoupper(md5($saleId)) . self::VENDOR_ID
+        $stringToHash = $saleId . self::VENDOR_ID
                       . $invoiceId . self::SECRET_WORD;
 
         $row = ProcessedWebhook::create([

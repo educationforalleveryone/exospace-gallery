@@ -36,7 +36,7 @@ class BillingStateConsistencyTest extends TestCase
     private function md5For(string $saleId, string $invoiceId, string $vendorId = 'V-CONS'): string
     {
         return strtoupper(md5(
-            strtoupper(md5($saleId)) . $vendorId . $invoiceId . self::SECRET_WORD
+            $saleId . $vendorId . $invoiceId . self::SECRET_WORD
         ));
     }
 
