@@ -217,4 +217,55 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
         $this->assertEquals(0.00, (float) $totals['revenue']);
         $this->assertSame(0, $totals['conversion_rate'], 'Conversion rate should be 0 when no referrals');
     }
+
+    public function test_affiliate_dashboard_excludes_refunded_chargedback_and_manual_conversions(): void
+    {
+        $user = User::factory()->create();
+
+        $convert = function (string $txStatus, float $amount) use ($user) {
+            $tx = Transaction::factory()->create(['amount' => $amount, 'status' => $txStatus]);
+            PendingUpgrade::factory()->create([
+                'user_id'        => $user->id,
+                'affiliate_id'   => 'AFF-X',
+                'status'         => 'converted',
+                'transaction_id' => $tx->id,
+            ]);
+        };
+
+        $convert('completed', 29.00);
+        $convert('partial_refund', 99.00);
+        $convert('refunded', 29.00);
+        $convert('chargeback', 99.00);
+        $convert('manual', 0.00);
+
+        // Manual upgrades through the admin panel convert without a linked transaction.
+        PendingUpgrade::factory()->create([
+            'user_id'        => $user->id,
+            'affiliate_id'   => 'AFF-X',
+            'status'         => 'converted',
+            'transaction_id' => null,
+        ]);
+
+        $response = app(\App\Http\Controllers\AffiliateDashboardController::class)
+            ->index(\Illuminate\Http\Request::create('/master-control/affiliates', 'GET'));
+        $data = $response->getData();
+
+        $this->assertSame(6, $data['affiliates'][0]['total'], 'every attributed checkout still counts as a referral');
+        $this->assertSame(2, $data['affiliates'][0]['converted'], 'only completed and partially refunded sales are paid conversions');
+        $this->assertEquals(128.00, $data['affiliates'][0]['revenue']);
+        $this->assertSame(2, $data['totals']['converted']);
+        $this->assertEquals(128.00, $data['totals']['revenue']);
+    }
+
+    public function test_affiliate_dashboard_is_forbidden_to_regular_users(): void
+    {
+        $this->actingAs(User::factory()->create(['email_verified_at' => now()]))
+            ->get('/master-control/affiliates')
+            ->assertForbidden();
+    }
+
+    public function test_affiliate_dashboard_redirects_guests_to_login(): void
+    {
+        $this->get('/master-control/affiliates')->assertRedirect(route('login'));
+    }
 }
