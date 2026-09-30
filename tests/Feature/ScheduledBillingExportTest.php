@@ -31,6 +31,7 @@ class ScheduledBillingExportTest extends TestCase
         return Transaction::factory()->create([
             'status'    => $status,
             'created_at' => $daysAgo !== null ? now()->subDays((int) $daysAgo) : now(),
+            'updated_at' => $daysAgo !== null ? now()->subDays((int) $daysAgo) : now(),
         ]);
     }
 
@@ -43,7 +44,7 @@ class ScheduledBillingExportTest extends TestCase
             ->assertExitCode(0);
 
         Mail::assertNothingSent();
-        Mail::assertNothingQueued();
+        
         $this->assertSame(0, AdminAuditLog::where('action', 'billing.exported')->count(), 'nothing left the system — no audit row');
 
         // Feature OFF must not read as job DEAD to the heartbeat monitor.
@@ -64,12 +65,12 @@ class ScheduledBillingExportTest extends TestCase
 
         $this->artisan('exospace:send-billing-export')->assertExitCode(0);
 
-        // The digest mailable is queued (ShouldQueue) — one per recipient.
-        Mail::assertQueued(BillingExportEmail::class, 2);
-        Mail::assertQueued(BillingExportEmail::class, fn ($mail) => $mail->hasTo('finance@example.com'));
-        Mail::assertQueued(BillingExportEmail::class, fn ($mail) => $mail->hasTo('cfo@example.com'));
+        // One synchronous send per recipient, so delivery failures are observable.
+        Mail::assertSent(BillingExportEmail::class, 2);
+        Mail::assertSent(BillingExportEmail::class, fn ($mail) => $mail->hasTo('finance@example.com'));
+        Mail::assertSent(BillingExportEmail::class, fn ($mail) => $mail->hasTo('cfo@example.com'));
 
-        Mail::assertQueued(BillingExportEmail::class, function (BillingExportEmail $mail) {
+        Mail::assertSent(BillingExportEmail::class, function (BillingExportEmail $mail) {
             $expected = app(BillingExportService::class)
                 ->transactionsCsv(null, now()->subDays(7)->startOfDay());
 
@@ -99,8 +100,8 @@ class ScheduledBillingExportTest extends TestCase
 
         $this->artisan('exospace:send-billing-export')->assertExitCode(0);
 
-        Mail::assertQueued(BillingExportEmail::class, 1);
-        Mail::assertQueued(BillingExportEmail::class, function (BillingExportEmail $mail) {
+        Mail::assertSent(BillingExportEmail::class, 1);
+        Mail::assertSent(BillingExportEmail::class, function (BillingExportEmail $mail) {
             return count($mail->attachments()) === 0;
         });
 
@@ -210,5 +211,33 @@ class ScheduledBillingExportTest extends TestCase
         $audit = AdminAuditLog::where('action', 'billing.exported')->latest('id')->first();
         $this->assertNotNull($audit);
         $this->assertSame(1, $audit->payload['delivery_failures'] ?? null);
+    }
+
+    public function test_digest_includes_recent_refund_of_an_older_sale(): void
+    {
+        config(['services.billing_export.email' => 'finance@example.com']);
+
+        $sale = Transaction::factory()->create([
+            'status'     => 'refunded',
+            'created_at' => now()->subDays(60),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $this->artisan('exospace:send-billing-export')->assertExitCode(0);
+
+        Mail::assertSent(BillingExportEmail::class, function (BillingExportEmail $mail) use ($sale) {
+            return $mail->summary['refunded'] === 1
+                && $mail->csv['count'] === 1
+                && str_contains($mail->csv['content'], (string) $sale->invoice_id);
+        });
+    }
+
+    public function test_digest_is_not_delivered_through_the_queue(): void
+    {
+        $this->assertNotInstanceOf(
+            \Illuminate\Contracts\Queue\ShouldQueue::class,
+            new BillingExportEmail([], ['count' => 0], []),
+            'a queued digest would report delivery before any send was attempted and park the PII CSV in Redis',
+        );
     }
 }

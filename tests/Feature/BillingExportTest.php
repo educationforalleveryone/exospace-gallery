@@ -78,6 +78,51 @@ class BillingExportTest extends TestCase
         $this->assertSame(2, substr_count($csv, "\n") - 1, 'two money-event rows (header excluded)');
     }
 
+    public function test_recent_refund_of_an_old_sale_is_exported_by_refund_time(): void
+    {
+        $sale = $this->makeTransaction(['status' => 'refunded']);
+        $sale->forceFill(['created_at' => now()->subDays(120), 'updated_at' => now()->subDays(2)])->saveQuietly();
+
+        $csv = $this->actingAsMfaSuperAdmin()
+            ->get('/master-control/billing/export')
+            ->streamedContent();
+
+        $this->assertStringContainsString($sale->invoice_id, $csv);
+    }
+
+    public function test_export_neutralises_spreadsheet_formulas_in_customer_fields(): void
+    {
+        $this->makeTransaction([
+            'customer_name'  => '=HYPERLINK("http://evil.test","x")',
+            'customer_email' => '+cmd@example.com',
+        ]);
+
+        $csv = $this->actingAsMfaSuperAdmin()
+            ->get('/master-control/billing/export')
+            ->streamedContent();
+
+        $this->assertStringContainsString("'=HYPERLINK", $csv);
+        $this->assertStringContainsString("'+cmd@example.com", $csv);
+        $this->assertStringNotContainsString(',=HYPERLINK', $csv);
+        $this->assertStringNotContainsString(',+cmd@example.com', $csv);
+    }
+
+    public function test_transactions_export_loads_user_emails_without_per_row_queries(): void
+    {
+        foreach (range(1, 5) as $i) {
+            $this->makeTransaction();
+        }
+        $admin = $this->actingAsMfaSuperAdmin();
+
+        \DB::enableQueryLog();
+        $admin->get('/master-control/billing/export')->streamedContent();
+        $userQueries = collect(\DB::getQueryLog())
+            ->filter(fn ($q) => str_contains($q['query'], 'from `users`') || str_contains($q['query'], 'from "users"'))
+            ->filter(fn ($q) => str_contains($q['query'], 'in ('));
+
+        $this->assertGreaterThanOrEqual(1, $userQueries->count(), 'users are eager loaded in one IN query');
+    }
+
     public function test_transactions_export_respects_status_filter(): void
     {
         $this->makeTransaction(['status' => 'refunded']);
@@ -94,7 +139,7 @@ class BillingExportTest extends TestCase
     public function test_transactions_export_defaults_to_90_day_window_and_days_all_lifts_it(): void
     {
         $old = $this->makeTransaction(['status' => 'refunded']);
-        $old->forceFill(['created_at' => now()->subDays(120)])->saveQuietly();
+        $old->forceFill(['created_at' => now()->subDays(120), 'updated_at' => now()->subDays(120)])->saveQuietly();
         $this->makeTransaction(['status' => 'refunded']);
 
         $windowed = $this->actingAsMfaSuperAdmin()

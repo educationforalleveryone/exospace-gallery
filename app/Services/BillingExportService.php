@@ -15,14 +15,31 @@ class BillingExportService
 
     public function transactionsQuery(?string $status, ?CarbonInterface $since = null): Builder
     {
+        $statuses = in_array($status, [...self::MONEY_STATUSES, 'completed', 'manual'], true)
+            ? [$status]
+            : self::MONEY_STATUSES;
+
+        // A refund or chargeback mutates the original sale row, so its event
+        // time is updated_at; created_at is the sale date. Sales use created_at.
         return Transaction::query()
-            ->when(
-                in_array($status, [...self::MONEY_STATUSES, 'completed', 'manual'], true),
-                fn ($q) => $q->where('status', $status),
-                fn ($q) => $q->whereIn('status', self::MONEY_STATUSES),
-            )
-            ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
-            ->orderByDesc('created_at');
+            ->with('user:id,email')
+            ->where(function ($q) use ($statuses, $since) {
+                foreach ($statuses as $s) {
+                    $q->orWhere(function ($inner) use ($s, $since) {
+                        $inner->where('status', $s);
+                        if ($since) {
+                            $inner->where($this->eventColumn($s), '>=', $since);
+                        }
+                    });
+                }
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
+
+    private function eventColumn(string $status): string
+    {
+        return in_array($status, self::MONEY_STATUSES, true) ? 'updated_at' : 'created_at';
     }
 
     public function webhooksQuery(?string $webhookStatus, ?CarbonInterface $since = null): Builder
@@ -49,12 +66,12 @@ class BillingExportService
                 $t->plan,
                 $t->amount,
                 $t->currency,
-                $t->invoice_id,
-                $t->sale_id,
+                self::safeCell($t->invoice_id),
+                self::safeCell($t->sale_id),
                 $t->user_id,
-                $t->user?->email,
-                $t->customer_name,
-                $t->customer_email,
+                self::safeCell($t->user?->email),
+                self::safeCell($t->customer_name),
+                self::safeCell($t->customer_email),
             ],
         ];
     }
@@ -66,9 +83,9 @@ class BillingExportService
                           'Replay Count', 'Last Replayed At', 'Processed At', 'Updated At', 'Payload Stored'],
             'row' => fn (ProcessedWebhook $w) => [
                 $w->id,
-                $w->message_id,
-                $w->message_type,
-                $w->invoice_id,
+                self::safeCell($w->message_id),
+                self::safeCell($w->message_type),
+                self::safeCell($w->invoice_id),
                 $w->status,
                 (int) ($w->replay_count ?? 0),
                 $w->last_replayed_at?->format('Y-m-d H:i:s'),
@@ -99,17 +116,41 @@ class BillingExportService
         );
     }
 
+    /**
+     * Prefix values a spreadsheet would evaluate as a formula (CSV injection).
+     */
+    public static function safeCell(mixed $value): mixed
+    {
+        if (is_string($value) && $value !== '' && str_contains("=+-@\t\r", $value[0])) {
+            return "'" . $value;
+        }
+
+        return $value;
+    }
+
     public function summary(CarbonInterface $since): array
     {
+        $count = fn (string $status) => Transaction::where('status', $status)
+            ->where($this->eventColumn($status), '>=', $since)
+            ->count();
+
         return [
-            'completed'      => Transaction::where('status', 'completed')->where('created_at', '>=', $since)->count(),
-            'refunded'       => Transaction::where('status', 'refunded')->where('created_at', '>=', $since)->count(),
-            'partial_refund' => Transaction::where('status', 'partial_refund')->where('created_at', '>=', $since)->count(),
-            'chargeback'     => Transaction::where('status', 'chargeback')->where('created_at', '>=', $since)->count(),
-            'manual'         => Transaction::where('status', 'manual')->where('created_at', '>=', $since)->count(),
+            'completed'      => $count('completed'),
+            'refunded'       => $count('refunded'),
+            'partial_refund' => $count('partial_refund'),
+            'chargeback'     => $count('chargeback'),
+            'manual'         => $count('manual'),
             'revenue'        => (float) Transaction::where('status', 'completed')->where('created_at', '>=', $since)->sum('amount'),
             'failed_webhooks'=> ProcessedWebhook::where('status', 'failed')->count(),
         ];
+    }
+
+    /**
+     * Chunked iteration: flat memory and, unlike cursor(), honours eager loads.
+     */
+    public function records(Builder $query): \Illuminate\Support\LazyCollection
+    {
+        return $query->lazy(500);
     }
 
     private function buildCsv(Builder $query, array $columns, string $type): array
@@ -123,7 +164,7 @@ class BillingExportService
         fputcsv($out, $columns['headers']);
 
         $row = $columns['row'];
-        foreach ($query->cursor() as $record) {
+        foreach ($this->records($query) as $record) {
             fputcsv($out, $row($record));
         }
 

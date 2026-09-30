@@ -199,7 +199,7 @@ class DigestRecipientManagementTest extends TestCase
             ->expectsOutputToContain('db1@example.com')
             ->assertExitCode(0);
 
-        Mail::assertQueued(BillingExportEmail::class, 2);  // both DB rows, not env
+        Mail::assertSent(BillingExportEmail::class, 2);  // both DB rows, not env
     }
 
     public function test_command_falls_back_to_env_when_db_empty(): void
@@ -208,7 +208,7 @@ class DigestRecipientManagementTest extends TestCase
 
         $this->artisan('exospace:send-billing-export')->assertExitCode(0);
 
-        Mail::assertQueued(BillingExportEmail::class, 2);  // both env addresses
+        Mail::assertSent(BillingExportEmail::class, 2);  // both env addresses
     }
 
     public function test_command_to_override_wins_over_db_and_env(): void
@@ -219,7 +219,7 @@ class DigestRecipientManagementTest extends TestCase
         $this->artisan('exospace:send-billing-export', ['--to' => 'override@example.com'])
             ->assertExitCode(0);
 
-        Mail::assertQueued(BillingExportEmail::class, 1);  // only the override
+        Mail::assertSent(BillingExportEmail::class, 1);  // only the override
     }
 
     public function test_command_clean_no_op_when_both_empty(): void
@@ -262,7 +262,7 @@ class DigestRecipientManagementTest extends TestCase
 
         $this->artisan('exospace:send-billing-export')->assertExitCode(0);
 
-        Mail::assertQueued(BillingExportEmail::class, 1);
+        Mail::assertSent(BillingExportEmail::class, 1);
     }
 
     // ── TOCTOU race on dup check ──────────────────────────────────────
@@ -296,5 +296,19 @@ class DigestRecipientManagementTest extends TestCase
             1,
             BillingDigestRecipient::where('email', 'race@example.com')->count(),
         );
+    }
+
+    public function test_non_duplicate_database_errors_are_not_reported_as_duplicates(): void
+    {
+        $this->actingAsMfaSuperAdmin();
+
+        BillingDigestRecipient::creating(function () {
+            throw new \Illuminate\Database\QueryException('mysql', 'insert', [], new \PDOException('connection lost'));
+        });
+
+        $this->withoutExceptionHandling();
+        $this->expectException(\Illuminate\Database\QueryException::class);
+
+        $this->post(route('super.billing.recipients.store'), ['email' => 'new@example.com']);
     }
 }

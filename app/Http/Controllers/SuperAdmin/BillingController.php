@@ -118,8 +118,7 @@ class BillingController extends Controller
 
             fputcsv($out, $headers);
 
-            // cursor() keeps memory flat no matter how large the window is.
-            foreach ($query->cursor() as $record) {
+            foreach ($this->exportService()->records($query) as $record) {
                 fputcsv($out, $row($record));
             }
 
@@ -206,7 +205,7 @@ class BillingController extends Controller
                     'added_by' => $request->user()->id,
                 ])
                 : null;
-        } catch (\Illuminate\Database\UniqueConstraintViolationException | \Illuminate\Database\QueryException $e) {
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             return back()
                 ->withInput()
                 ->withErrors(['email' => '"' . $email . '" is already a recipient (concurrent add detected).']);
