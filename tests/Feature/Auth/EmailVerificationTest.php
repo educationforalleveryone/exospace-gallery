@@ -288,6 +288,19 @@ class EmailVerificationTest extends TestCase
         $this->actingAs($user)->post('/email/verification-notification')->assertStatus(429);
     }
 
+    public function test_resend_verification_has_an_hourly_cap(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        foreach (range(1, 10) as $i) {
+            $this->actingAs($user)->post('/email/verification-notification')->assertRedirect();
+            $this->travel(2)->minutes();
+        }
+
+        // Per-minute window is clear, but the 11th send within the hour is refused.
+        $this->actingAs($user)->post('/email/verification-notification')->assertStatus(429);
+    }
+
     public function test_verification_click_after_exhausted_resends_still_works(): void
     {
         $user = User::factory()->unverified()->create();

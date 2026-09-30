@@ -346,6 +346,32 @@ class RegistrationTest extends TestCase
         $this->assertSame(0, User::count());
     }
 
+    public function test_registration_normalises_email_case_and_whitespace(): void
+    {
+        $this->post('/register', [
+            'name'                  => 'Mixed Case',
+            'email'                 => '  Mixed.Case@Example.COM ',
+            'password'              => 'GoodPass123',
+            'password_confirmation' => 'GoodPass123',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertNotNull(User::where('email', 'mixed.case@example.com')->first());
+    }
+
+    public function test_registration_rejects_a_differently_cased_duplicate_email(): void
+    {
+        User::factory()->create(['email' => 'taken@example.com']);
+
+        $this->from('/register')->post('/register', [
+            'name'                  => 'Second User',
+            'email'                 => 'Taken@Example.com',
+            'password'              => 'GoodPass123',
+            'password_confirmation' => 'GoodPass123',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertSame(1, User::count());
+    }
+
     public function test_registration_rejects_invalid_email_addresses(): void
     {
         $response = $this->from('/register')->post('/register', [

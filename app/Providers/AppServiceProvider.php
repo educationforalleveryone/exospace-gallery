@@ -42,8 +42,15 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
         });
 
+        // An account can be registered with someone else's address, so cap
+        // resends per hour as well to stop it being used to mail-bomb them.
         RateLimiter::for('verification-resend', function (Request $request) {
-            return Limit::perMinute(6)->by($request->user()?->id ?: $request->ip());
+            $key = $request->user()?->id ?: $request->ip();
+
+            return [
+                Limit::perMinute(6)->by($key),
+                Limit::perHour(10)->by($key),
+            ];
         });
 
         // Queue worker liveness — OperationalAlertService alerts when this

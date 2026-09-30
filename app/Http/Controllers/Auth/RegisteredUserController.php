@@ -66,6 +66,12 @@ class RegisteredUserController extends Controller
             $request->merge(['email' => $invitation->email]);
         }
 
+        // Mobile keyboards capitalise the first letter; the address is the same
+        // mailbox, so normalise it instead of rejecting the form.
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
+
         $request->validate([
             'name'              => ['required', 'string', 'max:255'],
             'email'             => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
