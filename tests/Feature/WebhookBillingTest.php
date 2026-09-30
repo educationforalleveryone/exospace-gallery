@@ -955,4 +955,141 @@ class WebhookBillingTest extends TestCase
 
         \Illuminate\Support\Facades\Http::assertNothingSent();
     }
+
+    // ── Refund / chargeback state transitions ───────────────────────────
+
+    private function seedTransaction(string $invoiceId, string $plan, float $amount, string $status = 'completed'): array
+    {
+        $user = User::factory()->{$plan}()->create(['email' => 'buyer@example.com']);
+        $transaction = Transaction::factory()->create([
+            'user_id'    => $user->id,
+            'invoice_id' => $invoiceId,
+            'plan'       => $plan,
+            'amount'     => $amount,
+            'status'     => $status,
+        ]);
+
+        return [$user, $transaction];
+    }
+
+    private function refundPayload(string $invoiceId, string $amount): array
+    {
+        return $this->validIpnPayload([
+            'message_type'       => 'REFUND_ISSUED',
+            'invoice_id'         => $invoiceId,
+            'item_list_amount_1' => $amount,
+        ]);
+    }
+
+    public function test_negative_partial_refund_amount_is_treated_as_partial(): void
+    {
+        [$user, $transaction] = $this->seedTransaction('INV-REFUND-NEG-001', 'studio', 99.00);
+
+        $this->postWebhook($this->refundPayload('INV-REFUND-NEG-001', '-5.00'))->assertOk();
+
+        $this->assertSame('studio', $user->refresh()->plan);
+        $this->assertSame('partial_refund', $transaction->refresh()->status);
+    }
+
+    public function test_negative_full_refund_amount_downgrades_user(): void
+    {
+        [$user, $transaction] = $this->seedTransaction('INV-REFUND-NEG-002', 'studio', 99.00);
+
+        $this->postWebhook($this->refundPayload('INV-REFUND-NEG-002', '-99.00'))->assertOk();
+
+        $this->assertSame('free', $user->refresh()->plan);
+        $this->assertSame('refunded', $transaction->refresh()->status);
+    }
+
+    public function test_full_refund_after_partial_refund_downgrades_user(): void
+    {
+        [$user, $transaction] = $this->seedTransaction('INV-REFUND-ESC-001', 'studio', 99.00);
+
+        $this->postWebhook($this->refundPayload('INV-REFUND-ESC-001', '5.00'))->assertOk();
+        $this->assertSame('studio', $user->refresh()->plan);
+
+        $this->postWebhook($this->refundPayload('INV-REFUND-ESC-001', '99.00'))->assertOk();
+
+        $this->assertSame('free', $user->refresh()->plan);
+        $this->assertSame('refunded', $transaction->refresh()->status);
+    }
+
+    public function test_second_partial_refund_is_a_noop(): void
+    {
+        [$user, $transaction] = $this->seedTransaction('INV-REFUND-ESC-002', 'studio', 99.00);
+
+        $this->postWebhook($this->refundPayload('INV-REFUND-ESC-002', '5.00'))->assertOk();
+        $this->postWebhook($this->refundPayload('INV-REFUND-ESC-002', '10.00'))->assertOk();
+
+        $this->assertSame('studio', $user->refresh()->plan);
+        $this->assertSame('partial_refund', $transaction->refresh()->status);
+    }
+
+    public function test_refund_after_chargeback_does_not_overwrite_chargeback_status(): void
+    {
+        [$user, $transaction] = $this->seedTransaction('INV-REFUND-CB-001', 'studio', 99.00, 'chargeback');
+
+        $this->postWebhook($this->refundPayload('INV-REFUND-CB-001', '99.00'))->assertOk();
+
+        $this->assertSame('chargeback', $transaction->refresh()->status);
+    }
+
+    public function test_failed_refund_downgrade_rolls_back_and_retry_completes_it(): void
+    {
+        [$user, $transaction] = $this->seedTransaction('INV-REFUND-RETRY-001', 'pro', 29.00);
+
+        $flaky = new class (app(\App\Services\CoolifyDomainManager::class)) extends \App\Services\PlanDowngradeService {
+            public int $calls = 0;
+
+            public function downgradeToFree(User $user, string $reason): void
+            {
+                if (++$this->calls === 1) {
+                    throw new \RuntimeException('storage unavailable');
+                }
+                parent::downgradeToFree($user, $reason);
+            }
+        };
+        $this->app->instance(\App\Services\PlanDowngradeService::class, $flaky);
+
+        $payload = $this->refundPayload('INV-REFUND-RETRY-001', '29.00');
+
+        $this->postWebhook($payload)->assertStatus(500);
+        $this->assertSame('pro', $user->refresh()->plan);
+        $this->assertSame('completed', $transaction->refresh()->status, 'status must roll back with the failed downgrade');
+
+        $this->postWebhook($payload)->assertOk();
+        $this->assertSame('free', $user->refresh()->plan);
+        $this->assertSame('refunded', $transaction->refresh()->status);
+    }
+
+    public function test_failed_chargeback_downgrade_rolls_back_and_retry_completes_it(): void
+    {
+        [$user, $transaction] = $this->seedTransaction('INV-CB-RETRY-001', 'pro', 29.00);
+
+        $flaky = new class (app(\App\Services\CoolifyDomainManager::class)) extends \App\Services\PlanDowngradeService {
+            public int $calls = 0;
+
+            public function downgradeToFree(User $user, string $reason): void
+            {
+                if (++$this->calls === 1) {
+                    throw new \RuntimeException('storage unavailable');
+                }
+                parent::downgradeToFree($user, $reason);
+            }
+        };
+        $this->app->instance(\App\Services\PlanDowngradeService::class, $flaky);
+
+        $payload = $this->validIpnPayload([
+            'message_type' => 'CHARGEBACK_REPORTED',
+            'invoice_id'   => 'INV-CB-RETRY-001',
+        ]);
+
+        $this->postWebhook($payload)->assertStatus(500);
+        $this->assertSame('pro', $user->refresh()->plan);
+        $this->assertSame('completed', $transaction->refresh()->status);
+
+        $this->postWebhook($payload)->assertOk();
+        $this->assertSame('free', $user->refresh()->plan);
+        $this->assertSame('chargeback', $transaction->refresh()->status);
+    }
 }

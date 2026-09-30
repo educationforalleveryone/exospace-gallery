@@ -394,15 +394,17 @@ class WebhookController extends Controller
                         return true;
                     }
 
-                    if ($transaction->status === 'refunded' || $transaction->status === 'partial_refund') {
-                        Log::info('2Checkout: Duplicate REFUND_ISSUED, skipping', [
+                    if ($transaction->status === 'refunded' || $transaction->status === 'chargeback') {
+                        Log::info('2Checkout: REFUND_ISSUED already settled for invoice, skipping', [
                             'invoice_id' => $invoiceId,
+                            'status'     => $transaction->status,
                         ]);
                         return;
                     }
 
                     $rawRefundField = $request->input('item_list_amount_1', 0);
-                    $refundAmount = (float) $rawRefundField;
+                    // 2Checkout reports refunded money as a negative amount.
+                    $refundAmount = abs((float) $rawRefundField);
                     $originalAmount = (float) $transaction->amount;
                     $ratio = $originalAmount > 0 ? $refundAmount / $originalAmount : 0.0;
                     $isFullRefund = $originalAmount > 0 && ($ratio >= 0.90 - 0.000001);
@@ -419,6 +421,15 @@ class WebhookController extends Controller
 
                     if ($originalAmount <= 0 || $refundAmount <= 0) {
                         $isFullRefund = true;
+                    }
+
+                    // A further partial refund carries no new access decision; only a
+                    // later full refund still has to escalate a partial one.
+                    if ($transaction->status === 'partial_refund' && ! $isFullRefund) {
+                        Log::info('2Checkout: Duplicate partial REFUND_ISSUED, skipping', [
+                            'invoice_id' => $invoiceId,
+                        ]);
+                        return;
                     }
 
                     $newStatus = $isFullRefund ? 'refunded' : 'partial_refund';
@@ -477,19 +488,15 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    $userId = $user->id;
-                    \DB::afterCommit(function () use ($userId, $invoiceId) {
-                        $user = User::find($userId);
-                        if (! $user) {
-                            return;
-                        }
-                        $this->downgradeUserAndCleanupStudioResources($user, 'Refund issued');
-                        $this->expireStaleSubscription($user);
-                        Log::info('2Checkout: User downgraded after refund (afterCommit)', [
-                            'user_id'    => $user->id,
-                            'invoice_id' => $invoiceId,
-                        ]);
-                    });
+                    // Downgrade in the same transaction as the status change: if it
+                    // fails, the status rolls back and the 2Checkout retry reprocesses
+                    // the refund instead of finding it already settled with access intact.
+                    $this->downgradeUserAndCleanupStudioResources($user, 'Refund issued');
+                    $this->expireStaleSubscription($user);
+                    Log::info('2Checkout: User downgraded after refund', [
+                        'user_id'    => $user->id,
+                        'invoice_id' => $invoiceId,
+                    ]);
                 });
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
@@ -577,20 +584,14 @@ class WebhookController extends Controller
                         return;
                     }
 
-                    // ── External side effects AFTER commit ──────────────
-                    $userId = $user->id;
-                    \DB::afterCommit(function () use ($userId, $invoiceId) {
-                        $user = User::find($userId);
-                        if (! $user) {
-                            return;
-                        }
-                        $this->downgradeUserAndCleanupStudioResources($user, 'Chargeback reported');
-                        $this->expireStaleSubscription($user);
-                        Log::info('2Checkout: User downgraded after chargeback (afterCommit)', [
-                            'user_id'    => $user->id,
-                            'invoice_id' => $invoiceId,
-                        ]);
-                    });
+                    // Same transaction as the status change so a failed downgrade
+                    // rolls back and the retry reprocesses the chargeback.
+                    $this->downgradeUserAndCleanupStudioResources($user, 'Chargeback reported');
+                    $this->expireStaleSubscription($user);
+                    Log::info('2Checkout: User downgraded after chargeback', [
+                        'user_id'    => $user->id,
+                        'invoice_id' => $invoiceId,
+                    ]);
                 });
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {

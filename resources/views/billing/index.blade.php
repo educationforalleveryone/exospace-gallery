@@ -247,6 +247,8 @@
                                             <span class="badge badge-success">Completed</span>
                                         @elseif($tx->status === 'refunded')
                                             <span class="badge badge-warning">Refunded</span>
+                                        @elseif($tx->status === 'partial_refund')
+                                            <span class="badge badge-warning">Partially refunded</span>
                                         @elseif($tx->status === 'chargeback')
                                             <span class="badge badge-danger">Chargeback</span>
                                         @else
