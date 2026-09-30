@@ -60,6 +60,13 @@ class OAuthController extends Controller
     {
         $providerColumn = "{$provider}_id";
 
+        // A blank ID would match every account whose provider column is NULL.
+        if (blank($socialUser->getId())) {
+            Log::warning('OAuth: provider returned no user ID', ['provider' => $provider]);
+
+            return redirect()->route('login')->with('error', 'Unable to authenticate with ' . ucfirst($provider) . '. Please try again.');
+        }
+
         // 1. Find by provider ID (returning user — already linked)
         $user = User::where($providerColumn, $socialUser->getId())->first();
 
@@ -76,8 +83,21 @@ class OAuthController extends Controller
             return redirect()->intended(route('admin.dashboard'));
         }
 
+        // Registration needs an email address; some providers withhold it.
+        $email = strtolower((string) $socialUser->getEmail());
+
+        if ($email === '') {
+            Log::warning('OAuth: provider returned no email — refusing to register', ['provider' => $provider]);
+
+            return redirect()->route('login')->with('error', sprintf(
+                '%s did not share an email address with us. Make your email visible on your %s account, or sign up with email and password.',
+                ucfirst($provider),
+                ucfirst($provider),
+            ));
+        }
+
         // 3. Check if a user with this email already exists (for a clear error message).
-        $existingByEmail = User::where('email', strtolower($socialUser->getEmail()))->first();
+        $existingByEmail = User::where('email', $email)->first();
 
         if ($existingByEmail) {
             Log::warning('OAuth: login attempted with provider whose email matches existing account — refusing to merge', [
@@ -98,7 +118,7 @@ class OAuthController extends Controller
 
         $user = User::create([
             'name'         => $socialUser->getName() ?? $socialUser->getNickname() ?? 'User',
-            'email'        => strtolower($socialUser->getEmail()),
+            'email'        => $email,
             'password'     => Hash::make(Str::random(32)), // random — OAuth-only user
             // Track that this user does NOT have a real password.
             'has_password' => false,
@@ -139,6 +159,13 @@ class OAuthController extends Controller
     private function handleLink(string $provider, $socialUser): RedirectResponse
     {
         $user = Auth::user();
+
+        // The link intent lives in the session and survives logout/expiry.
+        if (! $user) {
+            return redirect()->route('login')
+                ->with('error', 'Please log in before linking a ' . ucfirst($provider) . ' account.');
+        }
+
         $providerColumn = "{$provider}_id";
 
         // Check if this provider ID is already linked to another user

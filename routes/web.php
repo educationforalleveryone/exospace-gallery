@@ -135,11 +135,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/mfa/verify', [\App\Http\Controllers\MfaController::class, 'verify'])->middleware('throttle:6,1,mfa-verify');
     // One-time backup codes display after MFA enable
     Route::get('/mfa/backup-codes', [\App\Http\Controllers\MfaController::class, 'showBackupCodes'])->name('mfa.backup-codes');
-    Route::post('/mfa/disable', [\App\Http\Controllers\MfaController::class, 'disable'])
-        ->middleware('throttle:6,1,mfa-disable')
-        ->name('mfa.disable');
 
     Route::middleware(['mfa'])->group(function () {
+        Route::post('/mfa/disable', [\App\Http\Controllers\MfaController::class, 'disable'])
+            ->middleware('throttle:6,1,mfa-disable')
+            ->name('mfa.disable');
+
         Route::get('/billing',                [\App\Http\Controllers\BillingController::class, 'index'])->name('billing.index');
 
         // Subscription management routes
@@ -231,7 +232,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::patch ('teams/{team}',                      [\App\Http\Controllers\Admin\TeamController::class, 'update'])->name('teams.update');
     Route::delete('teams/{team}',                      [\App\Http\Controllers\Admin\TeamController::class, 'destroy'])->name('teams.destroy');
 
-    Route::post  ('teams/{team}/invite',               [\App\Http\Controllers\Admin\TeamController::class, 'invite'])->name('teams.invite');
+    Route::post  ('teams/{team}/invite',               [\App\Http\Controllers\Admin\TeamController::class, 'invite'])->name('teams.invite')
+          ->middleware('throttle:10,1,team-invite');
     Route::delete('teams/{team}/invitations/{invitation}', [\App\Http\Controllers\Admin\TeamController::class, 'revokeInvitation'])->name('teams.revoke-invitation');
     Route::delete('teams/{team}/members',              [\App\Http\Controllers\Admin\TeamController::class, 'removeMember'])->name('teams.remove-member');
     Route::patch ('teams/{team}/members/role',         [\App\Http\Controllers\Admin\TeamController::class, 'updateMemberRole'])->name('teams.update-role');

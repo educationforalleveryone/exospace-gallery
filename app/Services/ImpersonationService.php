@@ -13,6 +13,11 @@ class ImpersonationService
 
     public function start(User $admin, User $target): bool
     {
+        // Only super-admins may impersonate, whatever the caller checked.
+        if (! $admin->is_super_admin) {
+            return false;
+        }
+
         // Cannot impersonate yourself
         if ($admin->id === $target->id) {
             return false;
@@ -36,12 +41,12 @@ class ImpersonationService
 
         session()->regenerate();
 
-        // Audit log
+        // Audit log — attributed to the admin, not the account now logged in.
         AdminAuditLog::record('impersonation_started', $target, [
             'admin_id'   => $admin->id,
             'admin_email'=> $admin->email,
             'target_email' => $target->email,
-        ]);
+        ], $admin->id);
 
         Log::info('ImpersonationService: admin started impersonating user', [
             'admin_id'  => $admin->id,

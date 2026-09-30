@@ -53,6 +53,12 @@ class NewPasswordController extends Controller
             }
         );
 
+        // An unknown email must be indistinguishable from a bad token, or this
+        // endpoint reveals which addresses have accounts.
+        if ($status === Password::INVALID_USER) {
+            $status = Password::INVALID_TOKEN;
+        }
+
         return $status == Password::PASSWORD_RESET
                     ? redirect()->route('login')->with('status', __($status))
                     : back()->withInput($request->only('email'))

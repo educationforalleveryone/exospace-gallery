@@ -40,7 +40,7 @@ class AdminAuditLog extends Model
         return $this->belongsTo(User::class, 'actor_id');
     }
 
-    public static function record(string $action, Model $target, array $payload = []): void
+    public static function record(string $action, Model $target, array $payload = [], ?int $actorId = null): void
     {
         if ($target->exists && $target->isDirty()) {
             $payload['_changed'] = static::scrubPii($target->getDirty());
@@ -49,7 +49,7 @@ class AdminAuditLog extends Model
         $payload = static::scrubPii($payload);
 
         $log = static::create([
-            'actor_id'    => Auth::id(),
+            'actor_id'    => $actorId ?? Auth::id(),
             'action'      => $action,
             'target_type' => get_class($target),
             'target_id'   => $target->getKey(),

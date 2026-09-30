@@ -173,7 +173,7 @@ class MfaController extends Controller
                     ));
 
                     if ($remaining === 0) {
-                        $errorMessage = 'All of your backup codes have been used. You can disable MFA from your settings (with your password) and re-enable it to generate a new set.';
+                        $errorMessage = 'All of your backup codes have been used. Enter the code from your authenticator app, then disable and re-enable MFA from your settings to generate a new set.';
                     }
                 }
 

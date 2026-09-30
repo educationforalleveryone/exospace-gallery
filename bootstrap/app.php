@@ -39,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\CheckBanned::class,
+            \App\Http\Middleware\RestrictImpersonation::class,
             \App\Http\Middleware\CheckPlanExpiry::class,
         ]);
 

@@ -45,6 +45,15 @@ class MfaLifecycleTest extends TestCase
         ], $attributes));
     }
 
+    private function verifiedSession(User $user): array
+    {
+        return [
+            'mfa_verified' => true,
+            'mfa_verified_at' => now()->timestamp,
+            'mfa_verified_user_id' => $user->id,
+        ];
+    }
+
     private function currentOtp(string $secret): string
     {
         return $this->google2fa->getCurrentOtp($secret);
@@ -364,6 +373,7 @@ class MfaLifecycleTest extends TestCase
         $user = $this->enabledUser();
 
         $this->actingAs($user)
+            ->withSession($this->verifiedSession($user))
             ->post('/mfa/disable', [])
             ->assertSessionHasErrorsIn('mfaDisable', 'password');
 
@@ -375,6 +385,7 @@ class MfaLifecycleTest extends TestCase
         $user = $this->enabledUser();
 
         $this->actingAs($user)
+            ->withSession($this->verifiedSession($user))
             ->post('/mfa/disable', ['password' => 'wrong-password'])
             ->assertSessionHasErrorsIn('mfaDisable', 'password');
 
@@ -419,15 +430,54 @@ class MfaLifecycleTest extends TestCase
         $user = $this->enabledUser();
 
         $this->actingAs($user)
+            ->withSession($this->verifiedSession($user))
             ->post('/mfa/disable', ['password' => 'password'])
             ->assertRedirect(route('profile.edit'));
 
         $this->actingAs($user)->get('/billing')->assertOk();
     }
 
-    public function test_disable_works_while_mfa_session_is_unverified_lost_device_recovery(): void
+    public function test_disable_is_refused_without_a_verified_mfa_session_even_with_the_right_password(): void
+    {
+        foreach ([false, true] as $isSuperAdmin) {
+            $user = $this->enabledUser(['is_super_admin' => $isSuperAdmin]);
+
+            $this->actingAs($user)
+                ->post('/mfa/disable', ['password' => 'password'])
+                ->assertRedirect(route('mfa.verify'));
+
+            $user->refresh();
+            $this->assertNotNull($user->google2fa_secret);
+            $this->assertNotNull($user->mfa_enabled_at);
+            $this->assertNotEmpty($user->mfa_backup_codes);
+            $this->assertDatabaseMissing('admin_audit_logs', [
+                'action' => 'mfa.disabled',
+                'actor_id' => $user->id,
+            ]);
+        }
+    }
+
+    public function test_disable_is_refused_once_the_mfa_session_has_expired(): void
     {
         $user = $this->enabledUser();
+
+        $this->actingAs($user)
+            ->withSession(array_merge($this->verifiedSession($user), [
+                'mfa_verified_at' => now()->subMinutes(31)->timestamp,
+            ]))
+            ->post('/mfa/disable', ['password' => 'password'])
+            ->assertRedirect(route('mfa.verify'));
+
+        $this->assertNotNull($user->refresh()->google2fa_secret);
+    }
+
+    public function test_backup_code_verification_unlocks_disable_for_a_user_who_lost_their_device(): void
+    {
+        $user = $this->enabledUser();
+
+        $this->actingAs($user)
+            ->post('/mfa/verify', ['code' => 'AAAAA-11111'])
+            ->assertRedirect();
 
         $this->actingAs($user)
             ->post('/mfa/disable', ['password' => 'password'])
@@ -441,6 +491,7 @@ class MfaLifecycleTest extends TestCase
         $user = $this->enabledUser();
 
         $this->actingAs($user)
+            ->withSession($this->verifiedSession($user))
             ->post('/mfa/disable', ['password' => 'password']);
 
         // Re-enroll from scratch with a fresh secret.
@@ -484,8 +535,9 @@ class MfaLifecycleTest extends TestCase
             ->post('/mfa/verify', ['code' => '000000'])
             ->assertTooManyRequests();
 
-        // …but the recovery path is NOT.
+        // …but disable keeps its own bucket.
         $this->actingAs($user)
+            ->withSession($this->verifiedSession($user))
             ->post('/mfa/disable', ['password' => 'password'])
             ->assertRedirect(route('profile.edit'));
     }

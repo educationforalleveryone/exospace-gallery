@@ -210,6 +210,11 @@ class MfaRecoveryCodeLifecycleTest extends TestCase
         $user = $this->enabledUser();
 
         $this->actingAs($user)
+            ->withSession([
+                'mfa_verified' => true,
+                'mfa_verified_at' => now()->timestamp,
+                'mfa_verified_user_id' => $user->id,
+            ])
             ->post('/mfa/disable', ['password' => 'password'])
             ->assertRedirect(route('profile.edit'));
 

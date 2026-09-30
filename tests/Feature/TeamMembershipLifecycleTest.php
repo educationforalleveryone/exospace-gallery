@@ -278,6 +278,77 @@ class TeamMembershipLifecycleTest extends TestCase
             ->count());
     }
 
+    public function test_expired_invitation_cannot_be_accepted(): void
+    {
+        $team = $this->ownedTeam(User::factory()->create());
+        $invitee = User::factory()->create(['email' => 'late@example.com']);
+        TeamInvitation::factory()->withToken('expired-token')->expired()->create([
+            'team_id' => $team->id,
+            'email'   => 'late@example.com',
+            'role'    => 'editor',
+        ]);
+
+        $this->actingAs($invitee)
+            ->post(route('team-invitations.accept', 'expired-token'))
+            ->assertRedirect(route('admin.teams.index'))
+            ->assertSessionHasErrors('invitation');
+
+        $this->assertFalse($team->hasMember($invitee));
+    }
+
+    public function test_revoked_invitation_cannot_be_accepted(): void
+    {
+        $owner = User::factory()->create();
+        $team = $this->ownedTeam($owner);
+        $invitee = User::factory()->create(['email' => 'revoked@example.com']);
+        $invitation = $this->inviteTeam($team, 'revoked@example.com', 'editor', 'revoked-token');
+
+        $this->actingAs($owner)
+            ->delete(route('admin.teams.revoke-invitation', [$team, $invitation]))
+            ->assertRedirect();
+
+        $this->actingAs($invitee)
+            ->post(route('team-invitations.accept', 'revoked-token'))
+            ->assertNotFound();
+
+        $this->assertFalse($team->hasMember($invitee));
+    }
+
+    public function test_invitation_for_another_email_cannot_be_accepted_by_a_different_account(): void
+    {
+        $team = $this->ownedTeam(User::factory()->create());
+        $intruder = User::factory()->create(['email' => 'intruder@example.com']);
+        $this->inviteTeam($team, 'intended@example.com', 'editor', 'wrong-recipient-token');
+
+        $this->actingAs($intruder)
+            ->post(route('team-invitations.accept', 'wrong-recipient-token'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertFalse($team->hasMember($intruder));
+        $this->assertDatabaseHas('team_invitations', ['email' => 'intended@example.com']);
+    }
+
+    public function test_sending_invitations_is_throttled_per_user(): void
+    {
+        Mail::fake();
+
+        $owner = User::factory()->create();
+        $team = $this->ownedTeam($owner);
+        $team->members()->attach($owner->id, ['role' => 'owner']);
+
+        for ($i = 1; $i <= 10; $i++) {
+            $this->actingAs($owner)
+                ->post(route('admin.teams.invite', $team), ['email' => "invitee{$i}@example.com", 'role' => 'viewer'])
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->actingAs($owner)
+            ->post(route('admin.teams.invite', $team), ['email' => 'invitee11@example.com', 'role' => 'viewer'])
+            ->assertTooManyRequests();
+
+        Mail::assertQueuedCount(10);
+    }
+
     public function test_second_acceptance_after_direct_add_is_cleaned_up_not_duplicated(): void
     {
         $owner = User::factory()->create();

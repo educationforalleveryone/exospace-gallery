@@ -297,6 +297,94 @@ class OAuthSecurityTest extends TestCase
             'Provider should NOT be linked when emails do not match.');
     }
 
+    public function test_link_callback_without_a_logged_in_user_is_refused_cleanly(): void
+    {
+        $socialiteUser = $this->mockSocialiteUser([
+            'id' => 'orphan-github-id',
+            'email' => 'someone@example.com',
+            'name' => 'Someone',
+            'email_verified' => true,
+            'provider' => 'github',
+        ]);
+
+        Socialite::shouldReceive('driver->user')->andReturn($socialiteUser);
+
+        $this->withSession(['oauth_action' => 'link'])
+            ->get('/auth/github/callback?code=test-code')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error');
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_provider_without_an_email_cannot_register_an_account(): void
+    {
+        $socialiteUser = $this->mockSocialiteUser([
+            'id' => 'private-email-id',
+            'email' => null,
+            'name' => 'Private Person',
+            'email_verified' => false,
+            'provider' => 'github',
+        ]);
+
+        Socialite::shouldReceive('driver->user')->andReturn($socialiteUser);
+
+        $this->withSession(['oauth_action' => 'login'])
+            ->get('/auth/github/callback?code=test-code')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error');
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_linked_user_can_still_log_in_when_the_provider_withholds_the_email(): void
+    {
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'github_id' => 'linked-private-id',
+        ]);
+
+        $socialiteUser = $this->mockSocialiteUser([
+            'id' => 'linked-private-id',
+            'email' => null,
+            'name' => 'Linked Person',
+            'email_verified' => false,
+            'provider' => 'github',
+        ]);
+
+        Socialite::shouldReceive('driver->user')->andReturn($socialiteUser);
+
+        $this->withSession(['oauth_action' => 'login'])
+            ->get('/auth/github/callback?code=test-code');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_provider_response_without_a_user_id_never_matches_an_existing_account(): void
+    {
+        $bystander = User::factory()->create(['email_verified_at' => now(), 'github_id' => null]);
+
+        $socialiteUser = $this->mockSocialiteUser([
+            'id' => null,
+            'email' => 'anything@example.com',
+            'name' => 'No Id',
+            'email_verified' => true,
+            'provider' => 'github',
+        ]);
+
+        Socialite::shouldReceive('driver->user')->andReturn($socialiteUser);
+
+        $this->withSession(['oauth_action' => 'login'])
+            ->get('/auth/github/callback?code=test-code')
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error');
+
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 1);
+    }
+
     private function mockSocialiteUser(array $attrs): SocialiteUserContract
     {
         $user = Mockery::mock(SocialiteUserContract::class)->shouldIgnoreMissing();

@@ -556,6 +556,26 @@ class PasswordResetTest extends TestCase
         $this->assertTrue(Hash::check('OldSecret123!', $user->password));
     }
 
+    public function test_reset_submission_does_not_reveal_whether_the_email_has_an_account(): void
+    {
+        $known = User::factory()->create(['password' => Hash::make('OldSecret123!')]);
+
+        $payload = fn (string $email) => [
+            'token' => 'not-a-real-token',
+            'email' => $email,
+            'password' => 'NewSecret456!',
+            'password_confirmation' => 'NewSecret456!',
+        ];
+
+        $this->post('/reset-password', $payload($known->email))
+            ->assertSessionHasErrors(['email' => __('passwords.token')]);
+
+        $this->post('/reset-password', $payload('ghost-who-does-not-exist@example.com'))
+            ->assertSessionHasErrors(['email' => __('passwords.token')]);
+
+        $this->assertNotSame(__('passwords.user'), __('passwords.token'));
+    }
+
     // ── Failed reset recovery ─────────────────────────────────────────────
 
     public function test_failed_attempt_recovers_with_fresh_request(): void
