@@ -298,6 +298,10 @@ class MfaController extends Controller
 
     private function markMfaVerified(Request $request): void
     {
+        // Elevating the session's privilege: rotate the ID so a pre-MFA session
+        // identifier can never carry the verified flag.
+        $request->session()->regenerate();
+
         $request->session()->put('mfa_verified', true);
         $request->session()->put('mfa_verified_at', now()->timestamp);
         $request->session()->put('mfa_verified_user_id', $request->user()->id);

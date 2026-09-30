@@ -306,6 +306,21 @@ class MfaLifecycleTest extends TestCase
         $this->assertTrue(session('mfa_verified'));
     }
 
+    public function test_successful_mfa_verification_rotates_the_session_id(): void
+    {
+        $secret = $this->google2fa->generateSecretKey();
+        $user = $this->enabledUser(['google2fa_secret' => encrypt($secret), 'google2fa_ts' => 0]);
+
+        $this->actingAs($user)->get('/mfa/verify')->assertOk();
+        $idBefore = session()->getId();
+
+        $this->post('/mfa/verify', ['code' => $this->currentOtp($secret)])->assertRedirect();
+
+        $this->assertNotSame($idBefore, session()->getId(), 'MFA elevation must issue a new session id');
+        $this->assertTrue(session('mfa_verified'));
+        $this->assertSame($user->id, session('mfa_verified_user_id'));
+    }
+
     public function test_lowercase_backup_code_verifies(): void
     {
         $user = $this->enabledUser();
