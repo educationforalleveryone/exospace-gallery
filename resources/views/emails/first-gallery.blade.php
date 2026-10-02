@@ -23,7 +23,7 @@
         <div class="steps">
             <strong style="color: #1f2937;">Next steps:</strong>
             <ol>
-                <li>Upload your images — JPEG, PNG, or WebP up to 10MB each</li>
+                <li>Upload your images — JPEG, PNG, or WebP up to 50MB each</li>
                 <li>Add titles, prices and artist credits to each artwork</li>
                 <li>Preview the exhibition in 3D, then hit "Publish" to make it public</li>
                 <li>Share the link with your audience</li>

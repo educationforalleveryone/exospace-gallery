@@ -68,12 +68,12 @@ class ImageController extends Controller
             }
 
             $request->validate([
-                'file' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:10240',
+                'file' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:51200',
             ], [
                 'file.required' => 'No file was uploaded.',
                 'file.image'    => 'The file must be an image.',
                 'file.mimes'    => 'Only JPEG, PNG, JPG, and WEBP images are allowed.',
-                'file.max'      => 'Image size must not exceed 10MB.',
+                'file.max'      => 'Image size must not exceed 50MB.',
             ]);
 
             $file = $request->file('file');

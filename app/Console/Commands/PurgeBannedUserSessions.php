@@ -61,16 +61,27 @@ class PurgeBannedUserSessions extends Command
 
     private function purgeRedis(array $bannedIds): void
     {
-        $storeName = config('session.connection')
-            ?: (config('session.store') ?: config('session.driver'));
+        // Mirror SessionManager::createRedisDriver() exactly: the session
+        // handler uses the cache store named by session.store (falling back
+        // to the driver), re-pointed at the session's Redis connection.
+        // session.connection is a CONNECTION name (null = the default Redis
+        // connection), never a store name — while the general cache store
+        // runs on its own connection (REDIS_CACHE_DB), so resolving either
+        // value through config("cache.stores.*.connection") would scan a
+        // different Redis database than the one that actually holds the
+        // session keys.
+        $storeName = config('session.store') ?: config('session.driver');
+        $connectionName = config('session.connection');
+
         $cache = \Illuminate\Support\Facades\Cache::store($storeName);
+
+        if (method_exists($cache->getStore(), 'setConnection')) {
+            $cache->getStore()->setConnection($connectionName);
+        }
 
         $prefix = (string) config('cache.prefix', '');
         $pattern = $prefix.'*';
         $prefixLength = strlen($prefix);
-
-        $connectionName = config("cache.stores.{$storeName}.connection")
-            ?: (config('session.connection') ?: 'cache');
 
         $deleted = 0;
         $scanned = 0;

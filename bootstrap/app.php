@@ -66,6 +66,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'ops_operator'  => \App\Ops\Http\Middleware\EnsureOpsOperator::class,
 
             'cc_access'     => \App\Http\Middleware\EnsureControlCenterAccess::class,
+
+            'banned'        => \App\Http\Middleware\CheckBannedApi::class,
         ]);
 
         // API clients that omit the Accept header must still receive machine-readable

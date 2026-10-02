@@ -1127,12 +1127,12 @@
 
         const exospaceDropzoneOptions = {
             paramName: "file",
-            maxFilesize: 10,
+            maxFilesize: 50,
             maxFiles: 100,
             parallelUploads: 2,
             timeout: 180000,
             acceptedFiles: ".jpeg,.jpg,.png,.webp",
-            dictDefaultMessage: "<span class='text-brand-400 font-bold text-lg'>Drag your artwork here</span> or <span class='underline cursor-pointer'>browse</span><br><span class='text-xs text-gray-500 mt-2 block'>Supports JPG, PNG, WEBP (Max 10MB)</span>",
+            dictDefaultMessage: "<span class='text-brand-400 font-bold text-lg'>Drag your artwork here</span> or <span class='underline cursor-pointer'>browse</span><br><span class='text-xs text-gray-500 mt-2 block'>Supports JPG, PNG, WEBP (Max 50MB)</span>",
             addRemoveLinks: true,
             uploadMultiple: false,
             autoProcessQueue: true,
@@ -1214,7 +1214,7 @@
 
                         const hint = document.createElement('p');
                         hint.className = 'text-red-400/70 text-xs mt-2';
-                        hint.textContent = 'Common fixes: reduce file size below 10MB, use JPG/PNG/WEBP format.';
+                        hint.textContent = 'Common fixes: reduce file size below 50MB, use JPG/PNG/WEBP format.';
                         banner.appendChild(hint);
 
                         document.getElementById('image-upload-dropzone').after(banner);

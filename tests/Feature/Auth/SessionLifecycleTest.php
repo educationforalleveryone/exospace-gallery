@@ -185,7 +185,7 @@ class SessionLifecycleTest extends TestCase
         $this->seedSessionPayload($healthySessionId, $guardKey, $healthyUser->id);
         Cache::store('array')->put($garbageSessionId, 'not-a-session-payload', 120);
 
-        Redis::shouldReceive('connection')->with('cache')->andReturnSelf();
+        Redis::shouldReceive('connection')->with(null)->andReturnSelf();
         Redis::shouldReceive('scan')->with(null, ['match' => $prefix.'*', 'count' => 100])
             ->andReturn([0, [
                 $prefix.$bannedSessionId,
@@ -218,7 +218,7 @@ class SessionLifecycleTest extends TestCase
             $guardKey => $bannedUser->id,
         ]), 120);
 
-        Redis::shouldReceive('connection')->with('cache')->andReturnSelf();
+        Redis::shouldReceive('connection')->with(null)->andReturnSelf();
         Redis::shouldReceive('scan')->with(null, ['match' => $prefix.'*', 'count' => 100])
             ->andReturn([0, [$prefix.$sessionId]]);
 

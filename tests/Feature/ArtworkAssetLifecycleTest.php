@@ -100,6 +100,64 @@ class ArtworkAssetLifecycleTest extends TestCase
         $this->assertTrue(str_ends_with($image->original_name, '.jpg'));
     }
 
+    public function test_upload_strips_exif_metadata_from_served_files(): void
+    {
+        Storage::fake('public');
+        $owner = User::factory()->create();
+        $gallery = $this->makeGallery($owner);
+
+        // JPEG carrying EXIF IFD0 tags (Make/Model/Artist) that must never
+        // reach the publicly served bytes.
+        $withExif = base64_decode(<<<'B64'
+/9j/4QBERXhpZgAASUkqAAgAAAACAA8BAgAKAAAAJgAAABABAgAMAAAAMAAAAAAAAABTZWNyZXRD
+YW0ATW9kZWxYLTEwMDAA/+AAEEpGSUYAAQEAAAEAAQAA/9sAQwAFAwQEBAMFBAQEBQUFBgcMCAcH
+BwcPCwsJDBEPEhIRDxERExYcFxMUGhURERghGBodHR8fHxMXIiQiHiQcHh8e/9sAQwEFBQUHBgcO
+CAgOHhQRFB4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4e
+/8AAEQgABAAEAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQ
+AAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYX
+GBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqS
+k5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz
+9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQE
+AAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1
+Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKj
+pKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwD
+AQACEQMRAD8A5WiiivmT9wP/2Q==
+B64, true);
+
+        // Sanity: the sample really carries EXIF before processing.
+        $sourceProbe = tmpfile();
+        fwrite($sourceProbe, $withExif);
+        $sourceExif = exif_read_data(stream_get_meta_data($sourceProbe)['uri']);
+        $this->assertSame('SecretCam', $sourceExif['Make'] ?? null, 'Test sample must contain EXIF metadata.');
+        fclose($sourceProbe);
+
+        $response = $this->upload(
+            $gallery,
+            $owner,
+            UploadedFile::fake()->createWithContent('private-location.jpg', $withExif),
+        );
+        $response->assertOk();
+
+        $image = GalleryImage::findOrFail($response->json('id'));
+        $mainPath = str($image->path)->after('storage/')->toString();
+
+        // Legacy path file.
+        $storedExif = exif_read_data(Storage::disk('public')->path($mainPath));
+        $this->assertArrayNotHasKey('Make', $storedExif, 'EXIF Make must be stripped.');
+        $this->assertArrayNotHasKey('Model', $storedExif, 'EXIF Model must be stripped.');
+        $this->assertArrayNotHasKey('Artist', $storedExif, 'EXIF Artist must be stripped.');
+
+        // Spatie media copy — the registered original must be the EXIF-stripped one.
+        $media = Media::query()
+            ->where('model_type', GalleryImage::class)
+            ->where('model_id', $image->id)
+            ->where('collection_name', 'original')
+            ->first();
+        $this->assertNotNull($media);
+        $mediaExif = exif_read_data(Storage::disk('public')->path($media->getPathRelativeToRoot()));
+        $this->assertArrayNotHasKey('Make', $mediaExif, 'EXIF Make must be stripped from the media copy.');
+    }
+
     // ── B. Rejected uploads ──────────────────────────────────────────────
 
     public function test_upload_rejects_non_image_file(): void
@@ -124,11 +182,29 @@ class ArtworkAssetLifecycleTest extends TestCase
         $response = $this->upload(
             $gallery,
             $owner,
-            UploadedFile::fake()->image('huge.jpg', 100, 100)->size(11000),
+            UploadedFile::fake()->image('huge.jpg', 100, 100)->size(52000),
         );
 
         $response->assertStatus(422);
         $this->assertSame(0, $gallery->images()->count());
+    }
+
+    public function test_upload_accepts_files_up_to_the_50mb_limit(): void
+    {
+        Storage::fake('public');
+        $owner = User::factory()->create();
+        $gallery = $this->makeGallery($owner);
+
+        // Reported size sits between the old 10MB cap and the 50MB limit;
+        // the transport ceiling (64M) covers it.
+        $response = $this->upload(
+            $gallery,
+            $owner,
+            UploadedFile::fake()->image('large.jpg', 1200, 900)->size(30000),
+        );
+
+        $response->assertOk()->assertJson(['success' => true]);
+        $this->assertSame(1, $gallery->images()->count());
     }
 
     public function test_upload_rejects_corrupt_image_with_clean_client_error(): void

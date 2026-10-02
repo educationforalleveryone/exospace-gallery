@@ -12,6 +12,12 @@ use Illuminate\View\View;
 
 class GalleryViewController extends Controller
 {
+    /** Same visitor within this window does not count another view. */
+    private const VIEW_DEDUP_WINDOW_MINUTES = 60;
+
+    /** Cap the per-session dedup map so session payloads stay small. */
+    private const VIEW_DEDUP_MAX_TRACKED = 50;
+
     public function __construct(
         private VenueConfigExporter $venueExporter,
         private SeoManager $seo,
@@ -46,7 +52,7 @@ class GalleryViewController extends Controller
             return redirect()->route('gallery.pin', $gallery->slug);
         }
 
-        if (!$isEmbed) {
+        if (!$isEmbed && $this->shouldCountView($request, $gallery)) {
             \App\Jobs\IncrementGalleryViews::dispatch(
                 $gallery->id,
                 $gallery->venueTemplate?->id,
@@ -169,5 +175,34 @@ class GalleryViewController extends Controller
         return view('gallery.view', compact(
             'gallery', 'galleryData', 'hasUpcomingEvents', 'gallerySeo', 'relatedGalleries'
         ));
+    }
+
+    /**
+     * Decide whether this request counts as a view, recording it when it does.
+     * A returning visitor inside the dedup window is not counted again, and
+     * the tracked map is pruned so the session payload cannot grow freely.
+     */
+    private function shouldCountView(Request $request, Gallery $gallery): bool
+    {
+        $now = now()->timestamp;
+        $windowSeconds = self::VIEW_DEDUP_WINDOW_MINUTES * 60;
+
+        $viewed = collect(session('counted_gallery_views', []))
+            ->filter(fn ($viewedAt) => is_int($viewedAt) && ($now - $viewedAt) < $windowSeconds);
+
+        if (($viewed[$gallery->id] ?? null) !== null) {
+            return false;
+        }
+
+        $viewed[$gallery->id] = $now;
+
+        if ($viewed->count() > self::VIEW_DEDUP_MAX_TRACKED) {
+            $viewed = $viewed->sortBy(fn ($viewedAt) => $viewedAt)
+                ->take(-self::VIEW_DEDUP_MAX_TRACKED);
+        }
+
+        session(['counted_gallery_views' => $viewed->all()]);
+
+        return true;
     }
 }
