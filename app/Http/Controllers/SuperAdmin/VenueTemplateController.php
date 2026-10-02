@@ -235,6 +235,32 @@ class VenueTemplateController extends Controller
         return back()->with('status', "Venue \"{$venue->name}\" moved back to draft.");
     }
 
+    public function toggle(Request $request, VenueTemplate $venue): RedirectResponse
+    {
+        $venue->update(['is_active' => ! $venue->is_active]);
+
+        AdminAuditLog::record('venue_template.toggled', $venue, [
+            'is_active' => $venue->is_active,
+        ]);
+
+        return back()->with('status', $venue->is_active
+            ? "Venue \"{$venue->name}\" enabled."
+            : "Venue \"{$venue->name}\" disabled — hidden from pickers.");
+    }
+
+    public function toggleFeatured(Request $request, VenueTemplate $venue): RedirectResponse
+    {
+        $venue->update(['is_featured' => ! $venue->is_featured]);
+
+        AdminAuditLog::record('venue_template.featured_toggled', $venue, [
+            'is_featured' => $venue->is_featured,
+        ]);
+
+        return back()->with('status', $venue->is_featured
+            ? "Venue \"{$venue->name}\" featured."
+            : "Venue \"{$venue->name}\" unfeatured.");
+    }
+
     public function destroy(Request $request, VenueTemplate $venue): RedirectResponse
     {
         if ($venue->isArchived()) {

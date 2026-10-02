@@ -49,23 +49,24 @@ class VenueSnapshotManager
 
     public function restore(VenueTemplateSnapshot $snapshot, ?User $actor = null): array
     {
-        /**
- * @var VenueTemplate $venue
- */
-        $venue = VenueTemplate::query()->lockForUpdate()->findOrFail($snapshot->venue_template_id);
+        return DB::transaction(function () use ($snapshot, $actor) {
+            // The row lock only holds inside a transaction.
+            /** @var VenueTemplate $venue */
+            $venue = VenueTemplate::query()->lockForUpdate()->findOrFail($snapshot->venue_template_id);
 
-        $before = $this->payloadFor($venue);
+            $before = $this->payloadFor($venue);
 
-        $safety = $this->capture($venue, 'before restore', $actor);
+            $safety = $this->capture($venue, 'before restore', $actor);
 
-        $venue->fill(array_intersect_key($snapshot->config ?? [], array_flip(self::CONTENT_KEYS)));
-        $venue->save();
+            $venue->fill(array_intersect_key($snapshot->config ?? [], array_flip(self::CONTENT_KEYS)));
+            $venue->save();
 
-        return [
-            'before' => $before,
-            'after'  => $this->payloadFor($venue->fresh()),
-            'safety' => $safety,
-        ];
+            return [
+                'before' => $before,
+                'after'  => $this->payloadFor($venue->fresh()),
+                'safety' => $safety,
+            ];
+        });
     }
 
     public function payloadFor(VenueTemplate $venue): array

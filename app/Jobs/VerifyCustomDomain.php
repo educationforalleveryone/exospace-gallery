@@ -65,6 +65,10 @@ class VerifyCustomDomain implements ShouldQueue
 
         $result = $coolify->addDomain($gallery->custom_domain);
         if (! $result['success']) {
+            // Without the Coolify route the domain never serves — un-mark so
+            // the next hourly run retries the whole flow.
+            $gallery->forceFill(['custom_domain_verified_at' => null])->save();
+            Cache::forget("custom_domain:{$gallery->custom_domain}");
             Log::warning('VerifyCustomDomain: Coolify addDomain failed for verified domain', [
                 'gallery_id' => $gallery->id,
                 'domain'     => $gallery->custom_domain,
@@ -78,7 +82,7 @@ class VerifyCustomDomain implements ShouldQueue
         }
     }
 
-    private function checkDnsTxtRecord(string $host, string $expectedValue): bool
+    protected function checkDnsTxtRecord(string $host, string $expectedValue): bool
     {
         if (empty($host) || empty($expectedValue)) {
             return false;

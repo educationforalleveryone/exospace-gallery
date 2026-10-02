@@ -680,18 +680,22 @@ class GalleryController extends Controller
 
         $coolifyResult = $this->coolify->addDomain($gallery->custom_domain);
         if (! $coolifyResult['success']) {
-            \Log::warning('Coolify domain registration deferred on verification.', [
+            // Without the Coolify route the domain never serves — un-mark so
+            // the hourly job and the verify button can retry.
+            $gallery->forceFill(['custom_domain_verified_at' => null])->save();
+            \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
+            \Log::warning('Coolify domain registration failed after DNS verification.', [
                 'gallery_id' => $gallery->id,
                 'domain'     => $gallery->custom_domain,
                 'reason'     => $coolifyResult['message'],
             ]);
-            session()->flash('warning', "Domain verified, but Coolify could not auto-configure the routing: {$coolifyResult['message']}");
+            return back()->with('warning', "DNS record confirmed, but Coolify could not register the domain: {$coolifyResult['message']} We retry automatically every hour, or click \"Verify domain now\" again.");
         }
 
         return back()->with('status', "Domain \"{$gallery->custom_domain}\" verified! SSL cert will be provisioned automatically (may take 1–5 minutes).");
     }
 
-    private function checkDnsTxtRecord(string $host, string $expectedValue): bool
+    protected function checkDnsTxtRecord(string $host, string $expectedValue): bool
     {
         if (empty($host) || empty($expectedValue)) {
             return false;

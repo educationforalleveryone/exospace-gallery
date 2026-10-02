@@ -320,6 +320,57 @@ class VenueAuthoringTest extends TestCase
         ]);
     }
 
+    public function test_toggle_flips_active_state_and_audits(): void
+    {
+        $admin = $this->superAdmin();
+        $venue = $this->venue(['is_active' => true]);
+
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
+            ->patch(route('super.venues.toggle', $venue))
+            ->assertRedirect();
+
+        $venue->refresh();
+        $this->assertFalse($venue->is_active);
+        $this->assertSame(0, VenueTemplate::forUser($admin)->where('id', $venue->id)->count());
+
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
+            ->patch(route('super.venues.toggle', $venue))
+            ->assertRedirect();
+
+        $venue->refresh();
+        $this->assertTrue($venue->is_active);
+
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'action'    => 'venue_template.toggled',
+            'target_id' => $venue->id,
+        ]);
+    }
+
+    public function test_toggle_featured_flips_featured_state_and_audits(): void
+    {
+        $admin = $this->superAdmin();
+        $venue = $this->venue(['is_featured' => false]);
+
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
+            ->patch(route('super.venues.toggle-featured', $venue))
+            ->assertRedirect();
+
+        $venue->refresh();
+        $this->assertTrue($venue->is_featured);
+
+        $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
+            ->patch(route('super.venues.toggle-featured', $venue))
+            ->assertRedirect();
+
+        $venue->refresh();
+        $this->assertFalse($venue->is_featured);
+
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'action'    => 'venue_template.featured_toggled',
+            'target_id' => $venue->id,
+        ]);
+    }
+
     public function test_unpublish_hides_venue_from_picker_and_public_pages(): void
     {
         $admin = $this->superAdmin();

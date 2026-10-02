@@ -134,6 +134,31 @@ class FirstRunExperienceTest extends TestCase
             ->assertDontSee('/admin/galleries/'.$teamDraft->id.'/edit', false);
     }
 
+    public function test_the_artwork_step_is_not_satisfied_by_team_gallery_images(): void
+    {
+        $user = User::factory()->create();
+        $personal = Gallery::factory()->create([
+            'user_id'   => $user->id,
+            'is_active' => false,
+        ]);
+
+        $team = Team::factory()->create(['owner_id' => $user->id]);
+        $team->members()->attach($user->id, ['role' => 'owner']);
+        $teamGallery = Gallery::factory()->create([
+            'user_id'   => $user->id,
+            'team_id'   => $team->id,
+            'is_active' => false,
+        ]);
+        GalleryImage::factory()->create(['gallery_id' => $teamGallery->id]);
+
+        $response = $this->actingAs($user)->get('/admin/dashboard');
+
+        $response->assertOk()
+            ->assertDontSee('Upload your first artwork</span>', false)
+            ->assertSee('Upload your first artwork</a>', false)
+            ->assertSee('/admin/galleries/'.$personal->id.'/edit', false);
+    }
+
     public function test_the_checklist_disappears_once_a_personal_gallery_is_published(): void
     {
         $user = User::factory()->create();
