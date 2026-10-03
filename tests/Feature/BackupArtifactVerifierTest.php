@@ -162,6 +162,33 @@ class BackupArtifactVerifierTest extends TestCase
         $this->assertFalse($report->encrypted);
     }
 
+    public function test_unencrypted_archive_fails_when_encryption_is_configured(): void
+    {
+        // A plaintext archive must never look healthy: BACKUP_PASSWORD is set
+        // in production, so an unencrypted artifact means the encryption step
+        // was skipped and the dump would sit readable in the R2 bucket.
+        $this->makeBackupZip('2026-01-15-01-00-00.zip', [
+            'db-dumps/mysql-exospace.sql' => "CREATE TABLE users (id INT);\n",
+        ], encrypt: false);
+
+        $report = app(BackupArtifactVerifier::class)->verifyNewestOnDisk('local');
+
+        $this->assertFalse($report->passes());
+        $this->assertStringContainsString('not encrypted although BACKUP_PASSWORD is configured', $report->problemSummary());
+    }
+
+    public function test_encryption_is_detected_even_when_a_directory_entry_comes_first(): void
+    {
+        $this->makeBackupZipWithLeadingDirectory('2026-01-15-01-00-00.zip', [
+            'db-dumps/mysql-exospace.sql' => "CREATE TABLE users (id INT);\n",
+        ]);
+
+        $report = app(BackupArtifactVerifier::class)->verifyNewestOnDisk('local');
+
+        $this->assertTrue($report->passes(), $report->problemSummary());
+        $this->assertTrue($report->encrypted, 'encryption must be read from the first file entry, not statIndex(0)');
+    }
+
     /**
      * @param  array<string, string>  $entries
      */
@@ -184,6 +211,36 @@ class BackupArtifactVerifierTest extends TestCase
             $zip->setPassword($password);
 
             foreach (range(0, $zip->numFiles - 1) as $i) {
+                $zip->setEncryptionIndex($i, ZipArchive::EM_AES_256);
+            }
+        }
+
+        $zip->close();
+    }
+
+    /**
+     * A zip whose first entry is a directory — exercising that encryption
+     * detection reads the first FILE entry.
+     *
+     * @param  array<string, string>  $entries
+     */
+    private function makeBackupZipWithLeadingDirectory(string $fileName, array $entries): void
+    {
+        @mkdir($this->diskRoot.self::BACKUP_DIR, 0775, true);
+
+        $zip = new ZipArchive;
+        $zip->open($this->diskRoot.self::BACKUP_DIR.'/'.$fileName, ZipArchive::CREATE);
+
+        $zip->addEmptyDir('archive-root');
+
+        foreach ($entries as $name => $content) {
+            $zip->addFromString($name, $content);
+        }
+
+        $zip->setPassword('test-backup-password');
+
+        foreach (range(0, $zip->numFiles - 1) as $i) {
+            if (! str_ends_with((string) $zip->getNameIndex($i), '/')) {
                 $zip->setEncryptionIndex($i, ZipArchive::EM_AES_256);
             }
         }

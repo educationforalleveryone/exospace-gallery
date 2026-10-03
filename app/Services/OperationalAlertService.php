@@ -23,14 +23,9 @@ class OperationalAlertService
 
     public function alert(string $title, string $message, string $severity = 'warning', ?string $dedupKey = null, bool $escalate = false): void
     {
-        if ($dedupKey !== null && $this->isRecentlyAlerted($dedupKey, $severity)) {
+        if ($dedupKey !== null && $this->isRecentlyAlerted($dedupKey)) {
             Log::debug("OperationalAlertService: suppressed duplicate alert '{$title}' (dedupKey='{$dedupKey}')");
             return;
-        }
-
-        // Record that we sent this alert so future calls within the TTL are suppressed.
-        if ($dedupKey !== null) {
-            $this->markAlertSent($dedupKey, $severity);
         }
 
         $webhookUrl = $this->resolveWebhookUrl($severity);
@@ -61,10 +56,19 @@ class OperationalAlertService
             'timestamp' => now()->toIso8601String(),
         ];
 
+        // With no webhook configured the log record below is the delivery.
+        // Otherwise the alert only counts as sent once Slack accepted it: a
+        // failed post must not suppress the next check — Slack outages then
+        // retry on the following check cycle instead of losing the alert for
+        // the whole dedup TTL.
+        $delivered = true;
+
         if ($webhookUrl) {
             try {
-                Http::timeout(10)->post($webhookUrl, $payload);
+                Http::timeout(10)->post($webhookUrl, $payload)->throw();
             } catch (\Throwable $e) {
+                $delivered = false;
+
                 // Transport errors embed the full request URL — the webhook
                 // token lives in the URL path, so it must not reach the logs.
                 Log::critical('OperationalAlertService: failed to send webhook alert', [
@@ -73,6 +77,10 @@ class OperationalAlertService
                     'error'   => $this->redactor->redactString($e->getMessage()),
                 ]);
             }
+        }
+
+        if ($delivered && $dedupKey !== null) {
+            $this->markAlertSent($dedupKey, $severity);
         }
 
         if ($escalate) {
@@ -102,7 +110,7 @@ class OperationalAlertService
         }
 
         try {
-            Http::timeout(10)->post($url, $payload);
+            Http::timeout(10)->post($url, $payload)->throw();
         } catch (\Throwable $e) {
             Log::critical('OperationalAlertService: failed to send ESCALATION webhook alert', [
                 'title' => (string) ($payload['title'] ?? ''),
@@ -111,10 +119,9 @@ class OperationalAlertService
         }
     }
 
-    private function isRecentlyAlerted(string $dedupKey, string $severity): bool
+    private function isRecentlyAlerted(string $dedupKey): bool
     {
         $cacheKey = $this->dedupCacheKey($dedupKey);
-        $ttl = self::DEDUP_TTL_SECONDS[$severity] ?? self::DEDUP_TTL_SECONDS['warning'];
 
         return \Illuminate\Support\Facades\Cache::has($cacheKey);
     }

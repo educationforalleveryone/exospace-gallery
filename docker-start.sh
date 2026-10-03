@@ -173,7 +173,9 @@ fi
 #    long-running container could fill the disk. We rotate the log before
 #    each schedule:run tick: keep the last 5 rotations (scheduler.log.1
 #    through scheduler.log.5), each capped at 10MB. This mirrors the
-#    supervisord.conf pattern (10MB max, 5 backups).
+#    supervisord.conf pattern (10MB max, 5 backups). Under BYPASS_SCHEDULER=true
+#    this loop does not run, so the same rotation is applied by the daily
+#    `exospace:cleanup-stale` schedule instead.
 #
 #    ALTERNATIVE DEPLOYMENT: a separate Coolify cron service running
 #    `php artisan schedule:work` (long-running scheduler) works too —

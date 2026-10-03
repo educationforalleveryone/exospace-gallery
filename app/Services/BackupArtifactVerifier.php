@@ -87,15 +87,8 @@ class BackupArtifactVerifier
         $encrypted = false;
         $hasFileEntries = false;
 
-        if ($zip->numFiles > 0) {
-            $firstStat = $zip->statIndex(0);
-            $encrypted = is_array($firstStat) && (($firstStat['encryption_method'] ?? 0) !== 0);
-        }
-
         if ($password !== null && $password !== '') {
             $zip->setPassword($password);
-        } elseif ($encrypted) {
-            $errors[] = 'archive entries are encrypted but no BACKUP_PASSWORD is configured — the artifact cannot be decrypted';
         }
 
         $dbDumpEntries = 0;
@@ -112,6 +105,13 @@ class BackupArtifactVerifier
 
             if (str_ends_with($name, '/') && (int) $stat['size'] === 0) {
                 continue; // directory entry
+            }
+
+            if (! $hasFileEntries) {
+                // Encryption is read from the first file entry — spatie's
+                // EncryptBackupArchive encrypts every file entry but never
+                // directory entries, so statIndex(0) is not reliable.
+                $encrypted = ($stat['encryption_method'] ?? 0) !== 0;
             }
 
             $hasFileEntries = true;
@@ -147,6 +147,14 @@ class BackupArtifactVerifier
 
             if ($dbDumpEntries > 1) {
                 $warnings[] = "archive contains {$dbDumpEntries} database dump entries (expected at most one)";
+            }
+
+            if ($encrypted && ($password === null || $password === '')) {
+                $errors[] = 'archive entries are encrypted but no BACKUP_PASSWORD is configured — the artifact cannot be decrypted';
+            }
+
+            if (! $encrypted && $password !== null && $password !== '') {
+                $errors[] = 'archive entries are not encrypted although BACKUP_PASSWORD is configured — the artifact was produced outside the encrypted backup policy';
             }
         }
 
