@@ -9,6 +9,7 @@ use App\Models\AdminAuditLog;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookSubscription;
 use App\Services\OutboundWebhookService;
+use App\Support\OutboundUrlGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -68,6 +69,15 @@ class WebhookSubscriptionController extends Controller
             'target_url' => ['required', 'string', 'url', 'max:500', 'starts_with:https://'],
             'secret'     => ['nullable', 'string', 'max:255'],
         ]);
+
+        // The application itself performs the POSTs, so a target pointing at
+        // loopback, the private ranges or the link-local metadata service
+        // would turn the webhook sender into an SSRF pivot — reject those.
+        if (! OutboundUrlGuard::isPubliclyRoutable($data['target_url'])) {
+            return back()
+                ->withInput()
+                ->withErrors(['target_url' => 'The target URL must point to a publicly routable host.']);
+        }
 
         $eventType = trim(strtolower($data['event_type']));
         $targetUrl = trim($data['target_url']);

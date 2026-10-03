@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Support\ResilientCache;
 use Closure;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class CacheTagService
 {
@@ -19,43 +22,72 @@ class CacheTagService
     public function rememberTagged(array $tags, string $key, \DateTimeInterface $ttl, Closure $callback): mixed
     {
         if ($this->supportsTags()) {
-            return Cache::tags($tags)->remember($key, $ttl, $callback);
+            try {
+                return Cache::tags($tags)->remember($key, $ttl, $callback);
+            } catch (Throwable $e) {
+                $this->report('rememberTagged', $key, $e);
+
+                return $callback();
+            }
         }
 
         // Fallback: track the key under each tag, then plain Cache::remember.
         $this->trackKeyInTags($tags, $key);
 
-        return Cache::remember($key, $ttl, $callback);
+        return ResilientCache::remember($key, $ttl, $callback);
     }
 
     public function flexibleTagged(array $tags, string $key, array $ttls, Closure $callback): mixed
     {
         if ($this->supportsTags()) {
-            return Cache::tags($tags)->flexible($key, $ttls, $callback);
+            try {
+                return Cache::tags($tags)->flexible($key, $ttls, $callback);
+            } catch (Throwable $e) {
+                $this->report('flexibleTagged', $key, $e);
+
+                return $callback();
+            }
         }
 
         $this->trackKeyInTags($tags, $key);
 
-        return Cache::flexible($key, $ttls, $callback);
+        return ResilientCache::flexible($key, $ttls, $callback);
     }
 
     public function invalidateTag(string $tag): void
     {
         if ($this->supportsTags()) {
-            Cache::tags([$tag])->flush();
-            return;
-        }
+            try {
+                Cache::tags([$tag])->flush();
 
-        $indexKey = "tag_index:{$tag}";
-        $keys = Cache::get($indexKey, []);
+                return;
+            } catch (Throwable $e) {
+                // The flush could not run — cached entries live on until their
+                // TTL expires. Logged so the staleness stays observable.
+                $this->report('invalidateTag', $tag, $e);
 
-        if (is_array($keys)) {
-            foreach ($keys as $k) {
-                Cache::forget($k);
+                return;
             }
         }
 
-        Cache::forget($indexKey);
+        $indexKey = "tag_index:{$tag}";
+        $keys = ResilientCache::get($indexKey, []);
+
+        if (is_array($keys)) {
+            foreach ($keys as $k) {
+                try {
+                    Cache::forget($k);
+                } catch (Throwable $e) {
+                    $this->report('invalidateTag', $k, $e);
+                }
+            }
+        }
+
+        try {
+            Cache::forget($indexKey);
+        } catch (Throwable $e) {
+            $this->report('invalidateTag', $indexKey, $e);
+        }
     }
 
     public function invalidateTags(array $tags): void
@@ -69,7 +101,7 @@ class CacheTagService
     {
         foreach ($tags as $tag) {
             $indexKey = "tag_index:{$tag}";
-            $keys = Cache::get($indexKey, []);
+            $keys = ResilientCache::get($indexKey, []);
 
             if (! is_array($keys)) {
                 $keys = [];
@@ -85,7 +117,22 @@ class CacheTagService
                 $keys = array_slice($keys, -1000);
             }
 
-            Cache::put($indexKey, $keys, now()->addDays(30));
+            try {
+                Cache::put($indexKey, $keys, now()->addDays(30));
+            } catch (Throwable $e) {
+                // Tracking is best-effort: without it only the targeted
+                // forget path degrades, the cached value itself still serves.
+                $this->report('trackKeyInTags', $indexKey, $e);
+            }
         }
+    }
+
+    private function report(string $op, string $key, Throwable $e): void
+    {
+        Log::warning('Cache unavailable — serving uncached data', [
+            'op'    => $op,
+            'key'   => $key,
+            'error' => $e->getMessage(),
+        ]);
     }
 }

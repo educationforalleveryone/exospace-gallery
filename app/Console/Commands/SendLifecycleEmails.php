@@ -91,22 +91,24 @@ class SendLifecycleEmails extends Command
     {
         $cutoff = now()->addDays(7);
 
+        // The reminder window repeats daily, so a user is reminded once per
+        // expiry cycle: skip when a reminder already landed within the 14
+        // days before this expiry date. The check lives in SQL so the limit
+        // applies to users still eligible for a reminder — filtering after
+        // the limit would starve batch N+1 behind already-reminded rows.
         $users = User::whereNotNull('plan_expires_at')
             ->where('plan_expires_at', '<=', $cutoff)
             ->where('plan_expires_at', '>', now())
             ->where('plan', '!=', 'free')
             ->whereNull('banned_at')
             ->whereNotNull('email_verified_at')
+            ->where(function ($q) {
+                $q->whereNull('plan_expiry_reminded_at')
+                    ->orWhereRaw(self::remindedOutsideExpiryWindowSql());
+            })
+            ->orderBy('plan_expires_at')
             ->limit(50)
             ->get();
-
-        $users = $users->filter(function ($user) {
-            $reminded = $user->plan_expiry_reminded_at;
-            if ($reminded && $reminded > $user->plan_expires_at?->subDays(14)) {
-                return false; // already reminded in this expiry window
-            }
-            return true;
-        });
 
         if ($users->isEmpty()) {
             $this->info('No plan-expiry reminders to send.');
@@ -140,5 +142,18 @@ class SendLifecycleEmails extends Command
         }
 
         $this->info("Sent {$sent} plan-expiry reminder emails.");
+    }
+
+    /**
+     * Predicate (without the leading NOT) asserting that a prior reminder
+     * landed before the 14-day window preceding this expiry date — i.e. the
+     * user is still owed a reminder for the current cycle. Date arithmetic
+     * on two columns is not portable, so the dialect is picked explicitly.
+     */
+    private static function remindedOutsideExpiryWindowSql(): string
+    {
+        return \DB::connection()->getDriverName() === 'mysql'
+            ? 'plan_expiry_reminded_at <= DATE_SUB(plan_expires_at, INTERVAL 14 DAY)'
+            : "plan_expiry_reminded_at <= datetime(plan_expires_at, '-14 day')";
     }
 }

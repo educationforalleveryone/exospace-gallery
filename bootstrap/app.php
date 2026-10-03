@@ -12,6 +12,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // The maintenance payload lives in Redis; when Redis is down the
+        // default gate turns that outage into a 500 on every request.
+        $middleware->replace(
+            \Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance::class,
+            \App\Http\Middleware\TolerantMaintenanceMode::class,
+        );
+
         $middleware->prepend(\App\Http\Middleware\DetectCustomDomain::class);
 
         $middleware->prepend(\App\Http\Middleware\SeoRedirects::class);
