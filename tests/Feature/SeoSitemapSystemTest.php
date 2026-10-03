@@ -116,15 +116,33 @@ class SeoSitemapSystemTest extends TestCase
     public function test_gallery_sitemap_uses_custom_domain_as_loc(): void
     {
         $gallery = $this->makePublicGallery([
-            'title' => 'White Label Show',
+            'title'         => 'White Label Show',
             'custom_domain' => 'gallery.janedoe.com',
-            'custom_domain_verified_at' => now(),
         ]);
+        // custom_domain_verified_at is not fillable — force it so the domain
+        // is actually in its verified state (an unverified host must NOT be
+        // listed, it may not route anywhere).
+        $gallery->forceFill(['custom_domain_verified_at' => now()])->save();
         $this->addArtwork($gallery, ['title' => 'Work']);
 
         $response = $this->get('/sitemap-galleries-1.xml');
 
         $this->assertStringContainsString('<loc>https://gallery.janedoe.com</loc>', $response->getContent());
+    }
+
+    public function test_gallery_sitemap_does_not_list_unverified_custom_domains(): void
+    {
+        $gallery = $this->makePublicGallery([
+            'title'         => 'Pending Domain Show',
+            'custom_domain' => 'pending.janedoe.com',
+        ]);
+        $this->addArtwork($gallery, ['title' => 'Work']);
+
+        $response = $this->get('/sitemap-galleries-1.xml');
+
+        $this->assertStringNotContainsString('pending.janedoe.com', $response->getContent(),
+            'An unverified custom domain must not be listed — the host may not serve yet.');
+        $this->assertStringContainsString('gallery/' . $gallery->slug, $response->getContent());
     }
 
     public function test_seo_profile_can_exclude_gallery_from_sitemap(): void

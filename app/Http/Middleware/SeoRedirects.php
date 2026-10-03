@@ -20,13 +20,17 @@ class SeoRedirects
                 $path = SeoRedirect::normalizePath($request->path());
 
                 if (isset($map[$path])) {
-                    [$destination, $status] = $map[$path];
+                    [$id, $destination, $status] = $map[$path];
 
                     // Relative destinations keep the current host.
                     $target = $destination;
                     if ($target !== '' && $target[0] === '/') {
                         $target = $request->getSchemeAndHttpHost() . $target;
                     }
+
+                    // Usage analytics for the SEO admin table. Fire-and-forget:
+                    // a failed recording must never block the redirect itself.
+                    SeoRedirect::recordHit((int) $id);
 
                     $redirect = redirect()->to($target, $status);
                     $redirect->header('Cache-Control', 'public, max-age=86400');

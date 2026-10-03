@@ -24,8 +24,12 @@ class FeedbackController extends Controller
                 'user_id'    => $user?->id,
                 'category'   => $validated['category'],
                 'message'    => $validated['message'],
-                'page_url'   => $request->header('Referer'),
-                'user_agent' => $request->header('User-Agent'),
+                // Referer/UA are client-controlled request headers of
+                // unbounded length; page_url is a varchar(255) column, so
+                // oversized headers must be capped instead of failing the
+                // whole submission with a data-too-long error.
+                'page_url'   => mb_substr((string) $request->header('Referer'), 0, 255),
+                'user_agent' => mb_substr((string) $request->header('User-Agent'), 0, 1000),
                 'status'     => 'new',
             ]);
 

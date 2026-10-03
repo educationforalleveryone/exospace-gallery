@@ -130,8 +130,26 @@ class SeoAdminController extends Controller
             'status_code' => ['nullable', 'integer', 'in:301,302,308'],
         ]);
 
+        $sourcePath = SeoRedirect::normalizePath($validated['source_path']);
+
+        // Loop protection: a redirect that resolves back onto itself would
+        // spin visitors and crawlers in an endless 301 (the middleware runs
+        // globally on every GET/HEAD), and duplicate sources would make the
+        // applied target depend on row order.
+        if ($sourcePath === '' || SeoRedirect::query()->active()->where('source_path', $sourcePath)->exists()) {
+            return back()
+                ->withErrors(['source_path' => 'An active redirect for this path already exists.'])
+                ->withInput();
+        }
+
+        if (SeoRedirect::createsLoop($sourcePath, $validated['destination'])) {
+            return back()
+                ->withErrors(['destination' => 'This destination would create a redirect loop.'])
+                ->withInput();
+        }
+
         $redirect = SeoRedirect::create([
-            'source_path' => SeoRedirect::normalizePath($validated['source_path']),
+            'source_path' => $sourcePath,
             'destination' => $validated['destination'],
             'status_code' => $validated['status_code'] ?? 301,
             'created_by'  => $request->user()->id,
@@ -141,7 +159,7 @@ class SeoAdminController extends Controller
 
         \App\Models\AdminAuditLog::record('seo.redirect_created', $redirect, $validated);
 
-        return back()->with('status', "Redirect /{$validated['source_path']} created.");
+        return back()->with('status', "Redirect /{$sourcePath} created.");
     }
 
     public function destroyRedirect(SeoRedirect $redirect): RedirectResponse

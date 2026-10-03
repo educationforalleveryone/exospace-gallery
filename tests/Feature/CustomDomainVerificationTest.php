@@ -159,4 +159,23 @@ class CustomDomainVerificationTest extends TestCase
         $gallery->refresh();
         $this->assertNotNull($gallery->custom_domain_verified_at);
     }
+
+    public function test_public_url_uses_the_main_site_url_until_the_domain_is_verified(): void
+    {
+        // An unverified host may route nowhere; sitemap locs, canonicals and
+        // share links must keep pointing at the URL that actually serves it.
+        $gallery = $this->studioGallery();
+
+        $this->assertNull($gallery->custom_domain_verified_at);
+        $this->assertSame(url('/gallery/' . $gallery->slug), $gallery->public_url);
+        $this->assertStringNotContainsString('gallery.example.com', $gallery->public_url);
+    }
+
+    public function test_public_url_uses_the_custom_domain_once_verified(): void
+    {
+        $gallery = $this->studioGallery();
+        $gallery->forceFill(['custom_domain_verified_at' => now()])->save();
+
+        $this->assertSame('https://gallery.example.com', $gallery->public_url);
+    }
 }

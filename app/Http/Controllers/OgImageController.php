@@ -307,13 +307,8 @@ class OgImageController extends Controller
     {
         // Try Liberation Sans (commonly available on Linux) with bold/normal variants
         $fontBase = '/usr/share/fonts/truetype/liberation/LiberationSans';
-        $fontRegular = $fontBase . '-Regular.ttf';
-        $fontBold = $fontBase . '-Bold.ttf';
+        $fontPath = $weight === 'bold' ? $fontBase . '-Bold.ttf' : $fontBase . '-Regular.ttf';
 
-        $fontPath = $weight === 'bold' ? $fontBold : $fontRegular;
-        if (!file_exists($fontPath)) {
-            $fontPath = $weight === 'bold' ? $fontBold : $fontRegular;
-        }
         if (!file_exists($fontPath)) {
             // Last resort: let Intervention pick a default
             $fontPath = null;

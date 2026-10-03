@@ -189,6 +189,52 @@ class Rfc8058UnsubscribeTest extends TestCase
     }
 
     #[Test]
+    public function email_layout_never_leaks_literal_newline_sequences_from_env_address(): void
+    {
+        // Env values set through the Coolify UI arrive with literal "\n"
+        // sequences (unquoted env values are not escape-processed). The
+        // config layer normalizes them, so the mangled form — a literal
+        // backslash-n glued between address lines — must never reach a
+        // rendered email footer.
+        config(['app.business_address' => "Exospace Gallery\n27 Innovation Drive\nIslamabad 44000"]);
+
+        $user = User::factory()->create();
+        $rendered = (new WelcomeEmail($user))->render();
+
+        $this->assertStringContainsString('Exospace Gallery', $rendered);
+        $this->assertStringContainsString('27 Innovation Drive', $rendered);
+        $this->assertStringContainsString('Islamabad 44000', $rendered);
+    }
+
+    #[Test]
+    public function address_lines_helper_converts_literal_env_newlines(): void
+    {
+        $this->assertNull(address_lines(null));
+        $this->assertSame("Exospace Gallery\nIslamabad 44000", address_lines('Exospace Gallery\nIslamabad 44000'));
+        $this->assertSame("Exospace Gallery\nIslamabad 44000", address_lines("Exospace Gallery\nIslamabad 44000"));
+    }
+
+    #[Test]
+    public function business_address_config_normalizes_literal_env_newlines(): void
+    {
+        // env() reads $_ENV/$_SERVER, so the literal-sequence value is planted
+        // the way an unquoted .env entry would land there.
+        $_ENV['EXOSPACE_BUSINESS_ADDRESS'] = 'Exospace Gallery\n27 Innovation Drive, Suite 4B\nIslamabad 44000';
+        $_SERVER['EXOSPACE_BUSINESS_ADDRESS'] = $_ENV['EXOSPACE_BUSINESS_ADDRESS'];
+
+        try {
+            $config = require config_path('app.php');
+        } finally {
+            unset($_ENV['EXOSPACE_BUSINESS_ADDRESS'], $_SERVER['EXOSPACE_BUSINESS_ADDRESS']);
+        }
+
+        $this->assertSame(
+            "Exospace Gallery\n27 Innovation Drive, Suite 4B\nIslamabad 44000",
+            $config['business_address'],
+        );
+    }
+
+    #[Test]
     public function email_layout_renders_unsubscribe_link_when_url_provided(): void
     {
         $user = User::factory()->create(['marketing_consent' => true]);

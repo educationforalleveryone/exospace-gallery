@@ -160,8 +160,11 @@ class Gallery extends Model
 
     public function getPublicUrlAttribute(): string
     {
-        // If a custom domain is set, use it; otherwise use the standard slug URL.
-        if ($this->custom_domain) {
+        // A custom domain only becomes the public URL once verification has
+        // confirmed it resolves — until then the host may route nowhere, and
+        // sitemap locs, canonicals and share links must keep using the URL
+        // that actually serves the exhibition.
+        if ($this->isCustomDomainVerified()) {
             return 'https://' . $this->custom_domain;
         }
         return url("/gallery/{$this->slug}");

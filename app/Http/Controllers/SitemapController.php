@@ -257,7 +257,7 @@ class SitemapController extends Controller
             ->orderBy('id')
             ->skip(($page - 1) * $perPage)
             ->take($perPage)
-            ->get(['id', 'slug', 'title', 'custom_domain', 'updated_at']);
+            ->get(['id', 'slug', 'title', 'custom_domain', 'custom_domain_verified_at', 'updated_at']);
 
         return $galleries->map(function ($gallery) {
             $entry = [

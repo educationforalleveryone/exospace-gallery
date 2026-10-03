@@ -30,10 +30,15 @@ class ContactController extends Controller
         }
 
         try {
+            // An empty CONTACT_FORM_EMAIL (key exists but blank) must fall
+            // back to the sender address too, or every submission would die
+            // constructing an empty recipient.
+            $recipient = config('services.contact_form.email') ?: config('mail.from.address');
+
             Mail::raw(
                 "Name: {$validated['name']}\nEmail: {$validated['email']}\nSubject: " . ($validated['subject'] ?? 'No subject') . "\n\n{$validated['message']}",
-                function ($msg) use ($validated) {
-                    $msg->to(config('services.contact_form.email', config('mail.from.address')))
+                function ($msg) use ($validated, $recipient) {
+                    $msg->to($recipient)
                         ->subject('[Exospace Contact] ' . email_subject_line($validated['subject'] ?? 'New message from ' . $validated['name']))
                         ->replyTo($validated['email'], $validated['name']);
                 }

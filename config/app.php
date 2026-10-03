@@ -12,7 +12,7 @@ return [
 
     'metrics_token' => env('METRICS_TOKEN'),
 
-    'business_address' => env('EXOSPACE_BUSINESS_ADDRESS'),
+    'business_address' => address_lines(env('EXOSPACE_BUSINESS_ADDRESS')),
 
     'supplier_vat_number' => env('EXOSPACE_SUPPLIER_VAT_NUMBER'),
     'supplier_country'    => env('EXOSPACE_SUPPLIER_COUNTRY', 'US'),

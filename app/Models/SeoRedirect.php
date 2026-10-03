@@ -45,11 +45,14 @@ class SeoRedirect extends Model
     {
         try {
             return \Illuminate\Support\Facades\Cache::remember(
-                'seo:redirects:map',
+                // Key carries the entry shape version: a deploy that changes
+                // the shape orphans the previous map instead of serving
+                // misaligned entries for the remainder of its TTL.
+                'seo:redirects:map:v2',
                 now()->addMinutes(10),
-                fn () => static::query()->active()->get(['source_path', 'destination', 'status_code'])
+                fn () => static::query()->active()->get(['id', 'source_path', 'destination', 'status_code'])
                     ->mapWithKeys(fn ($r) => [
-                        $r->source_path => [$r->destination, (int) $r->status_code],
+                        $r->source_path => [$r->id, $r->destination, (int) $r->status_code],
                     ])->all(),
             );
         } catch (\Throwable $e) {
@@ -62,13 +65,62 @@ class SeoRedirect extends Model
 
     public static function clearMapCache(): void
     {
-        \Illuminate\Support\Facades\Cache::forget('seo:redirects:map');
+        \Illuminate\Support\Facades\Cache::forget('seo:redirects:map:v2');
     }
 
-    public function recordHit(): void
+    /**
+     * Whether adding a redirect from $sourcePath to $destination would create
+     * a loop: the destination lands on the source itself, or the existing
+     * redirect chain walks back onto the source. Only relative destinations
+     * can loop — absolute URLs leave the host entirely. Walk depth is capped
+     * so a pre-existing loop elsewhere in the map cannot spin this check.
+     */
+    public static function createsLoop(string $sourcePath, string $destination): bool
+    {
+        if ($destination === '' || $destination[0] !== '/') {
+            return false;
+        }
+
+        $sourcePath = self::normalizePath($sourcePath);
+        $current = self::normalizePath($destination);
+
+        if ($current === $sourcePath) {
+            return true;
+        }
+
+        $map = self::query()
+            ->active()
+            ->get(['source_path', 'destination'])
+            ->mapWithKeys(fn ($r) => [self::normalizePath($r->source_path) => $r->destination]);
+
+        for ($hop = 0; $hop < 10; $hop++) {
+            $next = $map[$current] ?? null;
+
+            if ($next === null || $next === '' || $next[0] !== '/') {
+                return false;
+            }
+
+            $current = self::normalizePath($next);
+
+            if ($current === $sourcePath) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Count a redirect hit atomically (single UPDATE, no read-modify-write)
+     * so concurrent hits cannot lose counts. Analytics only — callers must
+     * never let a recording failure block the redirect.
+     */
+    public static function recordHit(int $id): void
     {
         try {
-            $this->forceFill(['hits' => $this->hits + 1, 'last_hit_at' => now()])->save();
+            static::query()
+                ->whereKey($id)
+                ->increment('hits', 1, ['last_hit_at' => now()]);
         } catch (\Throwable) {
             // Analytics only — never block the redirect.
         }
