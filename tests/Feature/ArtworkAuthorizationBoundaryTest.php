@@ -102,6 +102,15 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
 
         $this->assertSoftDeleted($image);
         $this->assertFalse(Storage::disk('public')->exists($diskPath));
+
+        // Single-artwork deletion is audited the same way as bulk deletion.
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'action'      => 'gallery.image_deleted',
+            'target_type' => Gallery::class,
+            'target_id'   => $gallery->id,
+        ]);
+        $audit = \App\Models\AdminAuditLog::where('action', 'gallery.image_deleted')->latest('id')->first();
+        $this->assertSame($image->id, $audit->payload['image_id']);
     }
 
     public function test_owner_can_reorder_their_artwork(): void

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdminAuditLog;
 use App\Models\UserFeedback;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -83,7 +84,16 @@ class FeedbackController extends Controller
             'status' => ['required', 'in:new,reviewed,resolved'],
         ]);
 
+        $oldStatus = $feedback->status;
+
         $feedback->update(['status' => $validated['status']]);
+
+        // Feedback triage is a super-admin action on a submitted record —
+        // audited like the other master-control mutations.
+        AdminAuditLog::record('feedback.status_changed', $feedback, [
+            'old_status' => $oldStatus,
+            'new_status' => $validated['status'],
+        ]);
 
         return back()->with('status', 'Feedback status updated.');
     }

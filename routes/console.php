@@ -150,6 +150,11 @@ Schedule::command('exospace:anonymize-newsletter-pii')
     ->withoutOverlapping(120)
     ->onOneServer();
 
+Schedule::command('exospace:anonymize-gdpr-request-pii')
+    ->monthlyOn(1, '07:15')
+    ->withoutOverlapping(120)
+    ->onOneServer();
+
 Schedule::command('exospace:process-gdpr-deletions')
     ->dailyAt('04:30')
     ->withoutOverlapping(60)

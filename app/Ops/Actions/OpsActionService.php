@@ -359,8 +359,10 @@ class OpsActionService
                 'outcome' => $result['ok'] ? 'success' : 'failure',
                 'message' => mb_substr((string) $result['message'], 0, 400),
             ]);
-        } catch (Throwable) {
-            // The audit ledger must never take an action's success path down.
+        } catch (Throwable $e) {
+            // The audit ledger must never take an action's success path down
+            // - but the loss must leave a trace.
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ops.action.executed write failed', ['error' => $e->getMessage()]);
         }
     }
 

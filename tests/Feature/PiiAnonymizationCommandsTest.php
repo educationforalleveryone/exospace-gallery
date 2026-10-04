@@ -302,10 +302,87 @@ class PiiAnonymizationCommandsTest extends TestCase
         $this->assertSame(0, $exitCode, 'Command should succeed with empty table.');
     }
 
+    // ── exospace:anonymize-gdpr-request-pii ──────────────
+
+    private function insertGdprRequest(User $user, string $email, \Carbon\CarbonInterface $createdDate, array $extra = []): int
+    {
+        return DB::table('gdpr_deletion_requests')->insertGetId(array_merge([
+            'user_id'      => $user->id,
+            'email'        => $email,
+            'status'       => 'completed',
+            'requester_ip' => '203.0.113.77',
+            'reason'       => 'Moving to a different platform',
+            'requested_at' => $createdDate,
+            'created_at'   => $createdDate,
+            'updated_at'   => $createdDate,
+        ], $extra));
+    }
+
+    public function test_audit_p15_4_gdpr_request_pii_anonymized_for_old_rows_only(): void
+    {
+        $user = User::factory()->create();
+        $oldDate = now()->subMonths(20);
+        $recentDate = now()->subMonth();
+
+        // Old request — should be anonymized
+        $oldRequestId = $this->insertGdprRequest($user, 'old-requester@example.com', $oldDate);
+
+        // Recent request — should NOT be anonymized
+        $recentRequestId = $this->insertGdprRequest($user, 'recent-requester@example.com', $recentDate);
+
+        $exitCode = Artisan::call('exospace:anonymize-gdpr-request-pii', ['--retention-months' => 18]);
+        $this->assertSame(0, $exitCode);
+
+        $oldRow = DB::table('gdpr_deletion_requests')->where('id', $oldRequestId)->first();
+        $this->assertStringStartsWith('anonymized:', $oldRow->email, 'Old deletion request email should be anonymized.');
+        $this->assertStringNotContainsString('old-requester@example.com', $oldRow->email);
+        $this->assertNull($oldRow->requester_ip, 'Old deletion request IP should be null.');
+        $this->assertNull($oldRow->reason, 'Old deletion request reason should be null.');
+        // Non-PII fields preserved
+        $this->assertSame('completed', $oldRow->status, 'status should be preserved.');
+        $this->assertSame($user->id, $oldRow->user_id, 'user_id should be preserved.');
+
+        $recentRow = DB::table('gdpr_deletion_requests')->where('id', $recentRequestId)->first();
+        $this->assertSame('recent-requester@example.com', $recentRow->email, 'Recent deletion request email should be untouched.');
+        $this->assertSame('203.0.113.77', $recentRow->requester_ip, 'Recent deletion request IP should be untouched.');
+        $this->assertSame('Moving to a different platform', $recentRow->reason, 'Recent deletion request reason should be untouched.');
+    }
+
+    public function test_audit_p15_4_gdpr_request_dry_run_makes_no_changes(): void
+    {
+        $user = User::factory()->create();
+
+        $requestId = $this->insertGdprRequest($user, 'dry-run@example.com', now()->subMonths(20));
+
+        Artisan::call('exospace:anonymize-gdpr-request-pii', ['--retention-months' => 18, '--dry-run' => true]);
+
+        $row = DB::table('gdpr_deletion_requests')->where('id', $requestId)->first();
+        $this->assertSame('dry-run@example.com', $row->email, 'Dry-run should not modify email.');
+        $this->assertSame('203.0.113.77', $row->requester_ip, 'Dry-run should not modify requester_ip.');
+        $this->assertSame('Moving to a different platform', $row->reason, 'Dry-run should not modify reason.');
+    }
+
+    public function test_audit_p15_4_gdpr_request_is_idempotent_on_second_run(): void
+    {
+        $user = User::factory()->create();
+
+        $requestId = $this->insertGdprRequest($user, 'idempotent@example.com', now()->subMonths(20));
+
+        Artisan::call('exospace:anonymize-gdpr-request-pii', ['--retention-months' => 18]);
+        $first = DB::table('gdpr_deletion_requests')->where('id', $requestId)->first();
+
+        Artisan::call('exospace:anonymize-gdpr-request-pii', ['--retention-months' => 18]);
+        $second = DB::table('gdpr_deletion_requests')->where('id', $requestId)->first();
+
+        $this->assertSame($first->email, $second->email, 'Second run should not re-hash the already-anonymized email.');
+        $this->assertSame($first->reason, $second->reason, 'Second run should not change the already-null reason.');
+    }
+
     public function test_audit_p15_schedule_includes_all_3_new_anonymization_commands(): void
     {
         $this->assertCommandScheduled('exospace:anonymize-feedback-pii');
         $this->assertCommandScheduled('exospace:anonymize-rsvp-pii');
         $this->assertCommandScheduled('exospace:anonymize-newsletter-pii');
+        $this->assertCommandScheduled('exospace:anonymize-gdpr-request-pii');
     }
 }

@@ -96,6 +96,11 @@ class TeamController extends Controller
         \App\Models\User::where('current_team_id', $team->id)
             ->update(['current_team_id' => null]);
 
+        AdminAuditLog::record('team.deleted', $team, [
+            'name'        => $team->name,
+            'member_count' => $team->members()->count(),
+        ]);
+
         $team->delete();
 
         return redirect()->route('admin.teams.index')

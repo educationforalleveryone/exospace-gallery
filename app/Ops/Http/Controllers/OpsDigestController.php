@@ -63,7 +63,9 @@ class OpsDigestController extends Controller
                 'trigger' => 'manual',
                 'sections' => (int) ($result['sections'] ?? 0),
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Fail-soft, but never silently — the lost entry leaves a trace.
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ops.digest.sent write failed', ['error' => $e->getMessage()]);
         }
 
         if (($result['sent'] ?? false) === true) {
@@ -86,7 +88,9 @@ class OpsDigestController extends Controller
                 'trigger' => 'manual',
                 'sections' => (int) ($result['sections'] ?? 0),
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Fail-soft, but never silently — the lost entry leaves a trace.
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ops.weekly_review.sent write failed', ['error' => $e->getMessage()]);
         }
 
         if (($result['sent'] ?? false) === true) {

@@ -142,11 +142,17 @@ class ImageController extends Controller
             }
             $this->imageService->delete($image->path);
             $this->imageService->deleteMedia($image);
-            return response()->json(['success' => true]);
         } catch (\Exception $e) {
             Log::error('Image Delete Error: ' . $e->getMessage());
             return response()->json(['error' => 'Delete failed.'], 500);
         }
+
+        // Single artwork deletion mirrors the bulk-delete audit trail.
+        AdminAuditLog::record('gallery.image_deleted', $gallery, [
+            'image_id' => $image->id,
+        ]);
+
+        return response()->json(['success' => true]);
     }
 
     public function bulkDestroy(Request $request)

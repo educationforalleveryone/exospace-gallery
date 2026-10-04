@@ -404,8 +404,10 @@ class IncidentCorrelationService
                 'reopened' => $reopened,
                 'escalated' => $escalated,
             ]);
-        } catch (Throwable) {
-            // Audit failure must never break correlation.
+        } catch (Throwable $e) {
+            // Audit failure must never break correlation - but the loss must
+            // leave a trace.
+            Log::warning('AdminAuditLog: ops.incident.created write failed', ['error' => $e->getMessage()]);
         }
     }
 }

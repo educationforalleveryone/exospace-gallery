@@ -68,6 +68,55 @@ class GdprDeletionCommandTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $user->id]);
     }
 
+    // ── concurrent-run safety: processing claims ─────────────────────────
+
+    public function test_a_request_claimed_by_another_run_is_not_processed_twice(): void
+    {
+        $user = User::factory()->create();
+        $request = $this->makeDueRequest($user);
+
+        // Simulate a concurrent run that just claimed the request.
+        GdprDeletionRequest::where('id', $request->id)->update([
+            'status'     => 'processing',
+            'updated_at' => now(),
+        ]);
+
+        GdprDeletionRequest::query()->update(['scheduled_deletion_at' => now()->subHour()]);
+
+        $this->artisan('exospace:process-gdpr-deletions')->assertSuccessful();
+
+        // The user must survive — the other run owns the request.
+        $this->assertDatabaseHas('users', ['id' => $user->id]);
+        $this->assertDatabaseHas('gdpr_deletion_requests', [
+            'id'     => $request->id,
+            'status' => 'processing',
+        ]);
+    }
+
+    public function test_a_stale_processing_claim_is_reclaimed_and_processed(): void
+    {
+        $user = User::factory()->create();
+        $request = $this->makeDueRequest($user);
+
+        // A run claimed the request and died — the claim predates the window.
+        // (The scheduled_deletion_at update auto-touches updated_at, so it
+        // must run BEFORE the claim whose age matters.)
+        GdprDeletionRequest::query()->update(['scheduled_deletion_at' => now()->subHour()]);
+
+        GdprDeletionRequest::where('id', $request->id)->update([
+            'status'     => 'processing',
+            'updated_at' => now()->subHours(7),
+        ]);
+
+        $this->artisan('exospace:process-gdpr-deletions')->assertSuccessful();
+
+        $this->assertDatabaseMissing('users', ['id' => $user->id]);
+        $this->assertDatabaseHas('gdpr_deletion_requests', [
+            'id'     => $request->id,
+            'status' => 'completed',
+        ]);
+    }
+
     // ── failure isolation: one bad request must not block the rest ───────
 
     public function test_a_failing_deletion_does_not_block_remaining_requests(): void

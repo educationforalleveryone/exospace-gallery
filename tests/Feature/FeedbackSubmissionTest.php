@@ -109,6 +109,45 @@ class FeedbackSubmissionTest extends TestCase
     }
 
     #[Test]
+    public function super_admin_triage_status_change_is_audited(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $this->actingAs($user)
+            ->post('/feedback', ['category' => 'bug', 'message' => 'Viewer flickers on Safari.'])
+            ->assertRedirect();
+
+        $feedback = UserFeedback::firstOrFail();
+
+        $admin = \App\Models\User::factory()->superAdmin()->create([
+            'email_verified_at' => now(),
+            'google2fa_secret' => encrypt('ABCDEFGHIJKLMNOP'),
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession([
+                'auth.password_confirmed_at' => now()->timestamp,
+                'mfa_verified' => true,
+                'mfa_verified_at' => now()->timestamp,
+                'mfa_verified_user_id' => $admin->id,
+            ])
+            ->patch(route('super.feedback.update-status', $feedback), ['status' => 'resolved'])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame('resolved', $feedback->fresh()->status);
+
+        $audit = \App\Models\AdminAuditLog::where('action', 'feedback.status_changed')
+            ->where('actor_id', $admin->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($audit, 'Feedback triage is a super-admin action and must be audited.');
+        $this->assertSame('new', $audit->payload['old_status']);
+        $this->assertSame('resolved', $audit->payload['new_status']);
+    }
+
+    #[Test]
     public function feedback_json_validation_errors_follow_the_json_contract(): void
     {
         $user = \App\Models\User::factory()->create();

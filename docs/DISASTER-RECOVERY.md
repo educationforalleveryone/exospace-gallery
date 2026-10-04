@@ -289,6 +289,44 @@ DefaultStrategy **per disk**:
   `BACKUP_MAX_STORAGE_MB` (**5000 MB** default) — the strategy always
   retains at least the newest usable recovery point
 
+### 4.2 Application data retention (scheduled cleanup jobs)
+
+The scheduler owns every deletion rule below — nothing is pruned by hand.
+All commands are registered in `routes/console.php` and alert through the
+standard heartbeat/log channels when they fail.
+
+| Store | Rule | Job (cadence) |
+|---|---|---|
+| Raw analytics events | pruned after **90 days** (`--retention=90`); daily aggregates in `analytics_daily` are kept | `exospace:rollup-analytics` (daily 03:00) |
+| Outbound webhook delivery ledger | pruned after `OUTBOUND_WEBHOOK_LEDGER_RETENTION_DAYS` (**30 days** default) | `webhook-deliveries:prune` (daily 03:17) |
+| Failed queue jobs | pruned after **7 days** (`--hours=168`) | `queue:prune-failed` (daily 02:30) |
+| Processed 2Checkout webhook ledger (`processed_webhooks`) | pruned after **90 days** | `exospace:cleanup-stale` (daily 04:00) |
+| Pending upgrades / team invitations | expired rows marked `expired` / deleted once `expires_at` has passed | `exospace:cleanup-stale` (daily 04:00) |
+| Onboarding & retention snapshots | deleted after **2 years** | `exospace:cleanup-stale` (daily 04:00) |
+| Scheduler log | rotated at **10 MB**, 5 generations kept (mirrors the docker loop policy; the only rotation when `BYPASS_SCHEDULER=true`) | `exospace:cleanup-stale` (daily 04:00) |
+| Ops events / diagnostics | auto-resolve stale events after `OPS_EVENTS_AUTO_RESOLVE_DAYS` (**7**), delete resolved after `OPS_EVENTS_RESOLVED_RETENTION_DAYS` (**90**) | `ops:prune-events` (daily 03:35) |
+| `transactions` partitions | monthly partitions older than **7 years** (`--retention-years=7`) are dropped; 3 future months are pre-created | `exospace:prune-transactions` (monthly, 1st 05:00) |
+
+PII anonymization (monthly, 1st — rows older than **18 months**, default
+`--retention-months=18`; irreversible hashes, `--dry-run` supported): billing
+records are never deleted — the customer email is replaced with an
+`anonymized:<hash>` token and name/address/PII columns are nulled, so the
+legal/financial record stays intact.
+
+| Command | Store / columns |
+|---|---|
+| `exospace:anonymize-pii` | `transactions` + `invoices` (customer_email, customer_name, billing_address) |
+| `exospace:anonymize-audit-pii` | `admin_audit_logs` payload PII keys + `ip` column |
+| `exospace:anonymize-feedback-pii` | `user_feedback` (message, page_url, user_agent, user_id) |
+| `exospace:anonymize-rsvp-pii` | `event_rsvps` (email, name, ip_address) |
+| `exospace:anonymize-newsletter-pii` | `newsletter_signups` (email, name, ip_address, referrer) |
+| `exospace:anonymize-gdpr-request-pii` | `gdpr_deletion_requests` (email, requester_ip, reason) |
+
+GDPR account deletion runs through `exospace:process-gdpr-deletions` (daily
+04:30): pending requests are executed after the **30-day** grace period,
+then marked `completed` with the request row retained (email anonymized by
+the command above once old enough).
+
 ## 5. Verification after any recovery
 
 - `php artisan exospace:backup:verify` green (backups still land and are

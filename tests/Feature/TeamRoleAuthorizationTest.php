@@ -263,6 +263,15 @@ class TeamRoleAuthorizationTest extends TestCase
         $this->assertDatabaseMissing('teams', ['id' => $team->id]);
         // Membership context is cleaned up alongside the team.
         $this->assertDatabaseMissing('team_user', ['team_id' => $team->id]);
+
+        // Deleting a whole team is a destructive action on other people's
+        // workspace — it must be audited like the other team mutations.
+        $audit = AdminAuditLog::where('action', 'team.deleted')
+            ->where('actor_id', $owner->id)
+            ->latest('id')
+            ->first();
+        $this->assertNotNull($audit, 'Team deletion must be audited.');
+        $this->assertSame(Team::class, $audit->target_type);
     }
 
     public function test_member_can_switch_to_the_team_context(): void

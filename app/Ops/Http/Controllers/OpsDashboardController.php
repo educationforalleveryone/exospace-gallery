@@ -183,7 +183,9 @@ class OpsDashboardController extends Controller
                 'old' => $old !== '' ? $old : null,
                 'new' => $new !== '' ? $new : null,
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Fail-soft, but never silently — the lost entry leaves a trace.
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ops.sentry.mapping write failed', ['error' => $e->getMessage()]);
         }
 
         $message = $new !== ''

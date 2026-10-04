@@ -302,7 +302,9 @@ class SystemController extends Controller
         }
 
         AdminAuditLog::record('user_banned', $user, [
-            'reason'         => $request->input('reason') ?: 'No reason provided',
+            // 'ban_reason' is an audit PII key — the free-text reason is
+            // hashed at write time, matching how _changed.ban_reason is scrubbed.
+            'ban_reason'     => $request->input('reason') ?: 'No reason provided',
             'sessions_purged' => $sessionsPurged,
             'tokens_revoked' => true,
         ]);

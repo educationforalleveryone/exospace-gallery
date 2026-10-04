@@ -153,7 +153,9 @@ class DiagnosticEngine
                 'duration_ms' => $durationMs,
                 'source' => $run->source.($sourceId !== null ? ':'.$sourceId : ''),
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // Fail-soft, but never silently - the lost entry leaves a trace.
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ops.diagnostic.run write failed', ['error' => $e->getMessage()]);
         }
 
         return $run;

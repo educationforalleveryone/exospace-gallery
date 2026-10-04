@@ -145,8 +145,10 @@ class OpsCredentialInventoryService
                 'credential' => $key,
                 'note' => $note,
             ]);
-        } catch (Throwable) {
-            // The ledger must never take the flow down.
+        } catch (Throwable $e) {
+            // The ledger must never take the flow down - but the loss must
+            // leave a trace.
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ops.credential.rotated write failed', ['error' => $e->getMessage()]);
         }
 
         try {

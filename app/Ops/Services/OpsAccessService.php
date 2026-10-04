@@ -117,8 +117,10 @@ class OpsAccessService
     {
         try {
             AdminAuditLog::record($action, $grant, $payload);
-        } catch (Throwable) {
-            // The ledger must never take the management flow down.
+        } catch (Throwable $e) {
+            // The ledger must never take the management flow down - but the
+            // loss must leave a trace.
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ' . $action . ' write failed', ['error' => $e->getMessage()]);
         }
     }
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\PendingUpgrade;
-use App\Services\BillingExportService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -20,15 +19,19 @@ class AffiliateDashboardController extends Controller
             ->groupBy('affiliate_id', 'status')
             ->get();
 
-        // Paid conversions only: a refunded, charged-back or manually granted
-        // upgrade earned the affiliate nothing, so it must not count as revenue
-        // or as a conversion.
+        // Paid conversions only: a fully refunded, charged-back or manually
+        // granted upgrade earned the affiliate nothing, so it must not count
+        // as revenue or as a conversion. A partial refund keeps the plan
+        // active (the webhook only downgrades full refunds), so the sale
+        // stuck and still counts.
+        $unpaidStatuses = ['refunded', 'chargeback', 'manual'];
+
         $paid = PendingUpgrade::query()
             ->join('transactions', 'pending_upgrades.transaction_id', '=', 'transactions.id')
             ->where('pending_upgrades.status', 'converted')
             ->whereNotNull('pending_upgrades.affiliate_id')
             ->where('pending_upgrades.affiliate_id', '!=', '')
-            ->whereNotIn('transactions.status', [...BillingExportService::MONEY_STATUSES, 'manual'])
+            ->whereNotIn('transactions.status', $unpaidStatuses)
             ->selectRaw('pending_upgrades.affiliate_id as affiliate_id, COUNT(*) as cnt, SUM(transactions.amount) as revenue')
             ->groupBy('pending_upgrades.affiliate_id')
             ->get()

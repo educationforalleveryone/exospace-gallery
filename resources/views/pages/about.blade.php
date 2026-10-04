@@ -76,7 +76,7 @@
         <h2 class="text-2xl font-semibold text-gray-100 mb-4">Where We Are</h2>
         <div class="text-gray-300 leading-relaxed">
             <p>Exospace Gallery Ltd. is registered and headquartered in <strong class="text-gray-100">Islamabad, Pakistan</strong>. We are a remote-first company with team members contributing from across the globe.</p>
-            <p class="mt-3 text-gray-500 text-sm">Registered Address: 27 Innovation Drive, Suite 4B, Islamabad, Islamabad Capital Territory 44000, Pakistan</p>
+            <p class="mt-3 text-gray-500 text-sm">Registered Address: {{ str_replace("\n", ', ', config('app.business_address') ?? 'Islamabad, Pakistan') }}</p>
         </div>
     </section>
 </main>

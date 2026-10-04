@@ -11,11 +11,18 @@ use Illuminate\Support\Facades\Log;
 
 class ProcessGdprDeletions extends Command
 {
+    // A claim older than this means the run that took it died mid-deletion
+    // (the daily cadence guarantees any live run is far younger); the request
+    // is handed back to the queue instead of staying stranded.
+    private const STALE_CLAIM_HOURS = 6;
+
     protected $signature = 'exospace:process-gdpr-deletions';
     protected $description = 'Execute GDPR deletion requests whose 30-day grace period has expired.';
 
     public function handle(UserDeletionService $deletionService, JobHeartbeatService $heartbeats): int
     {
+        $this->reclaimStaleProcessing();
+
         $due = GdprDeletionRequest::where('status', 'pending')
             ->where('scheduled_deletion_at', '<=', now())
             ->get();
@@ -33,7 +40,14 @@ class ProcessGdprDeletions extends Command
 
         // Per-request isolation: one failing deletion (e.g. a corrupted user
         // row) must not stall the remaining requests until the next daily run.
+        // Each request is atomically claimed (pending → processing) so a
+        // concurrent run (e.g. a manual invocation alongside the scheduled
+        // task) can never execute the same deletion twice.
         foreach ($due as $request) {
+            if (! $this->claim($request)) {
+                continue;
+            }
+
             try {
                 $user = User::find($request->user_id);
 
@@ -48,6 +62,8 @@ class ProcessGdprDeletions extends Command
 
                 $completed++;
             } catch (\Throwable $e) {
+                $this->release($request);
+
                 $failed++;
 
                 Log::error('ProcessGdprDeletions: deletion request failed', [
@@ -75,5 +91,41 @@ class ProcessGdprDeletions extends Command
         }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function reclaimStaleProcessing(): void
+    {
+        $reclaimed = GdprDeletionRequest::where('status', 'processing')
+            ->where('updated_at', '<', now()->subHours(self::STALE_CLAIM_HOURS))
+            ->update(['status' => 'pending']);
+
+        if ($reclaimed > 0) {
+            Log::warning('ProcessGdprDeletions: reclaimed stale processing claims', [
+                'count' => $reclaimed,
+            ]);
+        }
+    }
+
+    private function claim(GdprDeletionRequest $request): bool
+    {
+        $claimed = GdprDeletionRequest::where('id', $request->id)
+            ->where('status', 'pending')
+            ->where('scheduled_deletion_at', '<=', now())
+            ->update(['status' => 'processing', 'updated_at' => now()]);
+
+        if ($claimed === 0) {
+            return false;
+        }
+
+        $request->refresh();
+
+        return true;
+    }
+
+    private function release(GdprDeletionRequest $request): void
+    {
+        GdprDeletionRequest::where('id', $request->id)
+            ->where('status', 'processing')
+            ->update(['status' => 'pending']);
     }
 }

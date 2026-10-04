@@ -62,9 +62,11 @@ class ProfileController extends Controller
         Mail::to($oldEmail)->send(new EmailChangedNoticeMail($user, $oldEmail));
 
         // Forensic visibility, matching the mfa.enabled/mfa.disabled precedent.
+        // Email-specific payload keys — the audit model hashes them at write
+        // time, while generic 'from'/'to' keys stay readable for plan changes.
         AdminAuditLog::record('email_changed', $user, [
-            'from' => $oldEmail,
-            'to' => $user->email,
+            'previous_email' => $oldEmail,
+            'new_email'      => $user->email,
         ]);
 
         return redirect()

@@ -32,6 +32,25 @@ class AnonymizeAuditLogPii extends Command
         $this->info("  PII keys: " . implode(', ', AdminAuditLog::piiKeys()));
         $this->newLine();
 
+        // The ip column is PII in its own right — the payload scrubber never
+        // touches it, so aged rows are cleared separately, below.
+        $agedRowsWithIp = DB::table('admin_audit_logs')
+            ->where('created_at', '<', $cutoff)
+            ->whereNotNull('ip')
+            ->count();
+
+        if ($agedRowsWithIp > 0) {
+            if ($dryRun) {
+                $this->warn("  [DRY-RUN] Would clear the ip column on {$agedRowsWithIp} aged audit log rows.");
+            } else {
+                $clearedIps = DB::table('admin_audit_logs')
+                    ->where('created_at', '<', $cutoff)
+                    ->whereNotNull('ip')
+                    ->update(['ip' => null]);
+                $this->info("  Cleared the ip column on {$clearedIps} aged audit log rows.");
+            }
+        }
+
         // Find rows that have a non-null payload AND were created before cutoff.
         $totalRows = DB::table('admin_audit_logs')
             ->where('created_at', '<', $cutoff)
@@ -91,6 +110,7 @@ class AnonymizeAuditLogPii extends Command
         Log::info('AnonymizeAuditLogPii: complete', [
             'scrubbed'         => $scrubbed,
             'skipped'          => $skipped,
+            'ips_cleared'      => $dryRun ? 0 : $agedRowsWithIp,
             'retention_months' => $retentionMonths,
             'cutoff'           => $cutoff->toDateString(),
             'dry_run'          => $dryRun,

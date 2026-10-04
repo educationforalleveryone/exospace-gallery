@@ -8,7 +8,7 @@
 <main class="max-w-3xl mx-auto px-4 pt-32 pb-24">
     <div class="mb-10">
         <h1 class="text-4xl font-bold mb-3">Refund Policy</h1>
-        <p class="text-gray-500 text-sm">Last updated: January 2025</p>
+        <p class="text-gray-500 text-sm">Last updated: October 4, 2026</p>
     </div>
 
     <div class="space-y-8 text-gray-300 leading-relaxed">
@@ -40,7 +40,6 @@
             <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400 ml-4">
                 <li>The refund request is made after the 14-day window has passed.</li>
                 <li>The account has been used in violation of our <a href="/terms" class="text-brand-400 hover:text-brand-300">Terms of Service</a>.</li>
-                <li>The refund request is submitted more than 14 days after the original purchase date.</li>
             </ul>
         </section>
 
@@ -55,7 +54,9 @@
             <ul class="list-disc list-inside mt-3 space-y-1 text-gray-400 ml-4">
                 <li>Email: <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300">support@exospace.gallery</a></li>
                 <li>Phone: +92 311 234 5678</li>
-                <li>Address: 27 Innovation Drive, Suite 4B, Islamabad, Islamabad Capital Territory 44000, Pakistan</li>
+                @if ($businessAddress = config('app.business_address'))
+                    <li>Address: {{ str_replace("\n", ', ', $businessAddress) }}</li>
+                @endif
             </ul>
         </section>
     </div>

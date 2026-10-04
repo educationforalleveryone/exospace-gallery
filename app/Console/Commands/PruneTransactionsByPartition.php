@@ -113,6 +113,9 @@ class PruneTransactionsByPartition extends Command
             $name = $p->PARTITION_NAME;
             $description = $p->PARTITION_DESCRIPTION;
 
+            // Per-iteration upper bound — a timestamp-parsed date from a
+            // previous partition must never leak into this one's decision.
+            $upperDate = null;
             $upperBound = null;
             if (ctype_digit((string) $description)) {
                 $timestamp = (int) $description;

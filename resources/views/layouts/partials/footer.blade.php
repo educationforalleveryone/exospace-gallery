@@ -68,11 +68,14 @@
         <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div class="text-gray-500 text-sm">
                 <p>&copy; {{ date('Y') }} Exospace Gallery Ltd. All rights reserved.</p>
-                <p class="mt-1">Registered Address: 27 Innovation Drive, Suite 4B, Islamabad, Islamabad Capital Territory 44000, Pakistan</p>
+                @if ($businessAddress = config('app.business_address'))
+                    {{-- Single source of truth: EXOSPACE_BUSINESS_ADDRESS. --}}
+                    <p class="mt-1">Registered Address: {{ str_replace("\n", ', ', $businessAddress) }}</p>
+                @endif
             </div>
             <div class="text-gray-500 text-sm text-left md:text-right">
                 <p>Support: <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300 transition">support@exospace.gallery</a></p>
-                <p class="mt-1">Phone: <a href="tel:+92311234567890" class="text-brand-400 hover:text-brand-300 transition">+92 311 234 5678</a></p>
+                <p class="mt-1">Phone: <a href="tel:+923112345678" class="text-brand-400 hover:text-brand-300 transition">+92 311 234 5678</a></p>
             </div>
         </div>
     </div>

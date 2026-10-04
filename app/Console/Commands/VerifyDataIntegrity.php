@@ -119,6 +119,12 @@ class VerifyDataIntegrity extends Command
                     ->count(),
             ],
 
+            'audit.chain_hash_mismatch' => [
+                'severity' => 'fail',
+                'description' => 'Admin audit log rows whose chain hash no longer matches the recomputed chain — the row was modified, forged, or reordered after insert.',
+                'query' => fn (): int => \App\Models\AdminAuditLog::verifyChain(),
+            ],
+
             'invoices.dangling_transaction_reference' => [
                 'severity' => 'warn',
                 'description' => 'Invoices referencing a transaction id that no longer exists (expected after retention pruning).',
