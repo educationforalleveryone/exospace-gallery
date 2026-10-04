@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader }      from 'three/addons/loaders/KTX2Loader.js';
-import * as _HDRLoaderModule from 'three/addons/loaders/HDRLoader.js';
-import * as _RGBELoaderModule from 'three/addons/loaders/RGBELoader.js';
-const _HDRLoader = _HDRLoaderModule.HDRLoader || _HDRLoaderModule.RGBELoader || _RGBELoaderModule.RGBELoader;
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { CONFIG } from './config.js';
 import { preloadMaterialTextures } from './Materials.js';
 import { reportException } from '../monitoring.js';
@@ -389,7 +387,7 @@ export function loadEnvironmentMap() {
     const preset = this.lightingPreset || 'bright';
     const lightingConfig = CONFIG.lighting[preset] || CONFIG.lighting.bright;
 
-    const rgbeLoader = new _HDRLoader();
+    const rgbeLoader = new HDRLoader();
     rgbeLoader.load(
         hdriPath,
         (texture) => {

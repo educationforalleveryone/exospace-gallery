@@ -172,6 +172,9 @@ export function setupMobileControls() {
 // ── Mobile movement — same physics as desktop, fed by joystick ───────────────
 function _mobileUpdateMovement() {
     if (this.isInspecting) return;
+    // Guided tour tweens the camera — touch input must not fight it
+    // (desktop's updateMovement is gated by pointer-lock; this is the equivalent).
+    if (this._cameraScripted) return;
 
     const delta = Math.min(this.clock.getDelta(), 0.1);
 

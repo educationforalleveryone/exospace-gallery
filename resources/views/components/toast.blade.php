@@ -1,4 +1,15 @@
 @php
+// Legacy flash KEYS are still flashed as values by auth/profile controllers
+// (e.g. with('status', 'profile-updated')). Humanize them server-side so the
+// emitted call is the plain toast(message, type) contract; sentence flashes
+// pass through untouched.
+$flashLabels = [
+    'profile-updated'        => 'Profile updated',
+    'password-updated'       => 'Password updated',
+    'verification-link-sent' => 'Verification link sent!',
+    'email-verified'         => 'Email verified — welcome to Exospace!',
+];
+$humanize = fn ($v) => $flashLabels[$v] ?? $v;
 @endphp
 
 <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite"></div>
@@ -44,19 +55,9 @@ window.toast = function(message, type = 'success') {
     }, TTL);
 };
 
-(function () {
-    const flashLabels = {
-        'profile-updated': 'Profile updated',
-        'password-updated': 'Password updated',
-        'verification-link-sent': 'Verification link sent!',
-        'email-verified': 'Email verified — welcome to Exospace!',
-    };
-    const humanize = (v) => flashLabels[v] ?? v;
-
-    @if(session('success')) toast(humanize(@json(session('success'))), 'success'); @endif
-    @if(session('error'))   toast(humanize(@json(session('error'))), 'error'); @endif
-    @if(session('info'))    toast(humanize(@json(session('info'))), 'info'); @endif
-    @if(session('status'))  toast(humanize(@json(session('status'))), 'success'); @endif
-    @if(session('warning')) toast(humanize(@json(session('warning'))), 'warning'); @endif
-})();
+@if(session('success')) toast(@json($humanize(session('success'))), 'success'); @endif
+@if(session('error'))   toast(@json($humanize(session('error'))), 'error'); @endif
+@if(session('info'))    toast(@json($humanize(session('info'))), 'info'); @endif
+@if(session('status'))  toast(@json($humanize(session('status'))), 'success'); @endif
+@if(session('warning')) toast(@json($humanize(session('warning'))), 'warning'); @endif
 </script>

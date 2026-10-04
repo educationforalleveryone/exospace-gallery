@@ -199,6 +199,16 @@
 
         @media (pointer: coarse), (hover: none) {
             #desktop-controls { display: none !important; }
+            /* Touch devices get the touch hints; the keyboard variants ship
+               Tailwind's `hidden` class — flip both here. */
+            .desktop-hint, .desktop-text { display: none !important; }
+            .mobile-hint  { display: block !important; }
+            .mobile-text  { display: inline !important; }
+            /* 380px panel + 40px offset overflows a phone viewport */
+            #info-panel {
+                left: 16px; right: 16px; width: auto;
+                padding: 1.25rem; max-height: 55vh;
+            }
         }
         #mobile-overlay { display: none; }
         #mobile-overlay.active {

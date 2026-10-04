@@ -143,4 +143,36 @@ class CspSecurityHeaderRegressionTest extends TestCase
             'Only https ingest hosts belong in the production CSP.'
         );
     }
+
+    public function test_csp_keeps_bunny_fonts_allowed_for_stylesheets_and_font_files(): void
+    {
+        $csp = $this->runMiddlewareAndGetCsp();
+
+        preg_match('/style-src[^;]*/', $csp, $style);
+        $this->assertStringContainsString(
+            'https://fonts.bunny.net',
+            $style[0] ?? '',
+            'Layouts load the Inter stylesheet from fonts.bunny.net — style-src must keep allowing it.'
+        );
+
+        preg_match('/font-src[^;]*/', $csp, $font);
+        $this->assertStringContainsString(
+            'https://fonts.bunny.net',
+            $font[0] ?? '',
+            'The bunny stylesheet pulls woff2 files from the same origin — font-src must keep allowing it.'
+        );
+    }
+
+    public function test_csp_stays_closed_to_the_2checkout_hosted_checkout(): void
+    {
+        $csp = $this->runMiddlewareAndGetCsp();
+
+        // Checkout is a server-side top-level redirect (redirect()->away());
+        // no script, frame, or connection ever talks to 2checkout.com.
+        $this->assertStringNotContainsString(
+            '2checkout.com',
+            $csp,
+            'CSP must not open 2Checkout origins — the hosted checkout is a top-level navigation.'
+        );
+    }
 }
