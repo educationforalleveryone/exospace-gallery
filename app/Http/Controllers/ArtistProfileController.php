@@ -27,7 +27,7 @@ class ArtistProfileController extends Controller
         $images = $artist->images()
             ->with(['gallery.venueTemplate', 'media'])
             ->whereHas('gallery', function ($q) {
-                $q->publiclyViewable();
+                $q->publiclyListable();
             })
             ->orderBy('created_at', 'desc')
             ->get();

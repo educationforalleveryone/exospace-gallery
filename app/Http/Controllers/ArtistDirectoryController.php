@@ -25,9 +25,9 @@ class ArtistDirectoryController extends Controller
     public function index(Request $request): View
     {
         $artists = Artist::query()
-            ->whereHas('images.gallery', fn ($q) => $q->publiclyViewable())
+            ->whereHas('images.gallery', fn ($q) => $q->publiclyListable())
             ->withCount([
-                'images as public_works_count' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable()),
+                'images as public_works_count' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyListable()),
             ])
             ->orderByDesc('public_works_count')
             ->orderBy('name')
@@ -41,7 +41,7 @@ class ArtistDirectoryController extends Controller
         // image sets in the database to keep one cover each.
         $latestCoverIds = GalleryImage::query()
             ->whereIn('artist_id', $artistIds)
-            ->whereHas('gallery', fn ($g) => $g->publiclyViewable())
+            ->whereHas('gallery', fn ($g) => $g->publiclyListable())
             ->groupBy('artist_id')
             ->selectRaw('MAX(id) as id')
             ->pluck('id');

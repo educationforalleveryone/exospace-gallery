@@ -202,4 +202,84 @@ class ControlCenterUiTest extends TestCase
             ->assertRedirect()
             ->assertSessionHasErrors();
     }
+
+    public function test_start_falls_back_to_a_correctly_encoded_github_dispatch_url(): void
+    {
+        $user = \App\Models\User::factory()->create(['email' => $this->admin]);
+
+        // No local runner available → the dashboard must send the operator to
+        // GitHub Actions with a correctly percent-encoded query string.
+        config()->set('test-center.phpunit_binary', 'nonexistent/phpunit');
+        config()->set('test-center.github_repo', 'exospace/exospace');
+
+        $response = $this->actingAs($user)
+            ->post('/control-center/profiles/full_regression/start');
+
+        $response->assertRedirect('https://github.com/exospace/exospace/actions/workflows/test-profiles.yml?query=workflow%3A%22Test+Profiles%22');
+    }
+
+    /* ── Ingest endpoint: machine trust boundary ───────────────────────── */
+
+    public function test_ingest_endpoint_is_absent_without_a_configured_token(): void
+    {
+        config()->set('test-center.ingest_token', null);
+
+        $this->postJson('/api/control-center/runs')->assertNotFound();
+    }
+
+    public function test_ingest_rejects_invalid_token(): void
+    {
+        config()->set('test-center.ingest_token', 'correct-horse');
+
+        $this->postJson('/api/control-center/runs', [], ['X-QA-Token' => 'wrong'])
+            ->assertStatus(401);
+    }
+
+    public function test_ingest_token_probing_is_rate_limited(): void
+    {
+        config()->set('test-center.ingest_token', 'correct-horse');
+
+        // The first ten rejected attempts answer 401; after that the limiter
+        // cuts the endpoint off so the token cannot be probed at any rate.
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson('/api/control-center/runs', [], ['X-QA-Token' => 'wrong'])
+                ->assertStatus(401);
+        }
+
+        $this->postJson('/api/control-center/runs', [], ['X-QA-Token' => 'wrong'])
+            ->assertStatus(429);
+
+        // Even the correct token is refused while the limiter is tripped.
+        $this->postJson('/api/control-center/runs', [], ['X-QA-Token' => 'correct-horse'])
+            ->assertStatus(429);
+    }
+
+    public function test_ingest_accepts_valid_token_and_records_the_run(): void
+    {
+        config()->set('test-center.ingest_token', 'correct-horse');
+
+        $junit = <<<'XML'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <testsuites>
+                <testsuite name="Exospace" tests="2" failures="0" errors="0" skipped="0" time="0.5">
+                    <testcase name="test_a" classname="Tests\Feature\DemoTest" time="0.2"/>
+                    <testcase name="test_b" classname="Tests\Feature\DemoTest" time="0.3"/>
+                </testsuite>
+            </testsuites>
+            XML;
+
+        $response = $this->post(
+            '/api/control-center/runs',
+            ['profile' => 'quick_check', 'junit' => \Illuminate\Http\Testing\File::fake()->createWithContent('junit.xml', $junit)],
+            ['X-QA-Token' => 'correct-horse']
+        );
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('status', 'passed');
+        $response->assertJsonPath('totals.passed', 2);
+
+        $run = QaTestRun::query()->where('profile', 'quick_check')->sole();
+        $this->assertSame('passed', $run->status);
+        $this->assertSame(2, $run->passed);
+    }
 }

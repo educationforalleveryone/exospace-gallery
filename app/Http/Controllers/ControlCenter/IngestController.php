@@ -22,14 +22,16 @@ class IngestController extends Controller
             return response()->json(['message' => 'Not Found.'], 404);
         }
 
-        if (! hash_equals($token, (string) $request->header('X-QA-Token'))) {
-            return response()->json(['message' => 'Invalid ingest token.'], 401);
-        }
-
+        // The attempt counter also covers rejected tokens, so the public
+        // endpoint cannot be probed for the ingest token at an unbounded rate.
         $allowed = RateLimiter::attempt(
             'qa-ingest:'.$request->ip(),
             10,
-            function () use ($request): JsonResponse {
+            function () use ($request, $token): JsonResponse {
+                if (! hash_equals($token, (string) $request->header('X-QA-Token'))) {
+                    return response()->json(['message' => 'Invalid ingest token.'], 401);
+                }
+
                 return $this->ingest($request);
             },
             60,

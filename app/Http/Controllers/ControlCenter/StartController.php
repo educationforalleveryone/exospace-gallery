@@ -81,7 +81,7 @@ class StartController extends Controller
         $slug = config('test-center.github_repo', env('GITHUB_REPO', ''));
 
         return $slug !== ''
-            ? "https://github.com/{$slug}/actions/workflows/test-profiles.yml?query=workflow%%3A%%22Test+Profiles%%22"
+            ? "https://github.com/{$slug}/actions/workflows/test-profiles.yml?query=workflow%3A%22Test+Profiles%22"
             : route('control-center.overview');
     }
 }

@@ -23,7 +23,9 @@ return [
         ],
         'pro' => [
             'name'        => 'Pro',
-            'price'       => 29,
+            // Deriving from the same env the checkout charges keeps the
+            // marketing pages and proration math in sync automatically.
+            'price'       => (float) env('TWOCHECKOUT_PRICE_PRO', 29),
             'price_label' => '$29',
             'tagline'     => '5 galleries · 100 images',
             'features'    => [
@@ -36,7 +38,7 @@ return [
         ],
         'studio' => [
             'name'        => 'Studio',
-            'price'       => 99,
+            'price'       => (float) env('TWOCHECKOUT_PRICE_STUDIO', 99),
             'price_label' => '$99',
             'tagline'     => 'Unlimited galleries · 500 images',
             'features'    => [

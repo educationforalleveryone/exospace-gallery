@@ -147,6 +147,19 @@ class Gallery extends Model
                  });
     }
 
+    /**
+     * Galleries that may be surfaced on public listing surfaces (discover,
+     * artist directory, artist profiles, the public artists API): publicly
+     * viewable and owned by an unbanned user. Without the owner constraint a
+     * banned owner's works would keep leaking through artist content even
+     * though their own gallery pages no longer resolve.
+     */
+    public function scopePubliclyListable(Builder $q): Builder
+    {
+        return $q->publiclyViewable()
+                 ->whereDoesntHave('user', fn (Builder $q) => $q->whereNotNull('banned_at'));
+    }
+
     public function scopePubliclyAccessible(Builder $q): Builder
     {
         return $q->where('is_active', true)

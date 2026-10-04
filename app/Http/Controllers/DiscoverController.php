@@ -19,11 +19,10 @@ class DiscoverController extends Controller
         // Any non-default sort/venue makes this an alternate view.
         $isFilteredView = $venueId !== '' || !in_array($sort, ['featured', ''], true);
 
-        $query = Gallery::publiclyViewable()
+        $query = Gallery::publiclyListable()
             ->with(['coverImage.media', 'venueTemplate', 'user'])
             ->withCount('images')
-            ->has('images', '>=', 1)
-            ->whereDoesntHave('user', fn($q) => $q->whereNotNull('banned_at'));
+            ->has('images', '>=', 1);
 
         // Filter by venue
         if ($venueId) {

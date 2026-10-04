@@ -262,6 +262,17 @@ $testimonials = [
 </section>
 
 {{-- Pricing Preview Section --}}
+@php
+    // Same config the billing portal and checkout charge against — prices on
+    // this page can never drift from what customers actually pay.
+    $freePlanDisplay            = config('plans.display.free');
+    $proPlanDisplay             = config('plans.display.pro');
+    $studioPlanDisplay          = config('plans.display.studio');
+    $recurringProPrice          = config('services.2checkout.recurring_price_pro_monthly', '4.99');
+    $recurringStudioPrice       = config('services.2checkout.recurring_price_studio_monthly', '14.99');
+    $hasRecurringPro            = config('services.2checkout.recurring_product_id_pro');
+    $hasRecurringStudio         = config('services.2checkout.recurring_product_id_studio');
+@endphp
 <section class="py-20 px-4 bg-ink-900">
     <div class="max-w-5xl mx-auto">
         <div class="text-center mb-12">
@@ -272,8 +283,8 @@ $testimonials = [
         <div class="grid md:grid-cols-3 gap-6 mb-10">
             {{-- Free --}}
             <div class="bg-ink-800 rounded-2xl p-6 border border-gray-700">
-                <div class="text-sm text-gray-500 mb-1">Free</div>
-                <div class="text-3xl font-bold mb-1">$0</div>
+                <div class="text-sm text-gray-500 mb-1">{{ $freePlanDisplay['name'] }}</div>
+                <div class="text-3xl font-bold mb-1">${{ $freePlanDisplay['price'] + 0 }}</div>
                 <div class="text-xs text-gray-500 mb-4">forever</div>
                 <ul class="text-sm text-gray-400 space-y-2 mb-6">
                     <li class="flex items-start gap-2"><svg class="w-4 h-4 text-gray-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"/></svg>1 gallery</li>
@@ -285,9 +296,9 @@ $testimonials = [
             {{-- Pro --}}
             <div class="bg-gradient-to-b from-brand-500/10 to-ink-800 rounded-2xl p-6 border-2 border-brand-500 relative">
                 <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</span>
-                <div class="text-sm text-brand-300 mb-1">Pro</div>
-                <div class="text-3xl font-bold mb-1">$29</div>
-                <div class="text-xs text-gray-500 mb-4">one-time · or $4.99/mo</div>
+                <div class="text-sm text-brand-300 mb-1">{{ $proPlanDisplay['name'] }}</div>
+                <div class="text-3xl font-bold mb-1">${{ $proPlanDisplay['price'] + 0 }}</div>
+                <div class="text-xs text-gray-500 mb-4">one-time @if($hasRecurringPro)· or ${{ $recurringProPrice }}/mo @endif</div>
                 <ul class="text-sm text-gray-300 space-y-2 mb-6">
                     <li class="flex items-start gap-2"><svg class="w-4 h-4 text-brand-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"/></svg>5 galleries</li>
                     <li class="flex items-start gap-2"><svg class="w-4 h-4 text-brand-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"/></svg>100 artworks</li>
@@ -299,9 +310,9 @@ $testimonials = [
 
             {{-- Studio --}}
             <div class="bg-ink-800 rounded-2xl p-6 border border-gray-700">
-                <div class="text-sm text-amber-400 mb-1">Studio</div>
-                <div class="text-3xl font-bold mb-1">$99</div>
-                <div class="text-xs text-gray-500 mb-4">one-time · or $14.99/mo</div>
+                <div class="text-sm text-amber-400 mb-1">{{ $studioPlanDisplay['name'] }}</div>
+                <div class="text-3xl font-bold mb-1">${{ $studioPlanDisplay['price'] + 0 }}</div>
+                <div class="text-xs text-gray-500 mb-4">one-time @if($hasRecurringStudio)· or ${{ $recurringStudioPrice }}/mo @endif</div>
                 <ul class="text-sm text-gray-400 space-y-2 mb-6">
                     <li class="flex items-start gap-2"><svg class="w-4 h-4 text-amber-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"/></svg>Unlimited galleries</li>
                     <li class="flex items-start gap-2"><svg class="w-4 h-4 text-amber-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"/></svg>500 artworks per gallery</li>

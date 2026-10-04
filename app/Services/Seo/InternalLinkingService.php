@@ -86,9 +86,10 @@ class InternalLinkingService
         $key = $this->cacheKey('artists', $artist->id);
 
         return ResilientCache::remember($key, self::CACHE_TTL, function () use ($artist, $limit) {
-            // Public galleries featuring this artist.
+            // Public galleries featuring this artist. Ban filtering keeps a
+            // banned owner's works from resurfacing through artist pages.
             $galleryIds = Gallery::query()
-                ->publiclyViewable()
+                ->publiclyListable()
                 ->has('images', '>=', 1)
                 ->whereHas('images', fn ($q) => $q->where('artist_id', $artist->id))
                 ->pluck('id');

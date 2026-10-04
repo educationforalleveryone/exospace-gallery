@@ -12,12 +12,12 @@ class ArtistApiController extends Controller
     public function index(Request $request): JsonResponse
     {
         // Same public eligibility as the /artists directory: an artist is
-        // publicly listed once they have artwork in a publicly viewable
-        // exhibition.
+        // publicly listed once they have artwork in a publicly listable
+        // exhibition (viewable and owned by an unbanned user).
         $perPage = max(1, min((int) $request->query('per_page', 20), 100));
 
         $artists = Artist::whereNotNull('slug')
-            ->whereHas('images.gallery', fn ($q) => $q->publiclyViewable())
+            ->whereHas('images.gallery', fn ($q) => $q->publiclyListable())
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
@@ -58,7 +58,7 @@ class ArtistApiController extends Controller
         $perPage = max(1, min((int) $request->query('per_page', 20), 100));
 
         $galleries = $artist->galleries()
-            ->publiclyViewable()
+            ->publiclyListable()
             ->with(['coverImage', 'venueTemplate'])
             ->has('images', '>=', 1)
             ->paginate($perPage);

@@ -1,17 +1,21 @@
 @extends('layouts.public')
 
-@section('title', 'Pricing — Exospace 3D Gallery')
-@section('description', 'Create museum-quality 3D art exhibitions. Free to start. Pro $29 one-time or $4.99/mo. Studio $99 one-time or $14.99/mo — custom domains and white-label branding.')
-
 @php
     // Determine the current user's plan for "already on this plan" state
     $currentPlan = auth()->check() ? auth()->user()->plan : null;
 
+    // Prices come from the same config the checkout charges against, so the
+    // page can never drift from what customers actually pay.
+    $proPrice             = config('plans.display.pro.price');
+    $studioPrice          = config('plans.display.studio.price');
     $recurringProPrice    = config('services.2checkout.recurring_price_pro_monthly', '4.99');
     $recurringStudioPrice = config('services.2checkout.recurring_price_studio_monthly', '14.99');
     $hasRecurringPro      = config('services.2checkout.recurring_product_id_pro');
     $hasRecurringStudio   = config('services.2checkout.recurring_product_id_studio');
 @endphp
+
+@section('title', 'Pricing — Exospace 3D Gallery')
+@section('description', 'Create museum-quality 3D art exhibitions. Free to start. Pro $'.($proPrice + 0).' one-time'.($hasRecurringPro ? ' or $'.$recurringProPrice.'/mo' : '').'. Studio $'.($studioPrice + 0).' one-time'.($hasRecurringStudio ? ' or $'.$recurringStudioPrice.'/mo' : '').' — custom domains and white-label branding.')
 
 @section('content')
 <style>
@@ -169,7 +173,7 @@
         <div class="card-tier">Free</div>
         <div class="card-price">
             <span class="dollar">$</span>
-            <span class="amount">0</span>
+            <span class="amount">{{ config('plans.display.free.price') + 0 }}</span>
             <span class="period">forever</span>
         </div>
         <p class="card-desc">Try Exospace with one gallery. Perfect for portfolios and personal projects.</p>
@@ -208,7 +212,7 @@
         <div class="card-tier">Pro</div>
         <div class="card-price">
             <span class="dollar">$</span>
-            <span class="amount">29</span>
+            <span class="amount">{{ $proPrice + 0 }}</span>
             <span class="period">/ one-time</span>
         </div>
         @if($hasRecurringPro)
@@ -245,7 +249,7 @@
         @elseif($currentPlan === 'studio')
         <button type="button" class="btn btn-primary w-full" disabled>Included in Studio ✓</button>
         @else
-        <button type="button" class="btn btn-primary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — $29</button>
+        <button type="button" class="btn btn-primary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-pro">Upgrade to Pro — ${{ $proPrice + 0 }}</button>
         @auth
             @if(auth()->user()->plan === 'free' && ! auth()->user()->hasUsedTrial())
             <form action="{{ route('billing.start-trial', 'pro') }}" method="POST" style="margin-top:0.6rem;">
@@ -266,7 +270,7 @@
         <div class="card-tier">Studio</div>
         <div class="card-price">
             <span class="dollar">$</span>
-            <span class="amount">99</span>
+            <span class="amount">{{ $studioPrice + 0 }}</span>
             <span class="period">/ one-time</span>
         </div>
         @if($hasRecurringStudio)
@@ -311,7 +315,7 @@
         @if($currentPlan === 'studio')
         <button type="button" class="btn btn-secondary w-full" disabled>Your Current Plan ✓</button>
         @else
-        <button type="button" class="btn btn-secondary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — $99</button>
+        <button type="button" class="btn btn-secondary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — ${{ $studioPrice + 0 }}</button>
         @endif
     </div>
 </div>
@@ -482,7 +486,7 @@
 <div id="upgrade-modal-pro" role="dialog" aria-modal="true" aria-labelledby="modal-pro-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
     <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
-        <h3 id="modal-pro-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Pro — $29</h3>
+        <h3 id="modal-pro-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Pro — ${{ $proPrice + 0 }}</h3>
         <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access.</p>
         <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>5 galleries · 100 images total</li>
@@ -516,7 +520,7 @@
 <div id="upgrade-modal-studio" role="dialog" aria-modal="true" aria-labelledby="modal-studio-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
     <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
-        <h3 id="modal-studio-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Studio — $99</h3>
+        <h3 id="modal-studio-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Studio — ${{ $studioPrice + 0 }}</h3>
         <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access.</p>
         <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>Unlimited galleries · 500 images total</li>
@@ -548,8 +552,8 @@
     </div>
 </div>
 
-<x-json-ld type="product" :product="['name' => 'Pro', 'price' => 29.00, 'currency' => 'USD', 'description' => 'Exospace Pro plan — 5 galleries with 100 images total, 8 venues, background music, exhibition scheduling, watermark-free galleries.']" />
-<x-json-ld type="product" :product="['name' => 'Studio', 'price' => 99.00, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
+<x-json-ld type="product" :product="['name' => 'Pro', 'price' => $proPrice, 'currency' => 'USD', 'description' => 'Exospace Pro plan — 5 galleries with 100 images total, 8 venues, background music, exhibition scheduling, watermark-free galleries.']" />
+<x-json-ld type="product" :product="['name' => 'Studio', 'price' => $studioPrice, 'currency' => 'USD', 'description' => 'Exospace Studio plan — everything in Pro plus priority support and white-label branding.']" />
 {{-- Escaped quotes inside an inline :faqs attribute silently break --}}
 {{-- the component's expression evaluation — the FAQPage data is --}}
 {{-- therefore defined in a PHP block below instead. --}}
