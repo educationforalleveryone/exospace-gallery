@@ -118,8 +118,8 @@ class GalleryAuthorizationTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $owner->id]);
         $team->members()->attach($member->id, ['role' => 'viewer']);
         $gallery = Gallery::factory()->create([
-            'user_id'  => $owner->id,
-            'team_id'  => $team->id,
+            'user_id' => $owner->id,
+            'team_id' => $team->id,
         ]);
 
         $response = $this->actingAs($member)
@@ -134,8 +134,8 @@ class GalleryAuthorizationTest extends TestCase
         $intruder = User::factory()->create();
         $team = Team::factory()->create(['owner_id' => $owner->id]);
         $gallery = Gallery::factory()->create([
-            'user_id'  => $owner->id,
-            'team_id'  => $team->id,
+            'user_id' => $owner->id,
+            'team_id' => $team->id,
         ]);
 
         $response = $this->actingAs($intruder)

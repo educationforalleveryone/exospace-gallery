@@ -10,11 +10,11 @@ use App\Models\VenueTemplateSnapshot;
 use App\Services\FeatureFlag;
 use App\Services\VenueSnapshotManager;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class VenueTemplateController extends Controller
 {
@@ -36,15 +36,15 @@ class VenueTemplateController extends Controller
         if ($search = trim((string) $request->query('q', ''))) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('slug', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('slug', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
         $venues = $query->paginate(20)->withQueryString();
         $categories = VenueTemplate::CATEGORIES;
         $authoringEnabled = FeatureFlag::isEnabled('venue_authoring');
-        $previewsEnabled  = FeatureFlag::isEnabled('venue_previews');
+        $previewsEnabled = FeatureFlag::isEnabled('venue_previews');
 
         return view('super-admin.venues.index', compact(
             'venues', 'categories', 'authoringEnabled', 'previewsEnabled',
@@ -54,15 +54,15 @@ class VenueTemplateController extends Controller
     public function create(): View
     {
         $venue = new VenueTemplate([
-            'category'      => 'gallery',
+            'category' => 'gallery',
             'plan_required' => 'free',
-            'capacity_min'  => 10,
-            'capacity_max'  => 50,
-            'is_active'      => true,
-            'is_featured'    => false,
-            'is_draft'       => false,
-            'sort_order'     => (VenueTemplate::max('sort_order') ?? 0) + 1,
-            'version'        => '1.0.0',
+            'capacity_min' => 10,
+            'capacity_max' => 50,
+            'is_active' => true,
+            'is_featured' => false,
+            'is_draft' => false,
+            'sort_order' => (VenueTemplate::max('sort_order') ?? 0) + 1,
+            'version' => '1.0.0',
             'supported_layouts' => ['square', 'corridor', 'l-shape', 'rotunda'],
         ]);
 
@@ -106,7 +106,7 @@ class VenueTemplateController extends Controller
             ->with('author:id,name')
             ->get();
         $authoringEnabled = FeatureFlag::isEnabled('venue_authoring');
-        $previewsEnabled  = FeatureFlag::isEnabled('venue_previews');
+        $previewsEnabled = FeatureFlag::isEnabled('venue_previews');
 
         return view('super-admin.venues.edit', compact(
             'venue', 'categories', 'layouts', 'snapshots', 'authoringEnabled', 'previewsEnabled',
@@ -140,7 +140,7 @@ class VenueTemplateController extends Controller
 
         AdminAuditLog::record('venue_template.updated', $venue, [
             'before' => $before,
-            'after'  => $venue->fresh()->toArray(),
+            'after' => $venue->fresh()->toArray(),
         ]);
 
         return redirect()
@@ -152,17 +152,17 @@ class VenueTemplateController extends Controller
     {
         $copy = $venue->replicate(['slug', 'view_count', 'published_at', 'archived_at']);
 
-        $copy->name        = $venue->name.' (Copy)';
-        $copy->is_draft    = true;   // duplicates never auto-publish
+        $copy->name = $venue->name.' (Copy)';
+        $copy->is_draft = true;   // duplicates never auto-publish
         $copy->is_featured = false;  // featured is curation of the original
-        $copy->view_count  = 0;
+        $copy->view_count = 0;
         $copy->published_at = null;
-        $copy->archived_at  = null;
-        $copy->sort_order  = (VenueTemplate::max('sort_order') ?? 0) + 1;
+        $copy->archived_at = null;
+        $copy->sort_order = (VenueTemplate::max('sort_order') ?? 0) + 1;
 
         $disk = Storage::disk('public');
         foreach (['thumbnail_path', 'preview_model_path', 'hdri_path', 'default_audio_path'] as $field) {
-            if (!empty($venue->$field) && $disk->exists($venue->$field)) {
+            if (! empty($venue->$field) && $disk->exists($venue->$field)) {
                 $newPath = dirname($venue->$field).'/'.Str::uuid()->toString().'-'.basename($venue->$field);
                 try {
                     if ($disk->copy($venue->$field, $newPath)) {
@@ -170,9 +170,9 @@ class VenueTemplateController extends Controller
                     }
                 } catch (\Throwable $e) {
                     \Log::warning('VenueTemplateController: clone file copy failed', [
-                        'field'    => $field,
-                        'source'   => $venue->$field,
-                        'error'    => $e->getMessage(),
+                        'field' => $field,
+                        'source' => $venue->$field,
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
@@ -188,7 +188,7 @@ class VenueTemplateController extends Controller
                 $msg = strtolower($e->getMessage());
                 $isCollision = str_contains($msg, 'duplicate entry')
                     || str_contains($msg, 'unique constraint');
-                if ($attempt === 10 || !$isCollision) {
+                if ($attempt === 10 || ! $isCollision) {
                     throw $e;
                 }
             }
@@ -211,7 +211,7 @@ class VenueTemplateController extends Controller
         $wasDraft = $venue->is_draft;
 
         $venue->fill(['is_draft' => false]);
-        if (!$venue->published_at) {
+        if (! $venue->published_at) {
             $venue->published_at = now();
         }
         $venue->save();
@@ -269,7 +269,7 @@ class VenueTemplateController extends Controller
 
         $galleriesCount = $venue->galleries()->count();
 
-        if ($galleriesCount > 0 && !$request->boolean('confirm_usage')) {
+        if ($galleriesCount > 0 && ! $request->boolean('confirm_usage')) {
             return back()->with(
                 'error',
                 "\"{$venue->name}\" is used by {$galleriesCount} ".str('gallery')->plural($galleriesCount)
@@ -351,12 +351,12 @@ class VenueTemplateController extends Controller
         }
 
         // Default slug from name if not provided
-        if (empty($data['slug']) && !empty($data['name'])) {
+        if (empty($data['slug']) && ! empty($data['name'])) {
             $data['slug'] = Str::slug($data['name']);
         }
 
         // Author attribution on create
-        if (!$venue && empty($data['author_id'])) {
+        if (! $venue && empty($data['author_id'])) {
             $data['author_id'] = $request->user()->id;
         }
 
@@ -420,7 +420,7 @@ class VenueTemplateController extends Controller
                 $disk->delete($path);
             } catch (\Throwable $e) {
                 \Log::warning('VenueTemplateController: file cleanup failed', [
-                    'path'  => $path,
+                    'path' => $path,
                     'error' => $e->getMessage(),
                 ]);
             }

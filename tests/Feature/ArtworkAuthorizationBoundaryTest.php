@@ -105,9 +105,9 @@ class ArtworkAuthorizationBoundaryTest extends TestCase
 
         // Single-artwork deletion is audited the same way as bulk deletion.
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'      => 'gallery.image_deleted',
+            'action' => 'gallery.image_deleted',
             'target_type' => Gallery::class,
-            'target_id'   => $gallery->id,
+            'target_id' => $gallery->id,
         ]);
         $audit = \App\Models\AdminAuditLog::where('action', 'gallery.image_deleted')->latest('id')->first();
         $this->assertSame($image->id, $audit->payload['image_id']);

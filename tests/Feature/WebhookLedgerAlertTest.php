@@ -25,12 +25,12 @@ class WebhookLedgerAlertTest extends TestCase
     private function seedWebhookRow(string $status, ?string $updatedAt = null): void
     {
         ProcessedWebhook::create([
-            'message_id'   => 'MSG-' . uniqid(),
+            'message_id' => 'MSG-'.uniqid(),
             'message_type' => 'REFUND_ISSUED',
-            'invoice_id'   => 'INV-' . uniqid(),
-            'payload'      => ['message_type' => 'REFUND_ISSUED'],
-            'status'       => $status,
-            'updated_at'   => $updatedAt ?? now(),
+            'invoice_id' => 'INV-'.uniqid(),
+            'payload' => ['message_type' => 'REFUND_ISSUED'],
+            'status' => $status,
+            'updated_at' => $updatedAt ?? now(),
         ]);
     }
 

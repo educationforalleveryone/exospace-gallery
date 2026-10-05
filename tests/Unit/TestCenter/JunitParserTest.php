@@ -70,7 +70,7 @@ class JunitParserTest extends TestCase
         $this->assertSame('skipped', $skipped['status']);
 
         // Failure-intelligence support: infra signature detectable from message.
-        $model = new \App\Models\QaTestCaseResult();
+        $model = new \App\Models\QaTestCaseResult;
         $model->forceFill(['status' => 'error', 'message' => $conn['message'], 'detail' => null]);
         $this->assertSame('infrastructure', $model->failureClass());
     }

@@ -21,12 +21,12 @@ class ReleaseAnnotationsTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -91,6 +91,58 @@ class ReleaseAnnotationsTest extends TestCase
         $response = $this->get('/changelog');
 
         $response->assertOk()->assertSee('v1.0', false);
+    }
+
+    public function test_release_entries_expose_only_public_keys(): void
+    {
+        // Contract guard: internal metadata (rollout plans, rollback steps,
+        // embargo reminders) must be added to ReleaseCalendar::internalNotes(),
+        // never as an extra key on a release entry — this fails the build if
+        // one sneaks in.
+        $renderedKeys = [];
+
+        foreach (ReleaseCalendar::releases() as $release) {
+            $renderedKeys = array_unique(array_merge($renderedKeys, array_keys($release)));
+        }
+
+        $this->assertEmpty(
+            array_diff($renderedKeys, ReleaseCalendar::PUBLIC_KEYS),
+            'Release entries carry non-public keys — move them to internalNotes().',
+        );
+    }
+
+    public function test_internal_notes_never_render_on_the_public_changelog(): void
+    {
+        // Structure guard: notes must belong to real versions.
+        $versions = array_column(ReleaseCalendar::releases(), 'version');
+
+        foreach (array_keys(ReleaseCalendar::internalNotes()) as $version) {
+            $this->assertContains($version, $versions, "internal note for [{$version}] has no matching release.");
+        }
+
+        // Leak guard: nothing from internalNotes() may reach the public page.
+        $response = $this->get('/changelog');
+        $response->assertOk();
+
+        foreach (ReleaseCalendar::internalNotes() as $notes) {
+            foreach ((array) $notes as $note) {
+                $response->assertDontSee($note, false);
+            }
+        }
+    }
+
+    public function test_changelog_renders_every_release_publicly(): void
+    {
+        $response = $this->get('/changelog');
+        $response->assertOk();
+
+        foreach (ReleaseCalendar::releases() as $release) {
+            // Default (escaped) matching — titles like "Dunning & Invoicing"
+            // render as &amp; in the HTML haystack.
+            $response->assertSee($release['version']);
+            $response->assertSee($release['title']);
+            $response->assertSee(\Carbon\Carbon::parse($release['date'])->format('M j, Y'));
+        }
     }
 
     public function test_master_control_embeds_release_annotations_when_chart_drawn(): void

@@ -79,18 +79,18 @@ class TaxService
             $vatValid = $this->validateVatNumber($vatNumber, $country);
             if ($vatValid) {
                 return [
-                    'rate'              => 0.0,
-                    'amount'            => 0.00,
-                    'country'           => $country,
-                    'is_eu'             => $isEu,
+                    'rate' => 0.0,
+                    'amount' => 0.00,
+                    'country' => $country,
+                    'is_eu' => $isEu,
                     'is_reverse_charge' => true,
-                    'vat_number_valid'  => true,
+                    'vat_number_valid' => true,
                     'jurisdiction_name' => $this->jurisdictionName($country),
                 ];
             }
             Log::warning('TaxService: VAT number failed VIES validation; charging B2C rate', [
-                'country'    => $country,
-                'vat_number' => substr($vatNumber, 0, 4) . '...', // don't log full VAT
+                'country' => $country,
+                'vat_number' => substr($vatNumber, 0, 4).'...', // don't log full VAT
             ]);
         }
 
@@ -105,12 +105,12 @@ class TaxService
         $taxAmount = $rate > 0 ? round($amount * $rate / 100, 2) : 0.00;
 
         return [
-            'rate'              => $rate,
-            'amount'            => $taxAmount,
-            'country'           => $country,
-            'is_eu'             => $isEu,
+            'rate' => $rate,
+            'amount' => $taxAmount,
+            'country' => $country,
+            'is_eu' => $isEu,
             'is_reverse_charge' => false,
-            'vat_number_valid'  => false,
+            'vat_number_valid' => false,
             'jurisdiction_name' => $this->jurisdictionName($country),
         ];
     }
@@ -163,9 +163,10 @@ class TaxService
             // verdict is deliberately not cached so a short VIES outage
             // cannot stick for the whole TTL.
             Log::warning('TaxService: VIES API unreachable; falling back to format-only validation', [
-                'country'    => $countryCode,
-                'vat_number' => substr($vatNumber, 0, 4) . '...',
+                'country' => $countryCode,
+                'vat_number' => substr($vatNumber, 0, 4).'...',
             ]);
+
             return $this->validateVatNumberFormat($vatNumber, $countryCode);
         }
 
@@ -177,7 +178,7 @@ class TaxService
             // Checkout must not fail because the cache is down.
             Log::warning('TaxService: VIES verdict could not be cached', [
                 'country' => $countryCode,
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -191,15 +192,15 @@ class TaxService
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <checkVat xmlns="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
-      <countryCode>' . htmlspecialchars($countryCode, ENT_XML1) . '</countryCode>
-      <vatNumber>' . htmlspecialchars($vatNumber, ENT_XML1) . '</vatNumber>
+      <countryCode>'.htmlspecialchars($countryCode, ENT_XML1).'</countryCode>
+      <vatNumber>'.htmlspecialchars($vatNumber, ENT_XML1).'</vatNumber>
     </checkVat>
   </soap:Body>
 </soap:Envelope>';
 
             $response = Http::withHeaders([
                 'Content-Type' => 'text/xml; charset=UTF-8',
-                'SOAPAction'   => '',
+                'SOAPAction' => '',
             ])
                 ->timeout(10)
                 ->connectTimeout(5)
@@ -214,11 +215,13 @@ class TaxService
             if (preg_match('/<valid>(true|false)<\/valid>/i', $body, $m)) {
                 return strtolower($m[1]) === 'true';
             }
+
             return null;
         } catch (\Throwable $e) {
             Log::debug('TaxService: VIES API exception', [
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -247,6 +250,7 @@ class TaxService
     private function validateVatNumberFormat(string $vatNumber, string $countryCode): bool
     {
         $vatNumber = $this->normalizeVatNumber($vatNumber, $countryCode);
+
         return strlen($vatNumber) >= 8 && strlen($vatNumber) <= 12 && ctype_alnum($vatNumber);
     }
 
@@ -258,6 +262,7 @@ class TaxService
     private function validateUkVatFormat(string $vatNumber): bool
     {
         $vatNumber = $this->normalizeVatNumber($vatNumber, 'GB');
+
         // Standard UK VAT: 9 digits. Government: 12 digits (GD/HA prefix).
         return (strlen($vatNumber) === 9 && ctype_digit($vatNumber))
             || (strlen($vatNumber) === 12 && ctype_digit($vatNumber));

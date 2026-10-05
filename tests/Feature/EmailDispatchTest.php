@@ -2,11 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Listeners\SendWelcomeEmail;
 use App\Mail\PlanUpgradedEmail;
 use App\Mail\WelcomeEmail;
 use App\Models\User;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
@@ -21,9 +19,9 @@ class EmailDispatchTest extends TestCase
         Mail::fake();
 
         $response = $this->post('/register', [
-            'name'                  => 'Test User',
-            'email'                 => 'test@example.com',
-            'password'              => 'password',
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
@@ -42,24 +40,24 @@ class EmailDispatchTest extends TestCase
 
         $user = User::factory()->create(['email' => 'buyer@example.com']);
 
-        $saleId = 'SALE-' . uniqid();
-        $invoiceId = 'INV-' . uniqid();
+        $saleId = 'SALE-'.uniqid();
+        $invoiceId = 'INV-'.uniqid();
         $stringToHash = $saleId
-                      . 'V123'
-                      . $invoiceId
-                      . 'test-secret';
+                      .'V123'
+                      .$invoiceId
+                      .'test-secret';
         $hash = strtoupper(md5($stringToHash));
 
         $response = $this->postJson('/webhooks/2checkout', [
-            'message_type'      => 'ORDER_CREATED',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V123',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $hash,
-            'customer_email'    => 'buyer@example.com',
-            'item_id_1'         => 'PRO-001',
-            'item_list_amount_1'=> '29.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'ORDER_CREATED',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V123',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $hash,
+            'customer_email' => 'buyer@example.com',
+            'item_id_1' => 'PRO-001',
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
         ]);
 
         $response->assertOk();
@@ -74,15 +72,15 @@ class EmailDispatchTest extends TestCase
         Mail::fake();
 
         $superAdmin = User::factory()->withMfa()->create([
-            'is_super_admin'   => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
         $user = User::factory()->create(['plan' => 'free']);
 
         $response = $this->actingAs($superAdmin)
             ->withSession([
-                'mfa_verified'          => true,
-                'mfa_verified_at'       => now()->timestamp,
+                'mfa_verified' => true,
+                'mfa_verified_at' => now()->timestamp,
                 'auth.password_confirmed_at' => now()->timestamp,
             ])
             ->post("/master-control/users/{$user->id}/plan", [

@@ -46,9 +46,9 @@ return new class extends Migration
             $table->integer('sort_order')->default(0)->index();
 
             $table->foreignId('author_id')
-                  ->nullable()
-                  ->constrained('users')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
             $table->string('version', 16)->default('1.0.0');
             $table->timestamp('published_at')->nullable();
 

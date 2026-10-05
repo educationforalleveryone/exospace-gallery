@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\TestCenter\JunitParser;
 use App\Services\TestCenter\RunRecorder;
 use Illuminate\Console\Command;
 
@@ -13,7 +12,7 @@ class QaImportJunit extends Command
     protected $signature = 'qa:import
                             {artifact : Path or "-" for stdin, to a JUnit XML file}
                             {--profile= : Profile key the artifact belongs to}
-                            {--env=ci : Environment it ran against}
+                            {--environment=ci : Environment it ran against}
                             {--branch=} {--commit=} {--tag=}
                             {--ci-url= : GitHub Actions run URL}
                             {--trigger=ci : manual|ci|api|schedule}
@@ -32,26 +31,43 @@ class QaImportJunit extends Command
         }
 
         $input = (string) $this->argument('artifact');
-        $path  = $input === '-' ? 'php://stdin' : $input;
 
-        if ($input !== '-' && ! is_file($path)) {
-            $this->error("Artifact not found: {$path}");
+        if ($input === '-') {
+            // The recorder/parser contract is file-based (is_file checks +
+            // artifact archiving), so stdin input is spooled to a real file
+            // first. The spooled copy then flows through the normal archive
+            // path — stdin imports gain the same forensics as file imports.
+            $spooled = $this->spoolStdin();
 
-            return self::FAILURE;
+            if ($spooled === null) {
+                $this->error('Stdin produced no JUnit XML — nothing to import.');
+
+                return self::FAILURE;
+            }
+
+            $path = $spooled;
+        } else {
+            $path = $input;
+
+            if (! is_file($path)) {
+                $this->error("Artifact not found: {$path}");
+
+                return self::FAILURE;
+            }
         }
 
         try {
             $run = $recorder->record([
-                'profile'     => $profile,
-                'environment' => (string) $this->option('env'),
-                'safety'      => config("test-profiles.profiles.{$profile}.safety", 'test-only'),
-                'trigger'     => (string) $this->option('trigger') ?: 'ci',
-                'runner'      => getenv('GITHUB_ACTIONS') === 'true' ? 'github-actions' : 'import:'.$this->option('trigger'),
-                'git_branch'  => $this->option('branch'),
-                'git_commit'  => $this->option('commit'),
-                'git_tag'     => $this->option('tag'),
-                'ci_run_url'  => $this->option('ci-url'),
-                'meta'        => ['source' => 'manual-import'],
+                'profile' => $profile,
+                'environment' => (string) $this->option('environment'),
+                'safety' => config("test-profiles.profiles.{$profile}.safety", 'test-only'),
+                'trigger' => (string) $this->option('trigger') ?: 'ci',
+                'runner' => getenv('GITHUB_ACTIONS') === 'true' ? 'github-actions' : 'import:'.$this->option('trigger'),
+                'git_branch' => $this->option('branch'),
+                'git_commit' => $this->option('commit'),
+                'git_tag' => $this->option('tag'),
+                'ci_run_url' => $this->option('ci-url'),
+                'meta' => ['source' => 'manual-import'],
             ], $path, [
                 'duration_ms' => $this->option('duration-ms') !== null ? (int) $this->option('duration-ms') : null,
             ]);
@@ -78,5 +94,28 @@ class QaImportJunit extends Command
         );
 
         return self::SUCCESS;
+    }
+
+    private function spoolStdin(): ?string
+    {
+        $stream = fopen('php://stdin', 'rb');
+
+        if ($stream === false) {
+            return null;
+        }
+
+        $contents = stream_get_contents($stream);
+        fclose($stream);
+
+        if ($contents === false || trim($contents) === '') {
+            return null;
+        }
+
+        $dir = storage_path('framework/qa');
+        @mkdir($dir, 0775, true);
+
+        $path = $dir.'/import-'.now()->format('YmdHis').'-'.bin2hex(random_bytes(3)).'.xml';
+
+        return file_put_contents($path, $contents) !== false ? $path : null;
     }
 }

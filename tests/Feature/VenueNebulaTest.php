@@ -110,49 +110,49 @@ class VenueNebulaTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         DB::table('venue_templates')->where('slug', 'nebula-drift')->update([
             'description' => 'Artworks drift through a cosmic cloud — distant stars and a purple nebula with quiet depth between them. For digital art and otherworldly exhibitions.',
-            'version'     => '1.0.0',
+            'version' => '1.0.0',
             'visual_config' => json_encode([
-                'wall_height'            => 15,
-                'wall_depth'             => 0.3,
-                'ceiling_type'           => 'none',
-                'ceiling_height'         => 0,
-                'background_color'       => '0x050015',
-                'fog_color'              => '0x050015',
-                'fog_near'               => 10,
-                'fog_far'                => 40,
-                'ambient_color'          => '0x8844ff',
-                'ambient_intensity'      => 0.2,
-                'spot_intensity'         => 0.55,
-                'fill_intensity'         => 0.15,
-                'tone_mapping_exposure'  => 0.6,
-                'frame_override'         => null,
-                'placement_mode'         => 'float',
-                'env_intensity'          => 0.05,
-                'structure_pass'         => 'phenomena',
-                'open_air'               => true,
-                'layout_shape'           => 'circular',
-                'void_starfield'         => true,
+                'wall_height' => 15,
+                'wall_depth' => 0.3,
+                'ceiling_type' => 'none',
+                'ceiling_height' => 0,
+                'background_color' => '0x050015',
+                'fog_color' => '0x050015',
+                'fog_near' => 10,
+                'fog_far' => 40,
+                'ambient_color' => '0x8844ff',
+                'ambient_intensity' => 0.2,
+                'spot_intensity' => 0.55,
+                'fill_intensity' => 0.15,
+                'tone_mapping_exposure' => 0.6,
+                'frame_override' => null,
+                'placement_mode' => 'float',
+                'env_intensity' => 0.05,
+                'structure_pass' => 'phenomena',
+                'open_air' => true,
+                'layout_shape' => 'circular',
+                'void_starfield' => true,
             ]),
             'material_config' => json_encode([
-                'wall_color'            => '0x080015',
-                'wall_roughness'        => 0.4,
-                'wall_metalness'        => 0.2,
-                'wall_normal_strength'  => 0.3,
-                'floor_color'           => '0x100525',
-                'floor_roughness'       => 0.3,
-                'floor_metalness'       => 0.5,
+                'wall_color' => '0x080015',
+                'wall_roughness' => 0.4,
+                'wall_metalness' => 0.2,
+                'wall_normal_strength' => 0.3,
+                'floor_color' => '0x100525',
+                'floor_roughness' => 0.3,
+                'floor_metalness' => 0.5,
                 'floor_normal_strength' => 0.3,
             ]),
             'lighting_fixtures' => json_encode([
                 [
-                    'id'          => 'nebula-center',
-                    'type'        => 'point',
-                    'position'    => [0, 5, 0],
-                    'color'       => '0x8844ff',
-                    'intensity'   => 0.5,
+                    'id' => 'nebula-center',
+                    'type' => 'point',
+                    'position' => [0, 5, 0],
+                    'color' => '0x8844ff',
+                    'intensity' => 0.5,
                     'cast_shadow' => false,
-                    'distance'    => 30,
-                    'decay'       => 1.5,
+                    'distance' => 30,
+                    'decay' => 1.5,
                 ],
             ]),
         ]);
@@ -230,26 +230,28 @@ class VenueNebulaTest extends TestCase
 
         // Reversibility on an untouched row: full restore.
         $this->seedLegacyNebulaRow();
+        $original = DB::table('venue_templates')->where('slug', 'nebula-drift')->first(['visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
         foreach ($this->nebulaMigrations() as $migration) {
             $migration->up();
         }
-        $pristine = DB::table('venue_templates')->where('slug', 'nebula-drift')->first(['visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
+        $migrated = DB::table('venue_templates')->where('slug', 'nebula-drift')->first(['visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
         foreach (array_reverse($this->nebulaMigrations()) as $migration) {
             $migration->down();
         }
         $restored = DB::table('venue_templates')->where('slug', 'nebula-drift')->first(['visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
-        $this->assertSame($pristine->visual_config, $restored->visual_config, 'Untouched rows restore exactly through the full chain (visual_config).');
-        $this->assertSame($pristine->material_config, $restored->material_config, 'Untouched rows restore exactly (material_config).');
-        $this->assertSame($pristine->lighting_fixtures, $restored->lighting_fixtures, 'Untouched rows restore exactly (lighting_fixtures).');
-        $this->assertSame($pristine->description, $restored->description, 'Untouched rows restore exactly (description).');
-        $this->assertSame($pristine->version, $restored->version, 'Untouched rows restore exactly (version).');
+        $this->assertNotSame($original->visual_config, $migrated->visual_config, 'The chain upgrades the legacy row.');
+        $this->assertSame($original->visual_config, $restored->visual_config, 'Untouched rows restore exactly through the full chain (visual_config).');
+        $this->assertSame($original->material_config, $restored->material_config, 'Untouched rows restore exactly (material_config).');
+        $this->assertSame($original->lighting_fixtures, $restored->lighting_fixtures, 'Untouched rows restore exactly (lighting_fixtures).');
+        $this->assertSame($original->description, $restored->description, 'Untouched rows restore exactly (description).');
+        $this->assertSame($original->version, $restored->version, 'Untouched rows restore exactly (version).');
     }
 
     public function test_the_payload_carries_the_deep_field_to_the_client(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue  = \App\Models\VenueTemplate::where('slug', 'nebula-drift')->firstOrFail();
+        $venue = \App\Models\VenueTemplate::where('slug', 'nebula-drift')->firstOrFail();
         $config = app(VenueConfigExporter::class)->forVenuePreview($venue);
 
         $visual = $config['visual_config'] ?? [];
@@ -269,17 +271,17 @@ class VenueNebulaTest extends TestCase
     {
         $this->assertContains('nebula', VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS,
             '[nebula] is venue-owned colour identity — a stale gallery override cannot recolour the sky.');
-        $this->assertSame('s6', VenueConfigExporter::SCHEMA,
+        $this->assertSame('s7', VenueConfigExporter::SCHEMA,
             'The s6 bump re-keys every cached payload on deploy.');
 
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue   = \App\Models\VenueTemplate::where('slug', 'nebula-drift')->firstOrFail();
-        $owner   = \App\Models\User::factory()->create(['plan' => 'pro']);
+        $venue = \App\Models\VenueTemplate::where('slug', 'nebula-drift')->firstOrFail();
+        $owner = \App\Models\User::factory()->create(['plan' => 'pro']);
         $gallery = \App\Models\Gallery::factory()->create([
-            'user_id'           => $owner->id,
+            'user_id' => $owner->id,
             'venue_template_id' => $venue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => [
                     'nebula' => ['dominant' => '0xff00ff', 'secondary' => '0x00ff00', 'accent' => '0x0000ff'],
                 ],

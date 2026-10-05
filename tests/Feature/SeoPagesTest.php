@@ -29,9 +29,9 @@ class SeoPagesTest extends TestCase
     private function makePage(array $attrs = []): SeoPage
     {
         return SeoPage::create(array_merge([
-            'type'   => 'landing',
-            'slug'   => 'test-page-' . uniqid(),
-            'title'  => 'Test Landing Page',
+            'type' => 'landing',
+            'slug' => 'test-page-'.uniqid(),
+            'title' => 'Test Landing Page',
             'status' => 'published',
             'blocks' => [
                 ['type' => 'hero', 'data' => ['title' => 'Hero Title', 'subtitle' => 'Hero subtitle text.']],
@@ -58,9 +58,9 @@ class SeoPagesTest extends TestCase
     public function test_editorial_page_renders_under_resources_prefix(): void
     {
         $page = $this->makePage([
-            'type'   => 'editorial',
-            'slug'   => 'curating-guide',
-            'title'  => 'How to Curate a Virtual Exhibition',
+            'type' => 'editorial',
+            'slug' => 'curating-guide',
+            'title' => 'How to Curate a Virtual Exhibition',
         ]);
 
         $response = $this->get('/resources/curating-guide');
@@ -75,9 +75,9 @@ class SeoPagesTest extends TestCase
     public function test_editorial_breadcrumb_prefix_never_links_to_a_missing_hub(): void
     {
         $page = $this->makePage([
-            'type'   => 'editorial',
-            'slug'   => 'crumb-check',
-            'title'  => 'Breadcrumb Check',
+            'type' => 'editorial',
+            'slug' => 'crumb-check',
+            'title' => 'Breadcrumb Check',
         ]);
 
         $crumbs = app(\App\Services\Seo\SeoPageRenderer::class)->breadcrumbsFor($page->fresh());
@@ -139,8 +139,8 @@ class SeoPagesTest extends TestCase
     public function test_scheduled_page_404s_until_due(): void
     {
         $this->makePage([
-            'slug'         => 'future-page',
-            'status'       => 'published',
+            'slug' => 'future-page',
+            'status' => 'published',
             'published_at' => now()->addDays(7),
         ]);
 
@@ -243,10 +243,10 @@ class SeoPagesTest extends TestCase
     public function test_seo_title_and_meta_description_override(): void
     {
         $this->makePage([
-            'slug'              => 'meta-test',
-            'title'             => 'Display Title',
-            'seo_title'         => 'Search Title',
-            'meta_description'  => 'Custom meta description for search.',
+            'slug' => 'meta-test',
+            'title' => 'Display Title',
+            'seo_title' => 'Search Title',
+            'meta_description' => 'Custom meta description for search.',
         ]);
 
         $response = $this->get('/meta-test');
@@ -260,7 +260,7 @@ class SeoPagesTest extends TestCase
     public function test_canonical_override_applies(): void
     {
         $this->makePage([
-            'slug'               => 'canonical-test',
+            'slug' => 'canonical-test',
             'canonical_override' => 'https://exospace.gallery/other-canonical',
         ]);
 

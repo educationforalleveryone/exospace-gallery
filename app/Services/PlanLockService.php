@@ -22,11 +22,13 @@ class PlanLockService
                 // Lock acquired — run the critical section.
                 return $callback();
             });
+
             return $acquired === false ? self::LOCK_BUSY : $acquired;
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             Log::info('PlanLockService: lock busy, concurrent upgrade/downgrade blocked', [
                 'user_id' => $userId,
             ]);
+
             return self::LOCK_BUSY;
         }
     }

@@ -8,14 +8,16 @@ return new class extends Migration
     private const SLUG = 'luxury-penthouse';
 
     private const OLD_VERSION = '1.0.0';
+
     private const NEW_VERSION = '2.0.0';
 
     private const OLD_DESCRIPTION =
         'A private collector\'s evening — a glazed wall over the city lights, a lounge by the glass, dark walls and gold frames.';
+
     private const NEW_DESCRIPTION =
         'A private collector\'s floor at dusk — a walnut-and-stone gallery wing warming into a lounge at the glass, the city glowing beyond it, art hung the way a residence lives with it.';
 
-        private const OLD_STRUCTURE = [
+    private const OLD_STRUCTURE = [
         ['id' => 'terrace-deck', 'primitive' => 'box', 'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'dark_trim'],
         ['id' => 'glazing-glass', 'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.4], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
         ['id' => 'glazing-mullions', 'primitive' => 'instance-grid', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0.05]], 'turn' => 'in', 'size' => [0.06, 4.4, 0.085], 'material' => 'steel_dark', 'merge' => 'ph-steel', 'grid' => ['mode' => 'line', 'from' => 'glazing', 'span' => 'fit', 'fit_pad' => 0.16, 'spacing' => 1.4]],
@@ -35,7 +37,7 @@ return new class extends Migration
         ['id' => 'table-pedestal', 'primitive' => 'box', 'at' => ['from' => 'glazing', 'offset' => [0, 0.15, 0.9]], 'turn' => 'in', 'size' => [0.5, 0.3, 0.35], 'material' => 'dark_trim', 'collide' => true],
     ];
 
-        private const NEW_STRUCTURE = [
+    private const NEW_STRUCTURE = [
         ['id' => 'terrace-deck', 'primitive' => 'box', 'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'wood_warm'],
         ['id' => 'glazing-glass', 'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 2.45, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.9], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
         ['id' => 'glazing-mullions', 'primitive' => 'instance-grid', 'at' => ['from' => 'glazing', 'offset' => [0, 2.45, 0.05]], 'turn' => 'in', 'size' => [0.06, 4.9, 0.085], 'material' => 'steel_dark', 'merge' => 'ph-steel', 'grid' => ['mode' => 'line', 'from' => 'glazing', 'span' => 'fit', 'fit_pad' => 0.16, 'spacing' => 1.4]],
@@ -83,14 +85,36 @@ return new class extends Migration
         ['id' => 'hearth-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_front', 'offset' => [0, 4.2, 1.3]], 'color' => '0xffd9a0', 'intensity' => 3.5, 'distance' => 5, 'decay' => 1.6, 'cast_shadow' => false],
     ];
 
+    private function jsonCanonical($value)
+    {
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $key => $item) {
+                $out[$key] = $this->jsonCanonical($item);
+            }
+
+            return $out;
+        }
+
+        // JSON storage encodes integral floats as ints; normalise numerically
+        // while preserving key order (an editor re-save reorders keys — that
+        // drift is exactly what the exact-match guard must refuse to touch).
+        return is_int($value) || is_float($value) ? (float) $value : $value;
+    }
+
+    private function jsonEquals($current, $canonical): bool
+    {
+        return json_encode($this->jsonCanonical($current)) === json_encode($this->jsonCanonical($canonical));
+    }
+
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
-        $visual   = json_decode((string) $row->visual_config, true) ?: [];
+        $visual = json_decode((string) $row->visual_config, true) ?: [];
         $material = json_decode((string) $row->material_config, true) ?: [];
 
         // Changed values — only while still equal to the seeded v1.0.0 value.
@@ -102,27 +126,27 @@ return new class extends Migration
 
         // Added keys — union (absent key only).
         foreach ($this->addedVisualKeys() as $key => $value) {
-            if (!array_key_exists($key, $visual)) {
+            if (! array_key_exists($key, $visual)) {
                 $visual[$key] = $value;
             }
         }
 
         // post_fx — union-add when absent, exactly like the s3/s6 rule.
-        if (!is_array($visual['post_fx'] ?? null)) {
+        if (! is_array($visual['post_fx'] ?? null)) {
             $visual['post_fx'] = [];
         }
         $visual['post_fx'] += [
-            'bloom'             => true,
-            'bloom_strength'    => 0.32,
-            'bloom_threshold'   => 0.85,
-            'bloom_radius'      => 0.35,
-            'vignette'          => true,
+            'bloom' => true,
+            'bloom_strength' => 0.32,
+            'bloom_threshold' => 0.85,
+            'bloom_radius' => 0.35,
+            'vignette' => true,
             'vignette_darkness' => 0.5,
-            'vignette_offset'   => 1.12,
-            'vignette_blend'    => 'black',
+            'vignette_offset' => 1.12,
+            'vignette_blend' => 'black',
         ];
 
-        if (($visual['structure'] ?? null) === self::OLD_STRUCTURE) {
+        if ($this->jsonEquals($visual['structure'] ?? null, self::OLD_STRUCTURE)) {
             $visual['structure'] = self::NEW_STRUCTURE;
         }
 
@@ -133,13 +157,13 @@ return new class extends Migration
             }
         }
         foreach ($this->materialChanges()['added'] as $key => $value) {
-            if (!array_key_exists($key, $material)) {
+            if (! array_key_exists($key, $material)) {
                 $material[$key] = $value;
             }
         }
 
         $update = [
-            'visual_config'   => json_encode($visual),
+            'visual_config' => json_encode($visual),
             'material_config' => json_encode($material),
         ];
 
@@ -163,11 +187,11 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
-        $visual   = json_decode((string) $row->visual_config, true) ?: [];
+        $visual = json_decode((string) $row->visual_config, true) ?: [];
         $material = json_decode((string) $row->material_config, true) ?: [];
 
         // Reverse changed values — only while still equal to the NEW value.
@@ -187,14 +211,14 @@ return new class extends Migration
         // Reverse post_fx keys present in the NEW set only when untouched.
         if (is_array($visual['post_fx'] ?? null)) {
             foreach ([
-                'bloom'             => true,
-                'bloom_strength'    => 0.32,
-                'bloom_threshold'   => 0.85,
-                'bloom_radius'      => 0.35,
-                'vignette'          => true,
+                'bloom' => true,
+                'bloom_strength' => 0.32,
+                'bloom_threshold' => 0.85,
+                'bloom_radius' => 0.35,
+                'vignette' => true,
                 'vignette_darkness' => 0.5,
-                'vignette_offset'   => 1.12,
-                'vignette_blend'    => 'black',
+                'vignette_offset' => 1.12,
+                'vignette_blend' => 'black',
             ] as $key => $value) {
                 if (($visual['post_fx'][$key] ?? null) === $value) {
                     unset($visual['post_fx'][$key]);
@@ -206,7 +230,7 @@ return new class extends Migration
         }
 
         // Reverse structure — exact match with the NEW list only.
-        if (($visual['structure'] ?? null) === self::NEW_STRUCTURE) {
+        if ($this->jsonEquals($visual['structure'] ?? null, self::NEW_STRUCTURE)) {
             $visual['structure'] = self::OLD_STRUCTURE;
         }
 
@@ -222,12 +246,12 @@ return new class extends Migration
         }
 
         $update = [
-            'visual_config'   => json_encode($visual),
+            'visual_config' => json_encode($visual),
             'material_config' => json_encode($material),
         ];
 
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
-        if ($fixtures === self::NEW_FIXTURES) {
+        if ($this->jsonEquals($fixtures, self::NEW_FIXTURES)) {
             $update['lighting_fixtures'] = json_encode([]);
         }
 
@@ -246,19 +270,19 @@ return new class extends Migration
     {
         return [
             // Grand volume + warm ceiling
-            'wall_height'           => ['from' => 4.5, 'to' => 5.2],
-            'ceiling_height'        => ['from' => 4.5, 'to' => 5.2],
-            'ceiling_color'         => ['from' => '0x080808', 'to' => '0x14110d'],
+            'wall_height' => ['from' => 4.5, 'to' => 5.2],
+            'ceiling_height' => ['from' => 4.5, 'to' => 5.2],
+            'ceiling_color' => ['from' => '0x080808', 'to' => '0x14110d'],
             // City-dusk atmosphere + fog depth layers
-            'background_color'      => ['from' => '0x08090d', 'to' => '0x0a0b11'],
-            'fog_color'             => ['from' => '0x08090d', 'to' => '0x0a0b10'],
-            'fog_near'              => ['from' => 8, 'to' => 16],
-            'fog_far'               => ['from' => 25, 'to' => 55],
+            'background_color' => ['from' => '0x08090d', 'to' => '0x0a0b11'],
+            'fog_color' => ['from' => '0x08090d', 'to' => '0x0a0b10'],
+            'fog_near' => ['from' => 8, 'to' => 16],
+            'fog_far' => ['from' => 25, 'to' => 55],
             // P7 warm evening rig
-            'ambient_color'         => ['from' => '0xb8c8e8', 'to' => '0xe6d6bc'],
-            'ambient_intensity'     => ['from' => 0.2, 'to' => 0.26],
-            'spot_intensity'        => ['from' => 0.5, 'to' => 0.62],
-            'fill_intensity'        => ['from' => 0.15, 'to' => 0.16],
+            'ambient_color' => ['from' => '0xb8c8e8', 'to' => '0xe6d6bc'],
+            'ambient_intensity' => ['from' => 0.2, 'to' => 0.26],
+            'spot_intensity' => ['from' => 0.5, 'to' => 0.62],
+            'fill_intensity' => ['from' => 0.15, 'to' => 0.16],
             'tone_mapping_exposure' => ['from' => 0.55, 'to' => 0.78],
         ];
     }
@@ -267,11 +291,11 @@ return new class extends Migration
     {
         return [
             // P4 the venue declares its sky (no HDRI — the sky is the city)
-            'environment'            => 'none',
-            'env_intensity'          => 0,
-            'hemisphere_intensity'   => 0.14,
+            'environment' => 'none',
+            'env_intensity' => 0,
+            'hemisphere_intensity' => 0.14,
             // P9 artwork legibility floor
-            'artwork_light_base'     => 0.22,
+            'artwork_light_base' => 0.22,
             'artwork_light_pool_cap' => 12,
         ];
     }
@@ -281,15 +305,15 @@ return new class extends Migration
         return [
             'changed' => [
                 // P6 material hierarchy — warm mineral white / honed stone
-                'wall_color'      => ['from' => null, 'to' => '0xe9e2d4'],
-                'wall_roughness'  => ['from' => 0.8, 'to' => 0.9],
-                'floor_color'     => ['from' => null, 'to' => '0x9b8d78'],
+                'wall_color' => ['from' => null, 'to' => '0xe9e2d4'],
+                'wall_roughness' => ['from' => 0.8, 'to' => 0.9],
+                'floor_color' => ['from' => null, 'to' => '0x9b8d78'],
                 'floor_roughness' => ['from' => 0.3, 'to' => 0.42],
                 'floor_metalness' => ['from' => 0.2, 'to' => 0.06],
                 'floor_normal_strength' => ['from' => 0.5, 'to' => 0.35],
             ],
             'added' => [
-                'texture_tint'      => true,
+                'texture_tint' => true,
                 'floor_tile_meters' => 2.4,
             ],
         ];

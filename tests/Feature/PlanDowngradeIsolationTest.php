@@ -26,10 +26,10 @@ class PlanDowngradeIsolationTest extends TestCase
 
         // Snapshot the original values for User B so we can assert no drift.
         $originalB = [
-            'custom_domain'        => $galleryB->getOriginal('custom_domain'),
-            'custom_logo_path'     => $galleryB->getOriginal('custom_logo_path'),
-            'curtain_logo_path'    => $galleryB->getOriginal('curtain_logo_path'),
-            'audio_path'           => $galleryB->getOriginal('audio_path'),
+            'custom_domain' => $galleryB->getOriginal('custom_domain'),
+            'custom_logo_path' => $galleryB->getOriginal('custom_logo_path'),
+            'curtain_logo_path' => $galleryB->getOriginal('curtain_logo_path'),
+            'audio_path' => $galleryB->getOriginal('audio_path'),
         ];
 
         $this->assertNotNull($originalB['custom_domain']);
@@ -100,9 +100,9 @@ class PlanDowngradeIsolationTest extends TestCase
         [$otherUser, $otherGallery] = $this->createStudioUserWithGallery('bystander');
 
         $paths = [
-            'logo'    => $gallery->custom_logo_path,
+            'logo' => $gallery->custom_logo_path,
             'curtain' => $gallery->curtain_logo_path,
-            'audio'   => $gallery->audio_path,
+            'audio' => $gallery->audio_path,
         ];
 
         $mock = \Mockery::mock(\App\Services\CoolifyDomainManager::class);
@@ -134,11 +134,11 @@ class PlanDowngradeIsolationTest extends TestCase
         $user = User::factory()->studio()->create();
         // Gallery with none of the four Studio-only fields set.
         Gallery::factory()->create([
-            'user_id'            => $user->id,
-            'custom_domain'      => null,
-            'custom_logo_path'   => null,
-            'curtain_logo_path'  => null,
-            'audio_path'         => null,
+            'user_id' => $user->id,
+            'custom_domain' => null,
+            'custom_logo_path' => null,
+            'curtain_logo_path' => null,
+            'audio_path' => null,
         ]);
 
         app(PlanDowngradeService::class)->downgradeToFree($user, 'Test: no Studio fields');
@@ -154,12 +154,12 @@ class PlanDowngradeIsolationTest extends TestCase
         $user = User::factory()->studio()->create();
 
         for ($i = 0; $i < 60; $i++) {
-            $logoPath = 'logos/logo-' . $i . '-' . uniqid() . '.png';
+            $logoPath = 'logos/logo-'.$i.'-'.uniqid().'.png';
             Storage::disk('public')->put($logoPath, 'fake-image-bytes');
             Gallery::factory()->create([
-                'user_id'           => $user->id,
-                'custom_domain'     => null,
-                'custom_logo_path'  => 'storage/' . $logoPath,
+                'user_id' => $user->id,
+                'custom_domain' => null,
+                'custom_logo_path' => 'storage/'.$logoPath,
             ]);
         }
 
@@ -182,14 +182,14 @@ class PlanDowngradeIsolationTest extends TestCase
         $owner = User::factory()->studio()->create();
         $team = \App\Models\Team::factory()->create(['owner_id' => $owner->id]);
 
-        $logoPath = 'logos/team-logo-' . uniqid() . '.png';
+        $logoPath = 'logos/team-logo-'.uniqid().'.png';
         Storage::disk('public')->put($logoPath, 'fake-image-bytes');
 
         $teamGallery = Gallery::factory()->create([
-            'user_id'          => $owner->id,
-            'team_id'          => $team->id,
-            'custom_domain'    => null,
-            'custom_logo_path' => 'storage/' . $logoPath,
+            'user_id' => $owner->id,
+            'team_id' => $team->id,
+            'custom_domain' => null,
+            'custom_logo_path' => 'storage/'.$logoPath,
         ]);
 
         app(PlanDowngradeService::class)->downgradeToFree($owner, 'Test: team gallery cleanup');
@@ -202,19 +202,19 @@ class PlanDowngradeIsolationTest extends TestCase
     {
         $user = User::factory()->studio()->create();
 
-        $logoPath     = "logos/{$label}-logo-" . uniqid() . '.png';
-        $curtainPath  = "logos/{$label}-curtain-" . uniqid() . '.png';
-        $audioPath    = "audio/{$label}-audio-" . uniqid() . '.mp3';
+        $logoPath = "logos/{$label}-logo-".uniqid().'.png';
+        $curtainPath = "logos/{$label}-curtain-".uniqid().'.png';
+        $audioPath = "audio/{$label}-audio-".uniqid().'.mp3';
 
         Storage::disk('public')->put($logoPath, 'fake-logo-bytes');
         Storage::disk('public')->put($curtainPath, 'fake-curtain-bytes');
         Storage::disk('public')->put($audioPath, 'fake-audio-bytes');
 
         $gallery = Gallery::factory()->withCustomDomain("{$label}.example.com")->create([
-            'user_id'           => $user->id,
-            'custom_logo_path'  => 'storage/' . $logoPath,
-            'curtain_logo_path' => 'storage/' . $curtainPath,
-            'audio_path'        => 'storage/' . $audioPath,
+            'user_id' => $user->id,
+            'custom_logo_path' => 'storage/'.$logoPath,
+            'curtain_logo_path' => 'storage/'.$curtainPath,
+            'audio_path' => 'storage/'.$audioPath,
         ]);
 
         return [$user, $gallery];
@@ -224,9 +224,9 @@ class PlanDowngradeIsolationTest extends TestCase
     {
         $mock = \Mockery::mock(\App\Services\CoolifyDomainManager::class);
         $mock->shouldReceive('removeDomain')
-             ->andReturn(['success' => true, 'message' => 'mocked']);
+            ->andReturn(['success' => true, 'message' => 'mocked']);
         $mock->shouldReceive('addDomain')
-             ->andReturn(['success' => true, 'message' => 'mocked']);
+            ->andReturn(['success' => true, 'message' => 'mocked']);
 
         $this->app->instance(\App\Services\CoolifyDomainManager::class, $mock);
     }

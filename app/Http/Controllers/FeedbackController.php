@@ -14,31 +14,31 @@ class FeedbackController extends Controller
     public function store(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
-            'category' => ['required', 'string', 'in:' . implode(',', array_keys(UserFeedback::CATEGORIES))],
-            'message'  => ['required', 'string', 'max:5000'],
+            'category' => ['required', 'string', 'in:'.implode(',', array_keys(UserFeedback::CATEGORIES))],
+            'message' => ['required', 'string', 'max:5000'],
         ]);
 
         $user = $request->user();
 
         try {
             UserFeedback::create([
-                'user_id'    => $user?->id,
-                'category'   => $validated['category'],
-                'message'    => $validated['message'],
+                'user_id' => $user?->id,
+                'category' => $validated['category'],
+                'message' => $validated['message'],
                 // Referer/UA are client-controlled request headers of
                 // unbounded length; page_url is a varchar(255) column, so
                 // oversized headers must be capped instead of failing the
                 // whole submission with a data-too-long error.
-                'page_url'   => mb_substr((string) $request->header('Referer'), 0, 255),
+                'page_url' => mb_substr((string) $request->header('Referer'), 0, 255),
                 'user_agent' => mb_substr((string) $request->header('User-Agent'), 0, 1000),
-                'status'     => 'new',
+                'status' => 'new',
             ]);
 
             // Create in-app notification for super-admins
             if ($user) {
                 \App\Models\AdminAuditLog::record('feedback_received', $user, [
                     'category' => $validated['category'],
-                    'preview'  => mb_substr($validated['message'], 0, 100),
+                    'preview' => mb_substr($validated['message'], 0, 100),
                 ]);
             }
         } catch (\Throwable $e) {
@@ -49,6 +49,7 @@ class FeedbackController extends Controller
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Failed to submit feedback. Please try again.'], 500);
             }
+
             return back()->withErrors(['feedback' => 'Failed to submit feedback.']);
         }
 
@@ -69,8 +70,8 @@ class FeedbackController extends Controller
 
         $feedback = $query->paginate(25)->withQueryString();
         $counts = [
-            'all'      => UserFeedback::count(),
-            'new'      => UserFeedback::where('status', 'new')->count(),
+            'all' => UserFeedback::count(),
+            'new' => UserFeedback::where('status', 'new')->count(),
             'reviewed' => UserFeedback::where('status', 'reviewed')->count(),
             'resolved' => UserFeedback::where('status', 'resolved')->count(),
         ];

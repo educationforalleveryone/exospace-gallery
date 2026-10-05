@@ -23,7 +23,8 @@ class WarmSitemap extends Command
         $validGroups = ['static', 'galleries', 'artists', 'artworks', 'events', 'content', 'venues'];
 
         if ($group !== null && $group !== '' && ! in_array($group, $validGroups, true)) {
-            $this->error("Unknown group '{$group}'. Valid: " . implode(', ', $validGroups) . '.');
+            $this->error("Unknown group '{$group}'. Valid: ".implode(', ', $validGroups).'.');
+
             return self::FAILURE;
         }
 
@@ -34,7 +35,7 @@ class WarmSitemap extends Command
         foreach ($stats['groups'] as $name => $pages) {
             $this->line("  <info>warmed</info> {$name}: {$pages} page(s)");
         }
-        $this->info("Sitemap caches warmed: {$stats['warmed']} keys in {$elapsed}ms (version v" . \App\Support\SitemapVersion::version() . ')');
+        $this->info("Sitemap caches warmed: {$stats['warmed']} keys in {$elapsed}ms (version v".\App\Support\SitemapVersion::version().')');
 
         if ($stats['capped']) {
             $this->warn("  Page cap ({$maxPages}) reached for at least one group — deeper pages stay lazy-warmed.");

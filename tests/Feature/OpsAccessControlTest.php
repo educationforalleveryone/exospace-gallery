@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\AdminAuditLog;
 use App\Models\User;
 use App\Ops\Models\OpsAccessGrant;
 use App\Ops\Models\OpsApplication;

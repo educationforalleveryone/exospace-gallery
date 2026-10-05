@@ -7,7 +7,6 @@ namespace Tests\Feature;
 use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
-use App\Models\SeoProfile;
 use App\Models\SeoRedirect;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,26 +31,26 @@ class SeoSitemapSystemTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'    => $user->id,
-            'title'      => 'Echoes of the Void',
-            'slug'       => 'echoes-' . uniqid(),
-            'description'=> 'A survey of new digital works.',
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'title' => 'Echoes of the Void',
+            'slug' => 'echoes-'.uniqid(),
+            'description' => 'A survey of new digital works.',
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 
@@ -116,7 +115,7 @@ class SeoSitemapSystemTest extends TestCase
     public function test_gallery_sitemap_uses_custom_domain_as_loc(): void
     {
         $gallery = $this->makePublicGallery([
-            'title'         => 'White Label Show',
+            'title' => 'White Label Show',
             'custom_domain' => 'gallery.janedoe.com',
         ]);
         // custom_domain_verified_at is not fillable — force it so the domain
@@ -133,7 +132,7 @@ class SeoSitemapSystemTest extends TestCase
     public function test_gallery_sitemap_does_not_list_unverified_custom_domains(): void
     {
         $gallery = $this->makePublicGallery([
-            'title'         => 'Pending Domain Show',
+            'title' => 'Pending Domain Show',
             'custom_domain' => 'pending.janedoe.com',
         ]);
         $this->addArtwork($gallery, ['title' => 'Work']);
@@ -142,7 +141,7 @@ class SeoSitemapSystemTest extends TestCase
 
         $this->assertStringNotContainsString('pending.janedoe.com', $response->getContent(),
             'An unverified custom domain must not be listed — the host may not serve yet.');
-        $this->assertStringContainsString('gallery/' . $gallery->slug, $response->getContent());
+        $this->assertStringContainsString('gallery/'.$gallery->slug, $response->getContent());
     }
 
     public function test_seo_profile_can_exclude_gallery_from_sitemap(): void
@@ -307,7 +306,7 @@ class SeoSitemapSystemTest extends TestCase
         $request = Request::create('https://show.janedoe.com/robots.txt', 'GET');
         $request->attributes->set('resolved_gallery', $gallery->fresh());
 
-        $controller = new \App\Http\Controllers\RobotsController();
+        $controller = new \App\Http\Controllers\RobotsController;
         $response = $controller($request);
 
         $body = $response->getContent();
@@ -326,12 +325,12 @@ class SeoSitemapSystemTest extends TestCase
         $request = Request::create('https://show.janedoe.com/sitemap.xml', 'GET');
         $request->attributes->set('resolved_gallery', $mine->fresh());
 
-        $controller = new \App\Http\Controllers\SitemapController();
+        $controller = new \App\Http\Controllers\SitemapController;
         $response = $controller->index($request);
 
         $xml = $response->getContent();
-        $this->assertStringContainsString('gallery/' . $mine->slug, $xml);
-        $this->assertStringNotContainsString('gallery/' . $other->slug, $xml, 'Custom-domain sitemap lists ONLY the resolved gallery.');
+        $this->assertStringContainsString('gallery/'.$mine->slug, $xml);
+        $this->assertStringNotContainsString('gallery/'.$other->slug, $xml, 'Custom-domain sitemap lists ONLY the resolved gallery.');
     }
 
     public function test_seo_redirect_301_applies(): void
@@ -448,7 +447,7 @@ class SeoSitemapSystemTest extends TestCase
 
         $html = $response->getContent();
         $this->assertStringContainsString(
-            '<link rel="canonical" href="https://exospace.gallery/gallery/' . $gallery->slug . '/artwork/' . $artwork->id . '">',
+            '<link rel="canonical" href="https://exospace.gallery/gallery/'.$gallery->slug.'/artwork/'.$artwork->id.'">',
             $html,
             'Deep links canonicalize to the artwork landing page.',
         );

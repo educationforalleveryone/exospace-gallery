@@ -14,7 +14,6 @@ use App\Services\ArtisanCommandRunner;
 use App\Services\OperationalAlertService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -91,15 +90,14 @@ class OpsFailedJobsTest extends TestCase
 
     private function fakeRunner(int $exitCode): object
     {
-        return new class ($exitCode) extends ArtisanCommandRunner {
+        return new class($exitCode) extends ArtisanCommandRunner
+        {
             /**
- * @var list<array{0: string, 1: array}>
- */
+             * @var list<array{0: string, 1: array}>
+             */
             public array $calls = [];
 
-            public function __construct(private readonly int $exitCode)
-            {
-            }
+            public function __construct(private readonly int $exitCode) {}
 
             public function __invoke(string $command, array $parameters = []): int
             {

@@ -8,11 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminAuditLog;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookSubscription;
-use App\Services\OutboundWebhookService;
 use App\Support\OutboundUrlGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\Rule;
 
 class WebhookSubscriptionController extends Controller
 {
@@ -53,12 +51,12 @@ class WebhookSubscriptionController extends Controller
             : collect();
 
         return view('super-admin.webhooks.index', [
-            'subscriptions'     => $subscriptions,
-            'knownEvents'        => self::KNOWN_EVENTS,
-            'envUrl'             => $envUrl,
-            'envSecretSet'       => $envSecret !== null && $envSecret !== '',
-            'eventCounts'        => $eventCounts,
-            'latestDeliveries'   => $latestDeliveries,
+            'subscriptions' => $subscriptions,
+            'knownEvents' => self::KNOWN_EVENTS,
+            'envUrl' => $envUrl,
+            'envSecretSet' => $envSecret !== null && $envSecret !== '',
+            'eventCounts' => $eventCounts,
+            'latestDeliveries' => $latestDeliveries,
         ]);
     }
 
@@ -67,7 +65,7 @@ class WebhookSubscriptionController extends Controller
         $data = $request->validate([
             'event_type' => ['required', 'string', 'max:100'],
             'target_url' => ['required', 'string', 'url', 'max:500', 'starts_with:https://'],
-            'secret'     => ['nullable', 'string', 'max:255'],
+            'secret' => ['nullable', 'string', 'max:255'],
         ]);
 
         // The application itself performs the POSTs, so a target pointing at
@@ -91,7 +89,7 @@ class WebhookSubscriptionController extends Controller
         if ($exists) {
             return back()
                 ->withInput()
-                ->withErrors(['target_url' => 'This URL is already subscribed to "' . $eventType . '".']);
+                ->withErrors(['target_url' => 'This URL is already subscribed to "'.$eventType.'".']);
         }
 
         $sub = null;
@@ -100,41 +98,41 @@ class WebhookSubscriptionController extends Controller
                 ? WebhookSubscription::create([
                     'event_type' => $eventType,
                     'target_url' => $targetUrl,
-                    'secret'     => $secret,
-                    'is_active'  => true,
-                    'added_by'   => $request->user()->id,
+                    'secret' => $secret,
+                    'is_active' => true,
+                    'added_by' => $request->user()->id,
                 ])
                 : null;
-        } catch (\Illuminate\Database\UniqueConstraintViolationException | \Illuminate\Database\QueryException $e) {
+        } catch (\Illuminate\Database\UniqueConstraintViolationException|\Illuminate\Database\QueryException $e) {
             return back()
                 ->withInput()
-                ->withErrors(['target_url' => 'This URL is already subscribed to "' . $eventType . '" (concurrent add detected).']);
+                ->withErrors(['target_url' => 'This URL is already subscribed to "'.$eventType.'" (concurrent add detected).']);
         }
 
         if ($sub !== null) {
             AdminAuditLog::record('webhook.subscription_added', $sub, [
-                'event_type'  => $sub->event_type,
-                'target_url'   => $sub->target_url,
-                'has_secret'   => $sub->secret !== null,
+                'event_type' => $sub->event_type,
+                'target_url' => $sub->target_url,
+                'has_secret' => $sub->secret !== null,
             ]);
         }
 
-        return back()->with('success', 'Subscribed ' . $targetUrl . ' to ' . $eventType . '.');
+        return back()->with('success', 'Subscribed '.$targetUrl.' to '.$eventType.'.');
     }
 
     public function destroy(Request $request, WebhookSubscription $subscription)
     {
         AdminAuditLog::record('webhook.subscription_removed', $subscription, [
-            'event_type'  => $subscription->event_type,
-            'target_url'  => $subscription->target_url,
-            'had_secret'  => $subscription->secret !== null,
+            'event_type' => $subscription->event_type,
+            'target_url' => $subscription->target_url,
+            'had_secret' => $subscription->secret !== null,
         ]);
 
         $eventType = $subscription->event_type;
         $targetUrl = $subscription->target_url;
         $subscription->delete();
 
-        return back()->with('success', 'Removed ' . $targetUrl . ' from ' . $eventType . ' subscriptions.');
+        return back()->with('success', 'Removed '.$targetUrl.' from '.$eventType.' subscriptions.');
     }
 
     public function toggle(Request $request, WebhookSubscription $subscription)
@@ -154,7 +152,7 @@ class WebhookSubscriptionController extends Controller
 
         return back()->with(
             'success',
-            ($newState ? 'Enabled ' : 'Disabled ') . $subscription->target_url . ' for ' . $subscription->event_type . '.',
+            ($newState ? 'Enabled ' : 'Disabled ').$subscription->target_url.' for '.$subscription->event_type.'.',
         );
     }
 
@@ -174,9 +172,8 @@ class WebhookSubscriptionController extends Controller
 
         return view('super-admin.webhooks.deliveries', [
             'subscription' => $subscription,
-            'deliveries'   => $deliveries,
-            'latest'       => $latest,
+            'deliveries' => $deliveries,
+            'latest' => $latest,
         ]);
     }
 }
-

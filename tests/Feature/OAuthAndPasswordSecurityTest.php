@@ -10,8 +10,6 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Laravel\Socialite\Facades\Socialite;
-use Mockery;
 use Tests\TestCase;
 
 class OAuthAndPasswordSecurityTest extends TestCase
@@ -121,7 +119,7 @@ class OAuthAndPasswordSecurityTest extends TestCase
     {
         // findByToken should hash the plaintext before querying
         $team = Team::factory()->create();
-        $plaintext = 'test-token-for-find-' . uniqid();
+        $plaintext = 'test-token-for-find-'.uniqid();
         $hash = TeamInvitation::hashToken($plaintext);
 
         $invitation = TeamInvitation::factory()->create([

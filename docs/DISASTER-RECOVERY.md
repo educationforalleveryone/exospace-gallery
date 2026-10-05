@@ -126,6 +126,10 @@ Minimum sequence to rebuild Exospace from nothing:
 1. **Source** — deploy the repo from Coolify (same build: Nixpacks, Node 22,
    PHP 8.3+, `phpPackages.mariadb` provides `mysqldump`; the container start
    runs `storage:link`, `migrate --force`, preflight).
+   Deploy hygiene: `database/*.sqlite` is git-ignored and must never reach a
+   deploy artifact — the local dev database (`database/database.sqlite`) is a
+   development-only file; remove it if deploying from a folder/archive instead
+   of the git repo.
 2. **Environment/secrets** — recreate the Coolify environment variables.
    **Secrets are NOT in the backups** (intentionally): `APP_KEY`, DB
    credentials, `R2_*`, `RESEND_API_KEY`, 2Checkout keys, Slack webhooks,

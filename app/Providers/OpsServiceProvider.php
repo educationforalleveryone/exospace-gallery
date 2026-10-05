@@ -17,9 +17,7 @@ use Illuminate\Support\ServiceProvider;
 
 class OpsServiceProvider extends ServiceProvider
 {
-    public function register(): void
-    {
-    }
+    public function register(): void {}
 
     public function boot(): void
     {

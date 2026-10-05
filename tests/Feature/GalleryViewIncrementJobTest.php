@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Jobs\IncrementGalleryViews;
 use App\Models\Gallery;
-use App\Models\User;
 use App\Models\VenueTemplate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -27,8 +26,8 @@ class GalleryViewIncrementJobTest extends TestCase
         Queue::fake();
 
         $gallery = Gallery::factory()->create([
-            'is_active'   => true,
-            'view_count'  => 100,
+            'is_active' => true,
+            'view_count' => 100,
         ]);
 
         $response = $this->get(route('gallery.view', $gallery->slug));
@@ -46,11 +45,11 @@ class GalleryViewIncrementJobTest extends TestCase
         Queue::fake();
 
         $gallery = Gallery::factory()->create([
-            'is_active'  => true,
+            'is_active' => true,
             'view_count' => 100,
         ]);
 
-        $response = $this->get(route('gallery.view', $gallery->slug) . '?embed=1');
+        $response = $this->get(route('gallery.view', $gallery->slug).'?embed=1');
 
         $response->assertStatus(200);
         Queue::assertNotPushed(IncrementGalleryViews::class);
@@ -59,7 +58,7 @@ class GalleryViewIncrementJobTest extends TestCase
     public function test_increment_job_actually_increments_view_count(): void
     {
         $gallery = Gallery::factory()->create([
-            'is_active'  => true,
+            'is_active' => true,
             'view_count' => 100,
         ]);
 
@@ -83,7 +82,7 @@ class GalleryViewIncrementJobTest extends TestCase
     public function test_increment_job_continues_if_venue_template_missing(): void
     {
         $gallery = Gallery::factory()->create([
-            'is_active'  => true,
+            'is_active' => true,
             'view_count' => 100,
         ]);
 
@@ -109,7 +108,7 @@ class GalleryViewIncrementJobTest extends TestCase
         $reflection = new \ReflectionClass(\App\Models\AnalyticsEvent::class);
         $fillable = $reflection->getProperty('fillable');
         $fillable->setAccessible(true);
-        $value = $fillable->getValue(new \App\Models\AnalyticsEvent());
+        $value = $fillable->getValue(new \App\Models\AnalyticsEvent);
 
         $this->assertNotContains('country', $value, 'country must not be in $fillable (column was dropped)');
     }

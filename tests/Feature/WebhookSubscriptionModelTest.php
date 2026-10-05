@@ -31,9 +31,9 @@ class WebhookSubscriptionModelTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://example.com/dup',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         // Same event_type + same URL → unique violation.
@@ -41,9 +41,9 @@ class WebhookSubscriptionModelTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://example.com/dup',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
     }
 
@@ -52,16 +52,16 @@ class WebhookSubscriptionModelTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://sec.example.com/hook',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_removed',
             'target_url' => 'https://sec.example.com/hook', // same URL
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         $this->assertSame(2, WebhookSubscription::count());
@@ -72,9 +72,9 @@ class WebhookSubscriptionModelTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'GALLERY.PUBLISHED',
             'target_url' => 'https://example.com/hook',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         $sub->refresh();
@@ -86,9 +86,9 @@ class WebhookSubscriptionModelTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'gallery.published',
             'target_url' => '  https://Example.com/PathCase  ',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         $sub->refresh();
@@ -114,9 +114,9 @@ class WebhookSubscriptionModelTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'gallery.published',
             'target_url' => 'https://example.com/hook',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => $admin->id,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => $admin->id,
         ]);
 
         // Delete the admin — the subscription should survive with added_by = null.

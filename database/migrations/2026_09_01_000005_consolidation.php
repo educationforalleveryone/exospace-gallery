@@ -9,9 +9,9 @@ return new class extends Migration
     {
         return [
             'infinite-void' => [
-                'open_air'      => true,
-                'layout_shape'  => 'circular',
-                'void_dust'     => true,
+                'open_air' => true,
+                'layout_shape' => 'circular',
+                'void_dust' => true,
             ],
             'industrial-loft' => [
                 'ceiling_color' => '0x1a1a18',
@@ -26,13 +26,13 @@ return new class extends Migration
                 'ceiling_color' => '0x1e1c14',
             ],
             'crystal-cathedral' => [
-                'open_air'      => true,
-                'layout_shape'  => 'circular',
+                'open_air' => true,
+                'layout_shape' => 'circular',
                 'void_colonnade' => true,
             ],
             'nebula-drift' => [
-                'open_air'      => true,
-                'layout_shape'  => 'circular',
+                'open_air' => true,
+                'layout_shape' => 'circular',
                 'void_starfield' => true,
             ],
             'luxury-penthouse' => [
@@ -40,17 +40,17 @@ return new class extends Migration
             ],
             'cyber-gallery' => [
                 'ceiling_color' => '0x04081a',
-                'ceiling_neon'  => true,
+                'ceiling_neon' => true,
             ],
             'sculpture-garden' => [
-                'open_air'      => true,
-                'layout_shape'  => 'circular',
+                'open_air' => true,
+                'layout_shape' => 'circular',
                 'structure_pass' => 'garden',
             ],
             'mirror-lake' => [
-                'open_air'      => true,
-                'layout_shape'  => 'circular',
-                'void_lake'     => true,
+                'open_air' => true,
+                'layout_shape' => 'circular',
+                'void_lake' => true,
             ],
         ];
     }
@@ -59,11 +59,19 @@ return new class extends Migration
     {
         foreach ($this->consolidationKeys() as $slug => $keys) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'visual_config']);
-            if (!$row) {
+            if (! $row) {
                 continue; // venue removed by the operator — respect that
             }
             $existing = json_decode((string) $row->visual_config, true) ?: [];
-            $merged   = $existing + $keys;
+            // Later passes superseded these flags — never re-add them to rows
+            // the newer passes already own (idempotent across the chain).
+            if ($slug === 'crystal-cathedral' && array_key_exists('void_arcade', $existing)) {
+                unset($keys['void_colonnade']);
+            }
+            if ($slug === 'nebula-drift' && array_key_exists('void_deepfield', $existing)) {
+                unset($keys['void_starfield']);
+            }
+            $merged = $existing + $keys;
             if ($merged !== $existing) {
                 DB::table('venue_templates')
                     ->where('id', $row->id)
@@ -99,11 +107,11 @@ return new class extends Migration
 
         foreach ($this->consolidationKeys() as $slug => $keys) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'visual_config']);
-            if (!$row) {
+            if (! $row) {
                 continue;
             }
             $existing = json_decode((string) $row->visual_config, true) ?: [];
-            $changed  = false;
+            $changed = false;
             foreach ($keys as $key => $value) {
                 if (array_key_exists($key, $existing) && $existing[$key] === $value) {
                     unset($existing[$key]);

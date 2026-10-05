@@ -1,9 +1,9 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
-use Monolog\Formatter\JsonFormatter;
 use Monolog\Processor\PsrLogMessageProcessor;
 use Monolog\Processor\WebProcessor;
 
@@ -22,6 +22,7 @@ return [
             'driver' => 'stack',
             'channels' => (function () {
                 $channels = array_values(array_filter(array_map('trim', explode(',', (string) env('LOG_STACK', 'daily,json')))));
+
                 return $channels !== [] ? $channels : ['daily', 'json'];
             })(),
             'ignore_exceptions' => false,
@@ -44,7 +45,7 @@ return [
 
         'ops' => [
             'driver' => 'custom',
-            'via'   => \App\Ops\Logging\CreateOpsLogger::class,
+            'via' => \App\Ops\Logging\CreateOpsLogger::class,
             'level' => env('OPS_LOG_TAP_LEVEL', 'warning'),
         ],
 

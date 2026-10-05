@@ -22,6 +22,7 @@
     ];
     $scoreStyle = $scoreStyles[$healthScore['band']] ?? $scoreStyles['critical'];
 @endphp
+<h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">PLATFORM STATUS</h2>
 <section class="rounded-xl border {{ str_replace(['bg-emerald-950/60','bg-amber-950/60','bg-red-950/60','bg-slate-800/60'], '', $hero['chip']) }} border-slate-800 bg-slate-900/60 p-5 mb-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-3">

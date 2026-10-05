@@ -13,26 +13,27 @@ return new class extends Migration
         if (is_string($from)) {
             return is_string($current) && $current === $from;
         }
+
         return is_numeric($current) && (float) $current === (float) $from;
     }
 
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', 'white-cube')->first(['id', 'visual_config', 'material_config', 'default_settings']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
-            'background_color'      => ['from' => '0x0f0f0f', 'to' => '0xf2f1ee'],
-            'fog_color'             => ['from' => '0x0f0f0f', 'to' => '0xf2f1ee'],
-            'fog_near'              => ['from' => 10,         'to' => 16],
-            'fog_far'               => ['from' => 30,         'to' => 60],
-            'ambient_intensity'     => ['from' => 0.2,        'to' => 0.55],
-            'spot_intensity'        => ['from' => 0.45,       'to' => 3.2],
-            'fill_intensity'        => ['from' => 0.12,       'to' => 2.6],
+            'background_color' => ['from' => '0x0f0f0f', 'to' => '0xf2f1ee'],
+            'fog_color' => ['from' => '0x0f0f0f', 'to' => '0xf2f1ee'],
+            'fog_near' => ['from' => 10,         'to' => 16],
+            'fog_far' => ['from' => 30,         'to' => 60],
+            'ambient_intensity' => ['from' => 0.2,        'to' => 0.55],
+            'spot_intensity' => ['from' => 0.45,       'to' => 3.2],
+            'fill_intensity' => ['from' => 0.12,       'to' => 2.6],
             'tone_mapping_exposure' => ['from' => 0.5,        'to' => 1.05],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
@@ -42,12 +43,12 @@ return new class extends Migration
         }
 
         // Key adds — only when absent (an admin's declared post_fx wins).
-        if (!array_key_exists('post_fx', $vc)) {
+        if (! array_key_exists('post_fx', $vc)) {
             $vc['post_fx'] = [
-                'bloom'             => false,
-                'vignette'          => true,
+                'bloom' => false,
+                'vignette' => true,
                 'vignette_darkness' => 0.28,
-                'vignette_offset'   => 1.05,
+                'vignette_offset' => 1.05,
             ];
         }
 
@@ -78,19 +79,19 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', 'white-cube')->first(['id', 'visual_config', 'material_config', 'default_settings']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
         $vcRewrites = [
-            'background_color'      => ['from' => '0xf2f1ee', 'to' => '0x0f0f0f'],
-            'fog_color'             => ['from' => '0xf2f1ee', 'to' => '0x0f0f0f'],
-            'fog_near'              => ['from' => 16,         'to' => 10],
-            'fog_far'               => ['from' => 60,         'to' => 30],
-            'ambient_intensity'     => ['from' => 0.55,       'to' => 0.2],
-            'spot_intensity'        => ['from' => 3.2,        'to' => 0.45],
-            'fill_intensity'        => ['from' => 2.6,        'to' => 0.12],
+            'background_color' => ['from' => '0xf2f1ee', 'to' => '0x0f0f0f'],
+            'fog_color' => ['from' => '0xf2f1ee', 'to' => '0x0f0f0f'],
+            'fog_near' => ['from' => 16,         'to' => 10],
+            'fog_far' => ['from' => 60,         'to' => 30],
+            'ambient_intensity' => ['from' => 0.55,       'to' => 0.2],
+            'spot_intensity' => ['from' => 3.2,        'to' => 0.45],
+            'fill_intensity' => ['from' => 2.6,        'to' => 0.12],
             'tone_mapping_exposure' => ['from' => 1.05,       'to' => 0.5],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
@@ -100,10 +101,10 @@ return new class extends Migration
         }
         // Remove post_fx only while it still equals what up() wrote.
         if (($vc['post_fx'] ?? null) === [
-            'bloom'             => false,
-            'vignette'          => true,
+            'bloom' => false,
+            'vignette' => true,
             'vignette_darkness' => 0.28,
-            'vignette_offset'   => 1.05,
+            'vignette_offset' => 1.05,
         ]) {
             unset($vc['post_fx']);
         }

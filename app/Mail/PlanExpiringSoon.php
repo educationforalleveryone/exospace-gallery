@@ -15,8 +15,8 @@ use Illuminate\Queue\SerializesModels;
 
 class PlanExpiringSoon extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
     use HasMarketingUnsubscribe;
+    use Queueable, SerializesModels;
 
     public function __construct(public User $user) {}
 
@@ -39,8 +39,8 @@ class PlanExpiringSoon extends Mailable implements ShouldQueue
             text: 'emails.plan-expiring-text',
             with: [
                 'unsubscribeUrl' => $this->unsubscribeUrl($this->user),
-                'expiresOn'      => $this->user->plan_expires_at?->format('M j, Y'),
-                'daysLeft'       => $this->daysLeft(),
+                'expiresOn' => $this->user->plan_expires_at?->format('M j, Y'),
+                'daysLeft' => $this->daysLeft(),
             ],
         );
     }

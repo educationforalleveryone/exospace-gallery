@@ -24,15 +24,26 @@ class VenueSalonTest extends TestCase
     ];
 
     private const MIGRATION = '2026_09_10_000001_salon_collector_identity.php';
+
     private const MIGRATION_V21 = '2026_09_11_000001_salon_v2_1_turn_and_door.php';
+
     private const MIGRATION_V3 = '2026_09_11_000002_salon_v3_two_rooms.php';
 
-    private function migrationPayload(string $file, string $method): array
+    private function migrationPayload(string $file, string $method): array|string
     {
-        $migration = require database_path('migrations/' . $file);
+        $migration = require database_path('migrations/'.$file);
         $ref = new \ReflectionMethod($migration, $method);
         $ref->setAccessible(true);
+
         return $ref->invoke($migration);
+    }
+
+    private function jsonNormalized(array|string $value): array
+    {
+        // DB JSON columns encode integral floats as ints (json_encode without
+        // JSON_PRESERVE_ZERO_FRACTION); normalize the expectation the same way
+        // so assertSame stays value-strict across the storage round-trip.
+        return json_decode(json_encode($value), true);
     }
 
     public function test_the_salon_is_the_twelfth_seeded_venue(): void
@@ -83,12 +94,14 @@ class VenueSalonTest extends TestCase
 
     private function runSalonIdentityMigration(): void
     {
-        Artisan::call('migrate', ['--path' => 'database/migrations/' . self::MIGRATION, '--force' => true]);
+        $migration = require database_path('migrations/'.self::MIGRATION);
+        $migration->up();
     }
 
     private function rollbackSalonIdentityMigration(): void
     {
-        Artisan::call('migrate:rollback', ['--path' => 'database/migrations/' . self::MIGRATION, '--force' => true]);
+        $migration = require database_path('migrations/'.self::MIGRATION);
+        $migration->down();
     }
 
     private function v1ProductionRow(bool $driftedSeederVariant = false): void
@@ -100,37 +113,37 @@ class VenueSalonTest extends TestCase
         $bench += ['size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm', 'collide' => true, 'merge' => 'salon-bench', 'tier_floor' => 'low'];
 
         DB::table('venue_templates')->where('slug', 'the-salon')->update([
-            'version'       => '1.0.0',
-            'description'   => 'A small, warm room in the domestic tradition: works hung close together at conversational distance, a wooden picture rail and a bench, under soft warm light. Made for studies, prints, photography and portrait formats.',
+            'version' => '1.0.0',
+            'description' => 'A small, warm room in the domestic tradition: works hung close together at conversational distance, a wooden picture rail and a bench, under soft warm light. Made for studies, prints, photography and portrait formats.',
             'default_settings' => json_encode([
-                'wall_texture'    => 'white',
-                'floor_material'  => 'wood',
-                'lighting_preset'  => 'bright',
-                'frame_style'     => 'minimal',
-                'room_layout'     => 'square',
+                'wall_texture' => 'white',
+                'floor_material' => 'wood',
+                'lighting_preset' => 'bright',
+                'frame_style' => 'minimal',
+                'room_layout' => 'square',
             ]),
             'visual_config' => json_encode([
-                'wall_height'            => 3.0,
-                'wall_depth'             => 0.15,
-                'ceiling_type'           => 'flat',
-                'ceiling_color'          => '0x2b241a',
-                'ceiling_height'         => 3.0,
-                'background_color'       => '0x1d1712',
-                'fog_color'              => '0x1d1712',
-                'fog_near'               => 10,
-                'fog_far'                => 32,
-                'ambient_color'          => '0xffdcae',
-                'ambient_intensity'      => 0.26,
-                'spot_intensity'         => 0.5,
-                'fill_intensity'         => 0.16,
-                'tone_mapping_exposure'  => 0.6,
-                'frame_override'         => null,
-                'structure_pass'         => 'rooms',
-                'placement'              => [
-                    'density'          => 'intimate',
+                'wall_height' => 3.0,
+                'wall_depth' => 0.15,
+                'ceiling_type' => 'flat',
+                'ceiling_color' => '0x2b241a',
+                'ceiling_height' => 3.0,
+                'background_color' => '0x1d1712',
+                'fog_color' => '0x1d1712',
+                'fog_near' => 10,
+                'fog_far' => 32,
+                'ambient_color' => '0xffdcae',
+                'ambient_intensity' => 0.26,
+                'spot_intensity' => 0.5,
+                'fill_intensity' => 0.16,
+                'tone_mapping_exposure' => 0.6,
+                'frame_override' => null,
+                'structure_pass' => 'rooms',
+                'placement' => [
+                    'density' => 'intimate',
                     'pair_orientation' => true,
                 ],
-                'structure'              => [
+                'structure' => [
                     ['id' => 'rail-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
                     ['id' => 'rail-back', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
                     ['id' => 'rail-left', 'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
@@ -142,13 +155,13 @@ class VenueSalonTest extends TestCase
                 ],
             ]),
             'material_config' => json_encode([
-                'wall_color'            => '0xe6dcc6',
-                'wall_roughness'        => 0.92,
-                'wall_metalness'        => 0.0,
-                'wall_normal_strength'  => 0.35,
-                'floor_color'           => '0x6b5236',
-                'floor_roughness'       => 0.65,
-                'floor_metalness'       => 0.0,
+                'wall_color' => '0xe6dcc6',
+                'wall_roughness' => 0.92,
+                'wall_metalness' => 0.0,
+                'wall_normal_strength' => 0.35,
+                'floor_color' => '0x6b5236',
+                'floor_roughness' => 0.65,
+                'floor_metalness' => 0.0,
                 'floor_normal_strength' => 0.55,
             ]),
         ]);
@@ -165,7 +178,7 @@ class VenueSalonTest extends TestCase
 
         $this->assertSame('2.0.0', $venue->version);
         $this->assertSame(3.8, $config['wall_height']);
-        $this->assertSame(1.0, $config['tone_mapping_exposure'], 'readable warm light, not murk');
+        $this->assertSame(1.0, (float) $config['tone_mapping_exposure'], 'readable warm light, not murk');
         $this->assertSame('classic', $config['frame_override']);
         $this->assertSame('studio', $config['environment'] ?? null);
         $this->assertSame(0.3, $config['artwork_light_base'] ?? null);
@@ -233,27 +246,27 @@ class VenueSalonTest extends TestCase
         // A super-admin retuned the mood before the migration ran.
         DB::table('venue_templates')->where('slug', 'the-salon')->update([
             'visual_config' => json_encode([
-                'wall_height'            => 3.0,
-                'wall_depth'             => 0.15,
-                'ceiling_type'           => 'flat',
-                'ceiling_color'          => '0x2b241a',
-                'ceiling_height'         => 3.0,
-                'background_color'       => '0x1d1712',
-                'fog_color'              => '0x1d1712',
-                'fog_near'               => 10,
-                'fog_far'                => 32,
-                'ambient_color'          => '0xffdcae',
-                'ambient_intensity'      => 0.42,   // ← the admin's value
-                'spot_intensity'         => 0.5,
-                'fill_intensity'         => 0.16,
-                'tone_mapping_exposure'  => 0.6,
-                'frame_override'         => null,
-                'structure_pass'         => 'rooms',
-                'placement'              => [
-                    'density'          => 'intimate',
+                'wall_height' => 3.0,
+                'wall_depth' => 0.15,
+                'ceiling_type' => 'flat',
+                'ceiling_color' => '0x2b241a',
+                'ceiling_height' => 3.0,
+                'background_color' => '0x1d1712',
+                'fog_color' => '0x1d1712',
+                'fog_near' => 10,
+                'fog_far' => 32,
+                'ambient_color' => '0xffdcae',
+                'ambient_intensity' => 0.42,   // ← the admin's value
+                'spot_intensity' => 0.5,
+                'fill_intensity' => 0.16,
+                'tone_mapping_exposure' => 0.6,
+                'frame_override' => null,
+                'structure_pass' => 'rooms',
+                'placement' => [
+                    'density' => 'intimate',
                     'pair_orientation' => true,
                 ],
-                'structure'              => [
+                'structure' => [
                     ['id' => 'rail-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.9, 0.045]], 'size' => [1, 0.07, 0.09], 'fit' => 'wall', 'fit_pad' => 0.3, 'material' => 'wood_dark', 'merge' => 'salon-rail', 'tier_floor' => 'low'],
                 ],
             ]),
@@ -265,7 +278,7 @@ class VenueSalonTest extends TestCase
         $this->assertSame(0.42, $config['ambient_intensity'], 'the admin retune survives the migration');
         $this->assertCount(1, $config['structure'], 'the admin structure survives the migration');
         // unambiguous v1 scalars still heal
-        $this->assertSame(1.0, $config['tone_mapping_exposure']);
+        $this->assertSame(1.0, (float) $config['tone_mapping_exposure']);
     }
 
     public function test_the_migration_is_reversible(): void
@@ -279,7 +292,7 @@ class VenueSalonTest extends TestCase
         $config = json_decode((string) $venue->visual_config, true);
 
         $this->assertSame('1.0.0', $venue->version);
-        $this->assertSame(3.0, $config['wall_height']);
+        $this->assertSame(3.0, (float) $config['wall_height']);
         $this->assertSame(0.6, $config['tone_mapping_exposure']);
         $this->assertNull($config['frame_override']);
         $this->assertArrayNotHasKey('environment', $config, 'the added identity keys come back off');
@@ -295,33 +308,33 @@ class VenueSalonTest extends TestCase
 
     private function runTurnMigration(string $direction = 'up'): void
     {
-        $migration = require database_path('migrations/' . self::MIGRATION_V21);
+        $migration = require database_path('migrations/'.self::MIGRATION_V21);
         $migration->$direction();
     }
 
     private function v2ProductionRow(): void
     {
         DB::table('venue_templates')->where('slug', 'the-salon')->update([
-            'version'       => '2.0.0',
+            'version' => '2.0.0',
             'visual_config' => json_encode([
-                'wall_height'            => 3.8,
-                'wall_depth'             => 0.15,
-                'ceiling_type'           => 'flat',
-                'ceiling_color'          => '0xd8cbb0',
-                'ceiling_height'         => 3.8,
-                'background_color'       => '0x171310',
-                'fog_color'              => '0x171310',
-                'fog_near'               => 22,
-                'fog_far'                => 70,
-                'ambient_color'          => '0xffe9cf',
-                'ambient_intensity'      => 0.5,
-                'spot_intensity'         => 1.5,
-                'fill_intensity'         => 0.8,
-                'tone_mapping_exposure'  => 1.0,
-                'frame_override'         => 'classic',
-                'structure_pass'         => 'rooms',
-                'placement'              => $this->migrationPayload(self::MIGRATION, 'v2Placement'),
-                'structure'              => $this->migrationPayload(self::MIGRATION, 'v2Structure'),
+                'wall_height' => 3.8,
+                'wall_depth' => 0.15,
+                'ceiling_type' => 'flat',
+                'ceiling_color' => '0xd8cbb0',
+                'ceiling_height' => 3.8,
+                'background_color' => '0x171310',
+                'fog_color' => '0x171310',
+                'fog_near' => 22,
+                'fog_far' => 70,
+                'ambient_color' => '0xffe9cf',
+                'ambient_intensity' => 0.5,
+                'spot_intensity' => 1.5,
+                'fill_intensity' => 0.8,
+                'tone_mapping_exposure' => 1.0,
+                'frame_override' => 'classic',
+                'structure_pass' => 'rooms',
+                'placement' => $this->migrationPayload(self::MIGRATION, 'v2Placement'),
+                'structure' => $this->migrationPayload(self::MIGRATION, 'v2Structure'),
             ]),
         ]);
     }
@@ -357,7 +370,7 @@ class VenueSalonTest extends TestCase
         $this->assertSame(1.9, $config['placement']['keep_clear']['width']);
         $this->assertSame(1.2, $config['placement']['keep_clear']['max_width']);
         // untouched blocks stay byte-identical
-        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Material'), json_decode((string) $venue->material_config, true));
+        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Material')), json_decode((string) $venue->material_config, true));
     }
 
     public function test_the_turn_migration_respects_admin_edits(): void
@@ -414,9 +427,9 @@ class VenueSalonTest extends TestCase
         $config = json_decode((string) $venue->visual_config, true);
 
         $this->assertSame('2.0.0', $venue->version);
-        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Structure'), $config['structure'],
+        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Structure')), $config['structure'],
             'down() restores the exact v2 structure — element order included.');
-        $this->assertSame($this->migrationPayload(self::MIGRATION, 'v2Placement'), $config['placement'],
+        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Placement')), $config['placement'],
             'down() restores the exact v2 placement.');
     }
 
@@ -435,7 +448,7 @@ class VenueSalonTest extends TestCase
 
     private function runTwoRoomsMigration(string $direction = 'up'): void
     {
-        $migration = require database_path('migrations/' . self::MIGRATION_V3);
+        $migration = require database_path('migrations/'.self::MIGRATION_V3);
         $migration->$direction();
     }
 
@@ -450,7 +463,7 @@ class VenueSalonTest extends TestCase
         $config = json_decode((string) $venue->visual_config, true);
 
         // the whole payload is the canonical v3 — not a partial heal
-        $this->assertSame($this->migrationPayload(self::MIGRATION_V3, 'v3Payload'), $config,
+        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION_V3, 'v3Payload')), $config,
             'the healed row IS the canonical v3 payload, byte-equal.');
 
         // spot pins: the two-room identity stands
@@ -473,7 +486,7 @@ class VenueSalonTest extends TestCase
         $config['structure'][] = ['id' => 'mystery-prop', 'primitive' => 'box', 'at' => [0, 0, 0], 'size' => [1, 1, 1], 'material' => 'wood_dark'];
         $config['mystery_key'] = true;
         DB::table('venue_templates')->where('slug', 'the-salon')->update([
-            'version'       => '2.1.0',
+            'version' => '2.1.0',
             'visual_config' => json_encode($config),
         ]);
 
@@ -481,7 +494,7 @@ class VenueSalonTest extends TestCase
 
         $venue = DB::table('venue_templates')->where('slug', 'the-salon')->first();
         $this->assertSame('3.0.0', $venue->version);
-        $this->assertSame($this->migrationPayload(self::MIGRATION_V3, 'v3Payload'),
+        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION_V3, 'v3Payload')),
             json_decode((string) $venue->visual_config, true),
             'drift cannot survive the force heal — the payload is canonical.');
     }
@@ -629,7 +642,7 @@ class VenueSalonTest extends TestCase
             'structure and placement agree on the walk gap (one number, one truth).');
 
         // collision discipline: walkable things never collide, solid things do
-        $colliding = array_column(array_filter($structure, fn ($e) => !empty($e['collide'])), 'id');
+        $colliding = array_column(array_filter($structure, fn ($e) => ! empty($e['collide'])), 'id');
         $this->assertEqualsCanonicalizing(
             ['bench-top', 'chair-a-seat', 'chair-b-seat', 'table-top', 'salon-curtain'],
             $colliding,
@@ -654,8 +667,8 @@ class VenueSalonTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $freeSlugs   = \App\Models\VenueTemplate::query()->accessibleByPlan('free')->pluck('slug')->all();
-        $proSlugs    = \App\Models\VenueTemplate::query()->accessibleByPlan('pro')->pluck('slug')->all();
+        $freeSlugs = \App\Models\VenueTemplate::query()->accessibleByPlan('free')->pluck('slug')->all();
+        $proSlugs = \App\Models\VenueTemplate::query()->accessibleByPlan('pro')->pluck('slug')->all();
         $studioSlugs = \App\Models\VenueTemplate::query()->accessibleByPlan('studio')->pluck('slug')->all();
 
         $this->assertNotContains('the-salon', $freeSlugs, 'Free users cannot build with the salon (Pro gate).');
@@ -689,13 +702,13 @@ class VenueSalonTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $venue = \App\Models\VenueTemplate::where('slug', 'the-salon')->firstOrFail();
-        $exporter = new \App\Services\VenueConfigExporter();
+        $exporter = new \App\Services\VenueConfigExporter;
         $payload = $exporter->forVenuePreview($venue);
 
         $vc = $payload['visual_config'] ?? [];
         $this->assertSame('rooms', $vc['structure_pass'] ?? null);
         $this->assertSame(3.8, $vc['wall_height'] ?? null);
-        $this->assertSame(1.0, $vc['tone_mapping_exposure'] ?? null);
+        $this->assertSame(1.0, (float) ($vc['tone_mapping_exposure'] ?? 0.0));
         $this->assertSame('front', $vc['placement']['focal_wall'] ?? null,
             'the salon hang reaches the client whole (preview/public parity by construction).');
         $this->assertNotEmpty($vc['structure'] ?? [], 'the descriptor payload ships whole.');
@@ -734,8 +747,8 @@ class VenueSalonTest extends TestCase
     {
         $slugs = array_merge(self::ELEVEN_SEEDED, ['the-salon']);
         $files = array_merge(
-            glob(resource_path('js/gallery') . '/*.js'),
-            glob(resource_path('js/gallery') . '/*/*.js') ?: []
+            glob(resource_path('js/gallery').'/*.js'),
+            glob(resource_path('js/gallery').'/*/*.js') ?: []
         );
         $this->assertNotEmpty($files, 'Gallery runtime files must exist.');
 
@@ -744,7 +757,7 @@ class VenueSalonTest extends TestCase
             $code = (string) preg_replace('/^\s*\/\/.*$/m', '', (string) $code);
             foreach ($slugs as $slug) {
                 $this->assertStringNotContainsString($slug, $code,
-                    basename($file) . " must not know the slug '{$slug}' — the DB is the sole identity source (DoD #7)."
+                    basename($file)." must not know the slug '{$slug}' — the DB is the sole identity source (DoD #7)."
                 );
             }
         }

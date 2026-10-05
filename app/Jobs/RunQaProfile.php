@@ -51,13 +51,13 @@ class RunQaProfile implements ShouldQueue
 
         if ($exit !== 0) {
             $run->forceFill([
-                'status'         => QaTestRun::STATUS_CANCELLED,
+                'status' => QaTestRun::STATUS_CANCELLED,
                 'blocked_reason' => "Superseded by shell-out execution (exit {$exit}) — see newest run for {$run->profile}.",
-                'finished_at'    => now(),
+                'finished_at' => now(),
             ])->save();
         } else {
             $run->forceFill([
-                'status'      => QaTestRun::STATUS_CANCELLED,
+                'status' => QaTestRun::STATUS_CANCELLED,
                 'blocked_reason' => 'Superseded by shell-out execution — see newest run for '.$run->profile.'.',
                 'finished_at' => now(),
             ])->save();
@@ -67,9 +67,9 @@ class RunQaProfile implements ShouldQueue
     private function markBlocked(string $reason): void
     {
         optional(QaTestRun::find($this->placeholderRunId))?->forceFill([
-            'status'         => QaTestRun::STATUS_BLOCKED,
+            'status' => QaTestRun::STATUS_BLOCKED,
             'blocked_reason' => $reason,
-            'finished_at'    => now(),
+            'finished_at' => now(),
         ])->save();
     }
 }

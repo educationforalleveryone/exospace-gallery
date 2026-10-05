@@ -21,16 +21,16 @@ class AnonymizeTransactionPii extends Command
     public function handle(): int
     {
         $retentionMonths = (int) $this->option('retention-months');
-        $dryRun          = (bool) $this->option('dry-run');
-        $batchSize       = (int) $this->option('batch-size');
-        $only            = (string) $this->option('only');
+        $dryRun = (bool) $this->option('dry-run');
+        $batchSize = (int) $this->option('batch-size');
+        $only = (string) $this->option('only');
 
         $cutoff = now()->subMonths($retentionMonths);
 
         $this->info("PII anonymization for records older than {$retentionMonths} months (before {$cutoff->toDateString()})");
-        $this->info("  Dry run: " . ($dryRun ? 'YES' : 'NO'));
+        $this->info('  Dry run: '.($dryRun ? 'YES' : 'NO'));
         $this->info("  Batch size: {$batchSize}");
-        $this->info("  Scope: " . ($only ?: 'both transactions and invoices'));
+        $this->info('  Scope: '.($only ?: 'both transactions and invoices'));
         $this->newLine();
 
         $totalAnonymized = 0;
@@ -49,10 +49,10 @@ class AnonymizeTransactionPii extends Command
         $this->info("Anonymized {$totalAnonymized} total records.");
 
         Log::info('AnonymizeTransactionPii: complete', [
-            'total_anonymized'  => $totalAnonymized,
-            'retention_months'  => $retentionMonths,
-            'cutoff'            => $cutoff->toDateString(),
-            'scope'             => $only ?: 'both',
+            'total_anonymized' => $totalAnonymized,
+            'retention_months' => $retentionMonths,
+            'cutoff' => $cutoff->toDateString(),
+            'scope' => $only ?: 'both',
         ]);
 
         return self::SUCCESS;
@@ -60,19 +60,20 @@ class AnonymizeTransactionPii extends Command
 
     private function anonymizeTransactions($cutoff, bool $dryRun, int $batchSize): int
     {
-        $this->info("── Transactions ──");
+        $this->info('── Transactions ──');
 
         // Count rows that need anonymization.
         $needsAnonymization = DB::table('transactions')
             ->where('created_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('customer_email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('customer_name');
+                    ->orWhereNotNull('customer_name');
             })
             ->count();
 
         if ($needsAnonymization === 0) {
-            $this->info("  No transactions need anonymization (all old rows already anonymized).");
+            $this->info('  No transactions need anonymization (all old rows already anonymized).');
+
             return 0;
         }
 
@@ -80,6 +81,7 @@ class AnonymizeTransactionPii extends Command
 
         if ($dryRun) {
             $this->warn("  [DRY-RUN] Would anonymize {$needsAnonymization} transactions. No changes made.");
+
             return 0;
         }
 
@@ -90,7 +92,7 @@ class AnonymizeTransactionPii extends Command
             ->where('created_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('customer_email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('customer_name');
+                    ->orWhereNotNull('customer_name');
             })
             ->orderBy('id')
             ->chunkById($batchSize, function ($rows) use ($appId, &$anonymized) {
@@ -98,9 +100,9 @@ class AnonymizeTransactionPii extends Command
                     DB::table('transactions')
                         ->where('id', $row->id)
                         ->update([
-                            'customer_email' => 'anonymized:' . substr(hash('sha256', $appId . $row->customer_email), 0, 16),
-                            'customer_name'  => null,
-                            'updated_at'     => now(),
+                            'customer_email' => 'anonymized:'.substr(hash('sha256', $appId.$row->customer_email), 0, 16),
+                            'customer_name' => null,
+                            'updated_at' => now(),
                         ]);
                     $anonymized++;
                 }
@@ -109,16 +111,18 @@ class AnonymizeTransactionPii extends Command
             });
 
         $this->info("  Anonymized {$anonymized} transactions.");
+
         return $anonymized;
     }
 
     private function anonymizeInvoices($cutoff, bool $dryRun, int $batchSize): int
     {
         $this->newLine();
-        $this->info("── Invoices ──");
+        $this->info('── Invoices ──');
 
         if (! \Illuminate\Support\Facades\Schema::hasTable('invoices')) {
-            $this->warn("  Invoices table does not exist — skipping invoice anonymization.");
+            $this->warn('  Invoices table does not exist — skipping invoice anonymization.');
+
             return 0;
         }
 
@@ -126,13 +130,14 @@ class AnonymizeTransactionPii extends Command
             ->where('issued_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('customer_email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('customer_name')
-                  ->orWhereNotNull('billing_address');
+                    ->orWhereNotNull('customer_name')
+                    ->orWhereNotNull('billing_address');
             })
             ->count();
 
         if ($needsAnonymization === 0) {
-            $this->info("  No invoices need anonymization (all old rows already anonymized).");
+            $this->info('  No invoices need anonymization (all old rows already anonymized).');
+
             return 0;
         }
 
@@ -140,6 +145,7 @@ class AnonymizeTransactionPii extends Command
 
         if ($dryRun) {
             $this->warn("  [DRY-RUN] Would anonymize {$needsAnonymization} invoices. No changes made.");
+
             return 0;
         }
 
@@ -150,8 +156,8 @@ class AnonymizeTransactionPii extends Command
             ->where('issued_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('customer_email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('customer_name')
-                  ->orWhereNotNull('billing_address');
+                    ->orWhereNotNull('customer_name')
+                    ->orWhereNotNull('billing_address');
             })
             ->orderBy('id')
             ->chunkById($batchSize, function ($rows) use ($appId, &$anonymized) {
@@ -159,10 +165,10 @@ class AnonymizeTransactionPii extends Command
                     DB::table('invoices')
                         ->where('id', $row->id)
                         ->update([
-                            'customer_email'  => 'anonymized:' . substr(hash('sha256', $appId . $row->customer_email), 0, 16),
-                            'customer_name'   => null,
+                            'customer_email' => 'anonymized:'.substr(hash('sha256', $appId.$row->customer_email), 0, 16),
+                            'customer_name' => null,
                             'billing_address' => null,
-                            'updated_at'      => now(),
+                            'updated_at' => now(),
                         ]);
                     $anonymized++;
                 }
@@ -171,6 +177,7 @@ class AnonymizeTransactionPii extends Command
             });
 
         $this->info("  Anonymized {$anonymized} invoices.");
+
         return $anonymized;
     }
 }

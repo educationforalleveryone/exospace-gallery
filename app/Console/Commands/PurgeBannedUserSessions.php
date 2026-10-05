@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 class PurgeBannedUserSessions extends Command
 {
     protected $signature = 'exospace:purge-banned-sessions';
+
     protected $description = 'Delete all sessions for banned users.';
 
     public function handle(): int
@@ -19,6 +20,7 @@ class PurgeBannedUserSessions extends Command
 
         if ($bannedCount === 0) {
             $this->info('No banned users — nothing to purge.');
+
             return self::SUCCESS;
         }
 
@@ -51,7 +53,7 @@ class PurgeBannedUserSessions extends Command
             ->whereIn('user_id', $bannedIds)
             ->delete();
 
-        $this->info("Purged {$deleted} sessions for " . count($bannedIds) . " banned user(s) from database.");
+        $this->info("Purged {$deleted} sessions for ".count($bannedIds).' banned user(s) from database.');
 
         Log::info('PurgeBannedUserSessions: purged database sessions', [
             'banned_users' => count($bannedIds),

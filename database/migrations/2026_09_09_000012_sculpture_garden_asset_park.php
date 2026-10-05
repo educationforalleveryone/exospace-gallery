@@ -13,19 +13,20 @@ return new class extends Migration
         if (is_string($from)) {
             return is_string($current) && $current === $from;
         }
+
         return is_numeric($current) && (float) $current === (float) $from;
     }
 
     private function gardenAssets(): array
     {
         return [
-            'tree_large'  => 'tree_large_01.glb',
+            'tree_large' => 'tree_large_01.glb',
             'tree_medium' => 'tree_medium_01.glb',
             'tree_accent' => 'tree_medium_02.glb',
-            'shrub'       => 'shrub_01.glb',
-            'grass'       => 'grass_clump_01.glb',
-            'boulder'     => 'boulder_01.glb',
-            'bench'       => 'bench_01.glb',
+            'shrub' => 'shrub_01.glb',
+            'grass' => 'grass_clump_01.glb',
+            'boulder' => 'boulder_01.glb',
+            'bench' => 'bench_01.glb',
         ];
     }
 
@@ -34,7 +35,7 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'sculpture-garden')
             ->first(['id', 'visual_config', 'material_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
@@ -42,9 +43,9 @@ return new class extends Migration
 
         $vcRewrites = [
             'background_color' => ['from' => '0xd6e0e2', 'to' => '0xdfe2d1'],
-            'fog_color'        => ['from' => '0xd6e0e2', 'to' => '0xdfe2d1'],
+            'fog_color' => ['from' => '0xd6e0e2', 'to' => '0xdfe2d1'],
             'field_radius_bonus' => ['from' => 2.2, 'to' => 2.6],
-            'field_radius_min'   => ['from' => 12.5, 'to' => 14],
+            'field_radius_min' => ['from' => 12.5, 'to' => 14],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -52,7 +53,7 @@ return new class extends Migration
             }
         }
 
-        if (is_array($vc['garden'] ?? null) && !isset($vc['garden']['assets_base'])) {
+        if (is_array($vc['garden'] ?? null) && ! isset($vc['garden']['assets_base'])) {
             $vc['garden']['assets_base'] = '/assets/venues/sculpture-garden/';
             $vc['garden']['assets'] = $this->gardenAssets();
         }
@@ -64,7 +65,7 @@ return new class extends Migration
         if ($row->material_config) {
             $mc = json_decode((string) $row->material_config, true) ?: [];
             $mcRewrites = [
-                'floor_color'       => ['from' => '0x3a6a2a', 'to' => '0x5e7a46'],
+                'floor_color' => ['from' => '0x3a6a2a', 'to' => '0x5e7a46'],
                 'floor_tile_meters' => ['from' => 2.0, 'to' => 3.0],
             ];
             $changed = false;
@@ -100,7 +101,7 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'sculpture-garden')
             ->first(['id', 'visual_config', 'material_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
@@ -108,9 +109,9 @@ return new class extends Migration
 
         $vcRewrites = [
             'background_color' => ['from' => '0xdfe2d1', 'to' => '0xd6e0e2'],
-            'fog_color'        => ['from' => '0xdfe2d1', 'to' => '0xd6e0e2'],
+            'fog_color' => ['from' => '0xdfe2d1', 'to' => '0xd6e0e2'],
             'field_radius_bonus' => ['from' => 2.6, 'to' => 2.2],
-            'field_radius_min'   => ['from' => 14, 'to' => 12.5],
+            'field_radius_min' => ['from' => 14, 'to' => 12.5],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -132,7 +133,7 @@ return new class extends Migration
         if ($row->material_config) {
             $mc = json_decode((string) $row->material_config, true) ?: [];
             $mcRewrites = [
-                'floor_color'       => ['from' => '0x5e7a46', 'to' => '0x3a6a2a'],
+                'floor_color' => ['from' => '0x5e7a46', 'to' => '0x3a6a2a'],
                 'floor_tile_meters' => ['from' => 3.0, 'to' => 2.0],
             ];
             $changed = false;

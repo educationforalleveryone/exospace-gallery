@@ -31,10 +31,12 @@ class OpsSweepStatusService
             $definition = DiagnosticRegistry::get($id);
             if ($definition === null) {
                 $ignored[] = ['id' => $id, 'reason' => 'unknown diagnostic id — the sweep skips it with a warning'];
+
                 continue;
             }
             if ($definition['scope'] !== DiagnosticRegistry::SCOPE_SELF) {
                 $ignored[] = ['id' => $id, 'reason' => 'application-scoped — sweeps need a target, so it is skipped'];
+
                 continue;
             }
 

@@ -76,9 +76,9 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         $location = $response->headers->get('Location');
 
         // Expected signature: strtoupper(md5(sid + product_id + '1' + price + secret_word))
-        $expectedSign = strtoupper(md5($sid . $productId . '1' . $price . $secretWord));
+        $expectedSign = strtoupper(md5($sid.$productId.'1'.$price.$secretWord));
 
-        $this->assertStringContainsString('&sign=' . $expectedSign, $location,
+        $this->assertStringContainsString('&sign='.$expectedSign, $location,
             '&sign= must equal strtoupper(md5(sid + product_id + quantity + price + secret_word)).');
     }
 
@@ -88,8 +88,8 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         RateLimiter::clear('trial:127.0.0.1');
 
         $user = User::factory()->create([
-            'plan'           => 'free',
-            'trial_ends_at'  => null,
+            'plan' => 'free',
+            'trial_ends_at' => null,
         ]);
 
         $response = $this->actingAs($user)
@@ -133,8 +133,8 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         RateLimiter::clear('trial:127.0.0.1');
 
         $user = User::factory()->create([
-            'plan'           => 'free',
-            'trial_ends_at'  => now()->subWeek(), // already used a trial
+            'plan' => 'free',
+            'trial_ends_at' => now()->subWeek(), // already used a trial
         ]);
 
         $response = $this->actingAs($user)
@@ -147,8 +147,8 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
     public function test_2co8_trial_start_blocked_for_paid_user(): void
     {
         $user = User::factory()->create([
-            'plan'           => 'pro',
-            'trial_ends_at'  => null,
+            'plan' => 'pro',
+            'trial_ends_at' => null,
         ]);
 
         $response = $this->actingAs($user)

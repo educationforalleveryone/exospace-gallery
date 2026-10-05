@@ -13,24 +13,24 @@ class GalleryFactory extends Factory
         $title = fake()->catchPhrase();
 
         return [
-            'user_id'          => User::factory(),
-            'team_id'          => null, // personal gallery by default; use forTeam() state for team galleries
-            'venue_template_id'=> null, // null = use default venue; use forVenue() state to set
-            'title'            => $title,
-            'slug'             => Str::slug($title) . '-' . uniqid(),
-            'description'      => fake()->optional()->paragraph(),
-            'wall_texture'     => fake()->randomElement(['white', 'concrete', 'brick', 'wood']),
-            'frame_style'      => fake()->randomElement(['modern', 'classic', 'minimal']),
-            'lighting_preset'  => fake()->randomElement(['bright', 'moody', 'dramatic']),
-            'floor_material'   => fake()->randomElement(['wood', 'marble', 'concrete']),
-            'room_layout'      => fake()->randomElement(['square', 'corridor', 'l-shape', 'rotunda']),
-            'is_active'        => true,
-            'is_featured'      => false,
-            'view_count'       => fake()->numberBetween(0, 500),
-            'opens_at'         => null,
-            'closes_at'        => null,
-            'pin_hash'         => null,
-            'custom_domain'    => null,
+            'user_id' => User::factory(),
+            'team_id' => null, // personal gallery by default; use forTeam() state for team galleries
+            'venue_template_id' => null, // null = use default venue; use forVenue() state to set
+            'title' => $title,
+            'slug' => Str::slug($title).'-'.uniqid(),
+            'description' => fake()->optional()->paragraph(),
+            'wall_texture' => fake()->randomElement(['white', 'concrete', 'brick', 'wood']),
+            'frame_style' => fake()->randomElement(['modern', 'classic', 'minimal']),
+            'lighting_preset' => fake()->randomElement(['bright', 'moody', 'dramatic']),
+            'floor_material' => fake()->randomElement(['wood', 'marble', 'concrete']),
+            'room_layout' => fake()->randomElement(['square', 'corridor', 'l-shape', 'rotunda']),
+            'is_active' => true,
+            'is_featured' => false,
+            'view_count' => fake()->numberBetween(0, 500),
+            'opens_at' => null,
+            'closes_at' => null,
+            'pin_hash' => null,
+            'custom_domain' => null,
         ];
     }
 
@@ -68,20 +68,20 @@ class GalleryFactory extends Factory
         ]);
     }
 
-    public function scheduled(\DateTime $opensAt = null, \DateTime $closesAt = null): static
+    public function scheduled(?\DateTime $opensAt = null, ?\DateTime $closesAt = null): static
     {
         return $this->state(fn (array $attributes) => [
-            'opens_at'  => $opensAt?->format('Y-m-d H:i:s'),
+            'opens_at' => $opensAt?->format('Y-m-d H:i:s'),
             'closes_at' => $closesAt?->format('Y-m-d H:i:s'),
         ]);
     }
 
-    public function withCustomDomain(string $domain = null): static
+    public function withCustomDomain(?string $domain = null): static
     {
         return $this->state(fn (array $attributes) => [
-            'custom_domain'                     => $domain ?? fake()->domainName(),
-            'custom_domain_verification_token'  => \Illuminate\Support\Str::random(32),
-            'custom_domain_verified_at'         => now(),
+            'custom_domain' => $domain ?? fake()->domainName(),
+            'custom_domain_verification_token' => \Illuminate\Support\Str::random(32),
+            'custom_domain_verified_at' => now(),
         ]);
     }
 }

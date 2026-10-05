@@ -9,11 +9,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class QaTestCaseResult extends Model
 {
-    public const STATUS_PASSED    = 'passed';
-    public const STATUS_FAILED    = 'failed';
-    public const STATUS_ERROR     = 'error';
-    public const STATUS_SKIPPED   = 'skipped';
-    public const STATUS_WARNING   = 'warning';
+    public const STATUS_PASSED = 'passed';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_ERROR = 'error';
+
+    public const STATUS_SKIPPED = 'skipped';
+
+    public const STATUS_WARNING = 'warning';
+
     public const STATUS_TIMED_OUT = 'timed_out';
 
     public const INFRA_EXCEPTION_SIGNATURES = [
@@ -63,7 +68,7 @@ class QaTestCaseResult extends Model
             return match ($this->status) {
                 self::STATUS_SKIPPED => 'skipped',
                 self::STATUS_WARNING => 'warning',
-                default              => null,
+                default => null,
             };
         }
 

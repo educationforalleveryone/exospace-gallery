@@ -44,11 +44,11 @@ class AffiliateDashboardController extends Controller
             $id = $row->affiliate_id;
             if (! isset($byAffiliate[$id])) {
                 $byAffiliate[$id] = [
-                    'id'              => $id,
-                    'total'           => 0,
-                    'converted'       => (int) ($paid[$id]->cnt ?? 0),
-                    'pending'         => 0,
-                    'revenue'         => (float) ($paid[$id]->revenue ?? 0),
+                    'id' => $id,
+                    'total' => 0,
+                    'converted' => (int) ($paid[$id]->cnt ?? 0),
+                    'pending' => 0,
+                    'revenue' => (float) ($paid[$id]->revenue ?? 0),
                 ];
             }
             // 'total' counts ALL pending_upgrades for the affiliate (any status).
@@ -64,17 +64,18 @@ class AffiliateDashboardController extends Controller
                 ? round(($row['converted'] / $row['total']) * 100, 1)
                 : 0;
             $row['revenue'] = (float) $row['revenue'];
+
             return $row;
         }, array_values($byAffiliate));
 
-        usort($affiliates, fn($a, $b) => $b['revenue'] <=> $a['revenue']);
+        usort($affiliates, fn ($a, $b) => $b['revenue'] <=> $a['revenue']);
 
         // Compute totals from the assembled rows (single pass).
         $totals = [
-            'referrals'       => array_sum(array_column($affiliates, 'total')),
-            'converted'       => array_sum(array_column($affiliates, 'converted')),
-            'pending'         => array_sum(array_column($affiliates, 'pending')),
-            'revenue'         => array_sum(array_column($affiliates, 'revenue')),
+            'referrals' => array_sum(array_column($affiliates, 'total')),
+            'converted' => array_sum(array_column($affiliates, 'converted')),
+            'pending' => array_sum(array_column($affiliates, 'pending')),
+            'revenue' => array_sum(array_column($affiliates, 'revenue')),
             'conversion_rate' => 0,
         ];
         $totals['conversion_rate'] = $totals['referrals'] > 0

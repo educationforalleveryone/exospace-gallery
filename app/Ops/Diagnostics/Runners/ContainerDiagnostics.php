@@ -219,7 +219,7 @@ class ContainerDiagnostics implements RunsDiagnostics
             'status' => $events->isEmpty() ? 'pass' : ($events->contains(fn ($e) => $e->severity === 'critical') ? 'fail' : 'warn'),
             'detail' => $events->isEmpty()
                 ? 'No unresolved errors captured for this application.'
-                : sprintf("%d active error(s): %s", $events->count(), $events->take(3)->pluck('title')->map(fn ($t) => '"'.mb_substr($t, 0, 90).'"')->implode('; ')),
+                : sprintf('%d active error(s): %s', $events->count(), $events->take(3)->pluck('title')->map(fn ($t) => '"'.mb_substr($t, 0, 90).'"')->implode('; ')),
         ];
 
         $baseUrl = rtrim((string) config('services.coolify.api_base_url', ''), '/');

@@ -241,7 +241,7 @@ class OpsOverviewTilesTest extends TestCase
         $this->assertStringContainsString('Verdict caps applied', $content);
         $this->assertStringContainsString('stale or missing', $content);
 
-        $this->assertSame(1, preg_match('/text-3xl font-bold [^"]*">(\d+)<span/', $content, $m));
+        $this->assertSame(1, preg_match('/Weighted health score[^"]*">\s*<span class="text-base">(\d+)<\/span>/s', $content, $m));
         $this->assertLessThanOrEqual(65, (int) $m[1], 'A platform with no backups must never score above the verdict cap');
     }
 }

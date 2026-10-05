@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Mail\BillingExportEmail;
 use App\Models\AdminAuditLog;
-use App\Models\ProcessedWebhook;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\BillingExportService;
@@ -29,7 +28,7 @@ class ScheduledBillingExportTest extends TestCase
     private function seedMoneyEvent(string $status, ?string $daysAgo = null): Transaction
     {
         return Transaction::factory()->create([
-            'status'    => $status,
+            'status' => $status,
             'created_at' => $daysAgo !== null ? now()->subDays((int) $daysAgo) : now(),
             'updated_at' => $daysAgo !== null ? now()->subDays((int) $daysAgo) : now(),
         ]);
@@ -44,7 +43,7 @@ class ScheduledBillingExportTest extends TestCase
             ->assertExitCode(0);
 
         Mail::assertNothingSent();
-        
+
         $this->assertSame(0, AdminAuditLog::where('action', 'billing.exported')->count(), 'nothing left the system — no audit row');
 
         // Feature OFF must not read as job DEAD to the heartbeat monitor.
@@ -130,7 +129,7 @@ class ScheduledBillingExportTest extends TestCase
     public function test_on_demand_export_route_still_streams_after_service_extraction(): void
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
@@ -149,7 +148,7 @@ class ScheduledBillingExportTest extends TestCase
 
         // The manual export remains attributable to the clicking admin.
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'  => 'billing.exported',
+            'action' => 'billing.exported',
             'actor_id' => $admin->id,
         ]);
     }
@@ -199,6 +198,7 @@ class ScheduledBillingExportTest extends TestCase
 
         Http::assertSent(function ($request) {
             $body = (string) $request->body();
+
             return str_contains($body, 'partial delivery')
                 && str_contains($body, 'warning');
         });
@@ -218,7 +218,7 @@ class ScheduledBillingExportTest extends TestCase
         config(['services.billing_export.email' => 'finance@example.com']);
 
         $sale = Transaction::factory()->create([
-            'status'     => 'refunded',
+            'status' => 'refunded',
             'created_at' => now()->subDays(60),
             'updated_at' => now()->subDay(),
         ]);

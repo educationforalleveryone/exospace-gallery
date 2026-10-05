@@ -21,7 +21,7 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
     public function test_audit_p14_1_oauth_unlink_creates_audit_log_entry(): void
     {
         $user = User::factory()->create([
-            'google_id'    => 'google-123',
+            'google_id' => 'google-123',
             'has_password' => true, // So unlink is allowed
         ]);
 
@@ -30,10 +30,10 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'actor_id'    => $user->id,
-            'action'      => 'oauth.unlinked',
+            'actor_id' => $user->id,
+            'action' => 'oauth.unlinked',
             'target_type' => User::class,
-            'target_id'   => $user->id,
+            'target_id' => $user->id,
         ]);
     }
 
@@ -49,10 +49,10 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'actor_id'    => $user->id,
-            'action'      => 'gallery.deleted',
+            'actor_id' => $user->id,
+            'action' => 'gallery.deleted',
             'target_type' => Gallery::class,
-            'target_id'   => $gallery->id,
+            'target_id' => $gallery->id,
         ]);
 
         $log = AdminAuditLog::where('action', 'gallery.deleted')
@@ -71,7 +71,7 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
         $this->actingAs($owner)
             ->post("/admin/teams/{$team->id}/invite", [
                 'email' => $inviteeEmail,
-                'role'  => 'editor',
+                'role' => 'editor',
             ]);
 
         $log = AdminAuditLog::where('action', 'team.invited')
@@ -96,7 +96,7 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
         $this->actingAs($owner)
             ->patch("/admin/teams/{$team->id}/members/role", [
                 'user_id' => $member->id,
-                'role'    => 'editor',
+                'role' => 'editor',
             ]);
 
         $log = AdminAuditLog::where('action', 'team.member_role_changed')
@@ -118,38 +118,38 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
         $txA1 = Transaction::factory()->create(['amount' => 29.00, 'status' => 'completed']);
         $txA2 = Transaction::factory()->create(['amount' => 99.00, 'status' => 'completed']);
         PendingUpgrade::factory()->create([
-            'user_id'        => $user->id,
-            'affiliate_id'   => 'AFF-A',
-            'status'         => 'converted',
+            'user_id' => $user->id,
+            'affiliate_id' => 'AFF-A',
+            'status' => 'converted',
             'transaction_id' => $txA1->id,
         ]);
         PendingUpgrade::factory()->create([
-            'user_id'        => $user->id,
-            'affiliate_id'   => 'AFF-A',
-            'status'         => 'converted',
+            'user_id' => $user->id,
+            'affiliate_id' => 'AFF-A',
+            'status' => 'converted',
             'transaction_id' => $txA2->id,
         ]);
         PendingUpgrade::factory()->create([
-            'user_id'        => $user->id,
-            'affiliate_id'   => 'AFF-A',
-            'status'         => 'pending',
+            'user_id' => $user->id,
+            'affiliate_id' => 'AFF-A',
+            'status' => 'pending',
             'transaction_id' => null,
         ]);
 
         // Affiliate B
         $txB1 = Transaction::factory()->create(['amount' => 29.00, 'status' => 'completed']);
         PendingUpgrade::factory()->create([
-            'user_id'        => $user->id,
-            'affiliate_id'   => 'AFF-B',
-            'status'         => 'converted',
+            'user_id' => $user->id,
+            'affiliate_id' => 'AFF-B',
+            'status' => 'converted',
             'transaction_id' => $txB1->id,
         ]);
 
         // Affiliate C (no conversions)
         PendingUpgrade::factory()->create([
-            'user_id'        => $user->id,
-            'affiliate_id'   => 'AFF-C',
-            'status'         => 'pending',
+            'user_id' => $user->id,
+            'affiliate_id' => 'AFF-C',
+            'status' => 'pending',
             'transaction_id' => null,
         ]);
 
@@ -178,8 +178,8 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
         $this->assertLessThan(
             10,
             $queryCount,
-            "Affiliate dashboard should use a fixed number of queries "
-            . "(2 aggregate + overhead), not 1+2N. Got {$queryCount} queries for 3 affiliates."
+            'Affiliate dashboard should use a fixed number of queries '
+            ."(2 aggregate + overhead), not 1+2N. Got {$queryCount} queries for 3 affiliates."
         );
 
         // Verify per-affiliate data: AFF-A should be first (highest revenue)
@@ -225,9 +225,9 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
         $convert = function (string $txStatus, float $amount) use ($user) {
             $tx = Transaction::factory()->create(['amount' => $amount, 'status' => $txStatus]);
             PendingUpgrade::factory()->create([
-                'user_id'        => $user->id,
-                'affiliate_id'   => 'AFF-X',
-                'status'         => 'converted',
+                'user_id' => $user->id,
+                'affiliate_id' => 'AFF-X',
+                'status' => 'converted',
                 'transaction_id' => $tx->id,
             ]);
         };
@@ -240,9 +240,9 @@ class AuditLoggingAndAffiliateDashboardTest extends TestCase
 
         // Manual upgrades through the admin panel convert without a linked transaction.
         PendingUpgrade::factory()->create([
-            'user_id'        => $user->id,
-            'affiliate_id'   => 'AFF-X',
-            'status'         => 'converted',
+            'user_id' => $user->id,
+            'affiliate_id' => 'AFF-X',
+            'status' => 'converted',
             'transaction_id' => null,
         ]);
 

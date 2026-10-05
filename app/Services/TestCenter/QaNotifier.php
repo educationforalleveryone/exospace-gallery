@@ -18,7 +18,7 @@ class QaNotifier
         $class = $run->failure_class;
 
         $title = "[QA] {$run->profile} FAILED on {$run->environment}";
-        $body  = sprintf(
+        $body = sprintf(
             "%d/%d green · %s%s\nCommit %s · branch %s\nRun #%d · see Control Center",
             $run->passed,
             max($run->total, 1),

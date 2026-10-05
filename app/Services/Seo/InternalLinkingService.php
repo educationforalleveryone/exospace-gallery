@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 class InternalLinkingService
 {
     private const CACHE_TTL = 900; // 15 minutes
+
     private const CACHE_VERSION_KEY = 'seo:related:version';
 
     // Candidate pool cap: ranking keeps only a bounded slice of public
@@ -54,8 +55,8 @@ class InternalLinkingService
                 $query->withCount([
                     'images as shared_artists_count' => fn ($q) => $q->whereIn('artist_id', $artistIds),
                 ])
-                ->orderByDesc('shared_artists_count')
-                ->orderByDesc('view_count');
+                    ->orderByDesc('shared_artists_count')
+                    ->orderByDesc('view_count');
             } else {
                 $query->orderByDesc('view_count');
             }
@@ -114,7 +115,7 @@ class InternalLinkingService
     public function relatedArtworks(GalleryImage $artwork, ?int $limit = null): Collection
     {
         $limit ??= (int) config('seo.related.artworks_max', 6);
-        if (!$artwork->artist_id) {
+        if (! $artwork->artist_id) {
             return collect();
         }
 

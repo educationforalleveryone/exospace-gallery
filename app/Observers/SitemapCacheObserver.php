@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class SitemapCacheObserver
 {
     /**
-      * @var array<int, true>
-      */
+     * @var array<int, true>
+     */
     private array $justCreated = [];
 
     /**
-      * @var array<class-string<Model>, array<int, string>>
-      */
+     * @var array<class-string<Model>, array<int, string>>
+     */
     private const WATCHED = [
         \App\Models\Gallery::class => [
             'slug', 'title', 'description', 'is_active', 'pin_hash',
@@ -54,6 +54,7 @@ class SitemapCacheObserver
         // The insert's own saved() dispatch: created() already bumped.
         if (isset($this->justCreated[$oid])) {
             unset($this->justCreated[$oid]);
+
             return;
         }
 

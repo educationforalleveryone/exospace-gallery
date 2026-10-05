@@ -37,10 +37,10 @@ class BillingAndExportTest extends TestCase
     {
         $user = User::factory()->pro()->create();
         Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'plan'      => 'pro',
-            'status'    => 'completed',
-            'amount'    => 29.00,
+            'user_id' => $user->id,
+            'plan' => 'pro',
+            'status' => 'completed',
+            'amount' => 29.00,
         ]);
 
         $response = $this->actingAs($user)->get('/billing');
@@ -55,18 +55,18 @@ class BillingAndExportTest extends TestCase
     {
         $user = User::factory()->pro()->create();
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'plan'      => 'pro',
-            'status'    => 'completed',
-            'amount'    => 29.00,
+            'user_id' => $user->id,
+            'plan' => 'pro',
+            'status' => 'completed',
+            'amount' => 29.00,
         ]);
         Invoice::factory()->create([
-            'user_id'         => $user->id,
-            'transaction_id'  => $transaction->id,
-            'invoice_number'  => 'INV-' . now()->year . '-00001',
-            'pdf_path'        => 'invoices/test-invoice.pdf',
-            'plan'            => 'pro',
-            'amount'          => 29.00,
+            'user_id' => $user->id,
+            'transaction_id' => $transaction->id,
+            'invoice_number' => 'INV-'.now()->year.'-00001',
+            'pdf_path' => 'invoices/test-invoice.pdf',
+            'plan' => 'pro',
+            'amount' => 29.00,
         ]);
 
         // Sanity: the relationship resolves to the invoice we just created.
@@ -86,7 +86,7 @@ class BillingAndExportTest extends TestCase
             15,
             $queryCount,
             'Billing portal should eager-load invoice relationship. '
-            . "Expected <15 queries, got {$queryCount}."
+            ."Expected <15 queries, got {$queryCount}."
         );
     }
 
@@ -94,10 +94,10 @@ class BillingAndExportTest extends TestCase
     {
         $user = User::factory()->pro()->create();
         Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'plan'      => 'pro',
-            'status'    => 'completed',
-            'amount'    => 29.00,
+            'user_id' => $user->id,
+            'plan' => 'pro',
+            'status' => 'completed',
+            'amount' => 29.00,
         ]);
 
         $response = $this->actingAs($user)->get('/billing');
@@ -152,8 +152,8 @@ class BillingAndExportTest extends TestCase
 
         $this->assertDatabaseHas('pending_upgrades', [
             'user_id' => $user->id,
-            'plan'    => 'pro',
-            'status'  => 'pending',
+            'plan' => 'pro',
+            'status' => 'pending',
         ]);
     }
 
@@ -237,9 +237,9 @@ class BillingAndExportTest extends TestCase
 
     private function exportJson($response): array
     {
-        $zipPath = tempnam(sys_get_temp_dir(), 'exo-export') . '.zip';
+        $zipPath = tempnam(sys_get_temp_dir(), 'exo-export').'.zip';
         file_put_contents($zipPath, $response->getContent());
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         $zip->open($zipPath);
         $json = $zip->getFromName('profile.json');
         $zip->close();
@@ -276,9 +276,9 @@ class BillingAndExportTest extends TestCase
     {
         $user = User::factory()->create();
         Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'plan'      => 'pro',
-            'amount'    => 29.00,
+            'user_id' => $user->id,
+            'plan' => 'pro',
+            'amount' => 29.00,
         ]);
 
         $response = $this->actingAs($user)->get('/profile/export');
@@ -297,13 +297,13 @@ class BillingAndExportTest extends TestCase
         $artist = \App\Models\Artist::factory()->create(['created_by' => $user->id]);
         \Illuminate\Support\Facades\Storage::fake('public');
         $image = GalleryImage::factory()->create([
-            'gallery_id'  => $gallery->id,
-            'artist_id'   => $artist->id,
-            'price'       => 500.00,
-            'currency'    => 'USD',
-            'for_sale'    => true,
-            'medium'      => 'Oil on canvas',
-            'year'        => 2024,
+            'gallery_id' => $gallery->id,
+            'artist_id' => $artist->id,
+            'price' => 500.00,
+            'currency' => 'USD',
+            'for_sale' => true,
+            'medium' => 'Oil on canvas',
+            'year' => 2024,
         ]);
         \Illuminate\Support\Facades\Storage::disk('public')->put($image->path, 'fake-image-bytes');
 
@@ -312,7 +312,7 @@ class BillingAndExportTest extends TestCase
 
         $response->assertRedirect();
 
-        $clone = Gallery::where('title', $gallery->title . ' (Copy)')->first();
+        $clone = Gallery::where('title', $gallery->title.' (Copy)')->first();
         $this->assertNotNull($clone);
 
         $cloneImage = $clone->images()->first();
@@ -328,21 +328,21 @@ class BillingAndExportTest extends TestCase
     public function test_unverified_custom_domain_does_not_route(): void
     {
         $gallery = Gallery::factory()->create([
-            'is_active'   => true,
+            'is_active' => true,
             'custom_domain' => 'test.example.com',
             'custom_domain_verification_token' => 'test-token-123',
             'custom_domain_verified_at' => null, // not verified
         ]);
         GalleryImage::factory()->create(['gallery_id' => $gallery->id]);
 
-        $response = $this->get('/gallery/' . $gallery->slug);
+        $response = $this->get('/gallery/'.$gallery->slug);
         $response->assertOk(); // loads via slug, not custom domain
     }
 
     public function test_verified_custom_domain_routes(): void
     {
         $gallery = Gallery::factory()->create([
-            'is_active'   => true,
+            'is_active' => true,
             'custom_domain' => 'test.example.com',
             'custom_domain_verification_token' => 'test-token-456',
             'custom_domain_verified_at' => now(), // verified

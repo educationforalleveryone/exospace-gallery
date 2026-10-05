@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
+use App\Http\Controllers\Controller;
 use App\Models\Gallery;
 use App\Models\GalleryScheduleEvent;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class GalleryEventController extends Controller
 {
@@ -42,16 +42,16 @@ class GalleryEventController extends Controller
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
 
         $validated = $request->validate([
-            'title'         => ['required', 'string', 'max:200'],
-            'description'   => ['nullable', 'string', 'max:2000'],
-            'type'          => ['required', 'string', 'in:' . implode(',', array_keys(GalleryScheduleEvent::TYPES))],
-            'starts_at'     => ['required', 'date'],
-            'ends_at'       => ['nullable', 'date', 'after:starts_at'],
-            'timezone'      => ['nullable', 'string', 'max:50', 'timezone'],
+            'title' => ['required', 'string', 'max:200'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'type' => ['required', 'string', 'in:'.implode(',', array_keys(GalleryScheduleEvent::TYPES))],
+            'starts_at' => ['required', 'date'],
+            'ends_at' => ['nullable', 'date', 'after:starts_at'],
+            'timezone' => ['nullable', 'string', 'max:50', 'timezone'],
             'location_name' => ['nullable', 'string', 'max:255'],
-            'location_url'  => ['nullable', 'string', 'max:500', 'url'],
-            'capacity'      => ['nullable', 'integer', 'min:1', 'max:4294967295'],
-            'is_active'     => ['boolean'],
+            'location_url' => ['nullable', 'string', 'max:500', 'url'],
+            'capacity' => ['nullable', 'integer', 'min:1', 'max:4294967295'],
+            'is_active' => ['boolean'],
         ]);
 
         $validated['gallery_id'] = $gallery->id;
@@ -69,28 +69,33 @@ class GalleryEventController extends Controller
     public function edit(Gallery $gallery, GalleryScheduleEvent $event): View
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
-        if ($event->gallery_id !== $gallery->id) abort(404);
+        if ($event->gallery_id !== $gallery->id) {
+            abort(404);
+        }
 
         $types = GalleryScheduleEvent::TYPES;
+
         return view('admin.galleries.events.edit', compact('gallery', 'event', 'types'));
     }
 
     public function update(Request $request, Gallery $gallery, GalleryScheduleEvent $event): RedirectResponse
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
-        if ($event->gallery_id !== $gallery->id) abort(404);
+        if ($event->gallery_id !== $gallery->id) {
+            abort(404);
+        }
 
         $validated = $request->validate([
-            'title'         => ['required', 'string', 'max:200'],
-            'description'   => ['nullable', 'string', 'max:2000'],
-            'type'          => ['required', 'string', 'in:' . implode(',', array_keys(GalleryScheduleEvent::TYPES))],
-            'starts_at'     => ['required', 'date'],
-            'ends_at'       => ['nullable', 'date', 'after:starts_at'],
-            'timezone'      => ['nullable', 'string', 'max:50', 'timezone'],
+            'title' => ['required', 'string', 'max:200'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'type' => ['required', 'string', 'in:'.implode(',', array_keys(GalleryScheduleEvent::TYPES))],
+            'starts_at' => ['required', 'date'],
+            'ends_at' => ['nullable', 'date', 'after:starts_at'],
+            'timezone' => ['nullable', 'string', 'max:50', 'timezone'],
             'location_name' => ['nullable', 'string', 'max:255'],
-            'location_url'  => ['nullable', 'string', 'max:500', 'url'],
-            'capacity'      => ['nullable', 'integer', 'min:1', 'max:4294967295'],
-            'is_active'     => ['boolean'],
+            'location_url' => ['nullable', 'string', 'max:500', 'url'],
+            'capacity' => ['nullable', 'integer', 'min:1', 'max:4294967295'],
+            'is_active' => ['boolean'],
         ]);
 
         $validated['is_active'] = $request->boolean('is_active', true);
@@ -108,7 +113,9 @@ class GalleryEventController extends Controller
     public function destroy(Gallery $gallery, GalleryScheduleEvent $event): RedirectResponse
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
-        if ($event->gallery_id !== $gallery->id) abort(404);
+        if ($event->gallery_id !== $gallery->id) {
+            abort(404);
+        }
 
         $title = $event->title;
         $event->delete();
@@ -121,7 +128,9 @@ class GalleryEventController extends Controller
     public function rsvps(Gallery $gallery, GalleryScheduleEvent $event): View
     {
         $this->authorizeGalleryAccess($gallery);
-        if ($event->gallery_id !== $gallery->id) abort(404);
+        if ($event->gallery_id !== $gallery->id) {
+            abort(404);
+        }
 
         $rsvps = $event->rsvps()->latest()->paginate(100);
 
@@ -137,7 +146,7 @@ class GalleryEventController extends Controller
         $validated['timezone'] = $validated['timezone'] ?? $fallbackTimezone;
         $validated['starts_at'] = GalleryScheduleEvent::fromEventLocalTime($validated['starts_at'], $validated['timezone']);
 
-        if (!empty($validated['ends_at'])) {
+        if (! empty($validated['ends_at'])) {
             $validated['ends_at'] = GalleryScheduleEvent::fromEventLocalTime($validated['ends_at'], $validated['timezone']);
         }
     }

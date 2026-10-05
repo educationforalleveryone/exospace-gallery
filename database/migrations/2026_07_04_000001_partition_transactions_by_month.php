@@ -64,7 +64,7 @@ return new class extends Migration
             $inboundForeignKeys = DB::table('information_schema.KEY_COLUMN_USAGE as kcu')
                 ->join('information_schema.REFERENTIAL_CONSTRAINTS as rc', function ($join) {
                     $join->on('rc.CONSTRAINT_SCHEMA', '=', 'kcu.CONSTRAINT_SCHEMA')
-                         ->on('rc.CONSTRAINT_NAME', '=', 'kcu.CONSTRAINT_NAME');
+                        ->on('rc.CONSTRAINT_NAME', '=', 'kcu.CONSTRAINT_NAME');
                 })
                 ->where('kcu.CONSTRAINT_SCHEMA', DB::connection()->getDatabaseName())
                 ->where('kcu.REFERENCED_TABLE_NAME', 'transactions')
@@ -102,12 +102,12 @@ return new class extends Migration
 
         for ($i = 0; $i < 15; $i++) {
             $month = $start->copy()->addMonths($i);
-            $partitionName = 'p' . $month->format('Ym');
+            $partitionName = 'p'.$month->format('Ym');
             $lessThan = $month->copy()->addMonth()->format('Y-m-d');
             $partitions[] = "PARTITION {$partitionName} VALUES LESS THAN (UNIX_TIMESTAMP('{$lessThan}'))";
         }
 
-        $partitions[] = "PARTITION pmax VALUES LESS THAN MAXVALUE";
+        $partitions[] = 'PARTITION pmax VALUES LESS THAN MAXVALUE';
 
         $partitionDdl = implode(",\n            ", $partitions);
 

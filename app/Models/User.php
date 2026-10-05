@@ -5,16 +5,16 @@ namespace App\Models;
 use App\Notifications\Auth\ResetPassword;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * Per-instance memo for currentTeam(); false means "not resolved yet".
@@ -45,29 +45,29 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'is_super_admin'    => 'boolean',
-            'plan_expires_at'   => 'datetime',
-            'plan_started_at'   => 'datetime',
-            'mfa_enabled_at'    => 'datetime',
-            'google2fa_ts'      => 'integer',
-            'inactive_nudged_at'       => 'datetime', // last inactive-nudge
-            'plan_expiry_reminded_at'  => 'datetime', // last plan-expiry reminder
+            'password' => 'hashed',
+            'is_super_admin' => 'boolean',
+            'plan_expires_at' => 'datetime',
+            'plan_started_at' => 'datetime',
+            'mfa_enabled_at' => 'datetime',
+            'google2fa_ts' => 'integer',
+            'inactive_nudged_at' => 'datetime', // last inactive-nudge
+            'plan_expiry_reminded_at' => 'datetime', // last plan-expiry reminder
             'marketing_consent' => 'boolean',      // CAN-SPAM/GDPR consent
             // SEO OS: acquisition attribution
-            'acquisition_utm'   => 'array',
+            'acquisition_utm' => 'array',
             'acquisition_captured_at' => 'datetime',
-            'mfa_backup_codes'  => 'array',         // hashed one-time codes
+            'mfa_backup_codes' => 'array',         // hashed one-time codes
             // Subscription tracking columns (recurring billing)
             'subscription_cancelled_at' => 'datetime',
-            'subscription_ends_at'      => 'datetime',
+            'subscription_ends_at' => 'datetime',
             // Dunning tracking columns (failed payment recovery)
-            'dunning_last_sent_at'      => 'datetime',
+            'dunning_last_sent_at' => 'datetime',
             // Trial period
-            'trial_ends_at'             => 'datetime',
-            'has_password'      => 'boolean',
-            'password_set_at'   => 'datetime',
-            'last_login_at'     => 'datetime',
+            'trial_ends_at' => 'datetime',
+            'has_password' => 'boolean',
+            'password_set_at' => 'datetime',
+            'last_login_at' => 'datetime',
         ];
     }
 
@@ -79,8 +79,13 @@ class User extends Authenticatable implements MustVerifyEmail
     public function linkedOAuthProviders(): array
     {
         $linked = [];
-        if ($this->google_id) $linked[] = 'google';
-        if ($this->github_id) $linked[] = 'github';
+        if ($this->google_id) {
+            $linked[] = 'google';
+        }
+        if ($this->github_id) {
+            $linked[] = 'github';
+        }
+
         return $linked;
     }
 
@@ -110,15 +115,15 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new \App\Notifications\Auth\VerifyEmail());
+        $this->notify(new \App\Notifications\Auth\VerifyEmail);
     }
 
     public function storePasswordInHistory(): void
     {
         \Illuminate\Support\Facades\DB::table('password_histories')->insert([
-            'user_id'       => $this->id,
+            'user_id' => $this->id,
             'password_hash' => $this->getOriginal('password'),
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
 
         $keepIds = \Illuminate\Support\Facades\DB::table('password_histories')
@@ -148,12 +153,12 @@ class User extends Authenticatable implements MustVerifyEmail
         $limits = self::planLimits($plan);
 
         $this->forceFill([
-            'plan'            => $plan,
-            'max_galleries'   => $limits['max_galleries'],
-            'max_images'      => $limits['max_images'],
+            'plan' => $plan,
+            'max_galleries' => $limits['max_galleries'],
+            'max_images' => $limits['max_images'],
             'plan_started_at' => now(),
             'plan_expires_at' => now()->addDays(14),
-            'trial_ends_at'   => now()->addDays(14),
+            'trial_ends_at' => now()->addDays(14),
         ])->save();
     }
 
@@ -185,8 +190,8 @@ class User extends Authenticatable implements MustVerifyEmail
     public function teams(): BelongsToMany
     {
         return $this->belongsToMany(Team::class, 'team_user')
-                    ->withPivot('role')
-                    ->withTimestamps();
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function currentTeam()
@@ -226,6 +231,7 @@ class User extends Authenticatable implements MustVerifyEmail
         }
         $this->forceFill(['current_team_id' => $team->id])->save();
         $this->resolvedCurrentTeam = false;
+
         return true;
     }
 
@@ -236,7 +242,10 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function teamRole(Team $team): ?string
     {
-        if ($team->isOwner($this)) return 'owner';
+        if ($team->isOwner($this)) {
+            return 'owner';
+        }
+
         return $team->memberRole($this);
     }
 
@@ -320,7 +329,7 @@ class User extends Authenticatable implements MustVerifyEmail
             ->where(function ($query) use ($ownedTeamIds) {
                 $query->where(function ($query) {
                     $query->where('galleries.user_id', $this->id)
-                          ->whereNull('galleries.team_id');
+                        ->whereNull('galleries.team_id');
                 })->orWhereIn('galleries.team_id', $ownedTeamIds);
             })
             ->count();
@@ -338,18 +347,26 @@ class User extends Authenticatable implements MustVerifyEmail
         static::creating(function (User $user) {
             if (! $user->acquisition_channel && session()->has('acquisition')) {
                 $acq = (array) session('acquisition');
-                $user->acquisition_channel   = $acq['channel'] ?? null;
-                $user->acquisition_referrer  = $acq['referrer'] ?? null;
+                $user->acquisition_channel = $acq['channel'] ?? null;
+                $user->acquisition_referrer = $acq['referrer'] ?? null;
                 $user->acquisition_landing_page = $acq['landing_page'] ?? null;
-                $user->acquisition_utm       = !empty($acq['utm']) ? $acq['utm'] : null;
+                $user->acquisition_utm = ! empty($acq['utm']) ? $acq['utm'] : null;
                 $user->acquisition_captured_at = now();
             }
 
-            if (! $user->plan) $user->plan = 'free';
+            if (! $user->plan) {
+                $user->plan = 'free';
+            }
             $limits = self::planLimits($user->plan);
-            if (! $user->max_galleries) $user->max_galleries = $limits['max_galleries'];
-            if (! $user->max_images)    $user->max_images    = $limits['max_images'];
-            if (! $user->plan_started_at) $user->plan_started_at = now();
+            if (! $user->max_galleries) {
+                $user->max_galleries = $limits['max_galleries'];
+            }
+            if (! $user->max_images) {
+                $user->max_images = $limits['max_images'];
+            }
+            if (! $user->plan_started_at) {
+                $user->plan_started_at = now();
+            }
 
             if ($user->has_password === null) {
                 $user->has_password = ! empty($user->password);
@@ -363,7 +380,7 @@ class User extends Authenticatable implements MustVerifyEmail
             if ($user->isDirty('plan')) {
                 $limits = self::planLimits($user->plan);
                 $user->max_galleries = $limits['max_galleries'];
-                $user->max_images    = $limits['max_images'];
+                $user->max_images = $limits['max_images'];
             }
 
             if ($user->isDirty('password') && ! empty($user->password)) {

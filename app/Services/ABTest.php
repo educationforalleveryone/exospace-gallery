@@ -27,7 +27,7 @@ class ABTest
 
         // Assign based on a hash of the session ID (deterministic per session)
         $sessionId = Session::getId();
-        $hash = crc32($experiment . $sessionId);
+        $hash = crc32($experiment.$sessionId);
         $bucket = ($hash % 100) + 1; // 1-100
 
         $cumulative = 0;
@@ -35,6 +35,7 @@ class ABTest
             $cumulative += $percentage;
             if ($bucket <= $cumulative) {
                 Session::put($sessionKey, $name);
+
                 return $name;
             }
         }

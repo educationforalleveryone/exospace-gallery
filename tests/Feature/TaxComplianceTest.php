@@ -106,6 +106,7 @@ class TaxComplianceTest extends TestCase
         Http::fake([
             'ec.europa.eu/*' => function () use (&$callCount) {
                 $callCount++;
+
                 return Http::response(
                     '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><checkVatResponse xmlns="urn:ec.europa.eu:taxud:vies:services:checkVat:types"><valid>true</valid></checkVatResponse></soap:Body></soap:Envelope>',
                     200,
@@ -207,10 +208,10 @@ class TaxComplianceTest extends TestCase
 
         $user = User::factory()->create();
         $transaction = Transaction::factory()->create([
-            'user_id'    => $user->id,
-            'amount'     => 99.00,
-            'currency'   => 'USD',
-            'plan'       => 'studio',
+            'user_id' => $user->id,
+            'amount' => 99.00,
+            'currency' => 'USD',
+            'plan' => 'studio',
         ]);
 
         $generator = app(InvoiceGenerator::class);
@@ -240,16 +241,16 @@ class TaxComplianceTest extends TestCase
 
         $user = User::factory()->create();
         $transaction = Transaction::factory()->create([
-            'user_id'  => $user->id,
-            'amount'   => 299.00,
+            'user_id' => $user->id,
+            'amount' => 299.00,
             'currency' => 'USD',
-            'plan'     => 'studio',
+            'plan' => 'studio',
         ]);
 
         $generator = app(InvoiceGenerator::class);
         $invoice = $generator->generateForTransaction($transaction, $user, [
-            'customer_country'      => 'FR',
-            'customer_vat_number'   => 'FR12345678901',
+            'customer_country' => 'FR',
+            'customer_vat_number' => 'FR12345678901',
         ]);
 
         $this->assertNotNull($invoice);
@@ -270,8 +271,8 @@ class TaxComplianceTest extends TestCase
         $user = User::factory()->create();
         $transaction = Transaction::factory()->create([
             'user_id' => $user->id,
-            'amount'  => 50.00,
-            'plan'    => 'pro',
+            'amount' => 50.00,
+            'plan' => 'pro',
         ]);
 
         $generator = app(InvoiceGenerator::class);
@@ -294,15 +295,15 @@ class TaxComplianceTest extends TestCase
         ]);
 
         $invoice = Invoice::factory()->create([
-            'customer_name'       => 'Acme GmbH',
-            'customer_email'      => 'billing@acme.de',
+            'customer_name' => 'Acme GmbH',
+            'customer_email' => 'billing@acme.de',
             'customer_vat_number' => 'DE123456789',
             'supplier_vat_number' => 'GB999999999',
-            'tax_country_code'    => 'DE',
-            'tax_rate'            => 0.0,
-            'tax_amount'          => 0.00,
-            'reverse_charge'      => true,
-            'amount'              => 99.00,
+            'tax_country_code' => 'DE',
+            'tax_rate' => 0.0,
+            'tax_amount' => 0.00,
+            'reverse_charge' => true,
+            'amount' => 99.00,
         ]);
 
         $rendered = view('invoices.pdf', ['invoice' => $invoice])->render();
@@ -318,13 +319,13 @@ class TaxComplianceTest extends TestCase
     public function invoice_pdf_renders_tax_line_for_b2c_vat_charged(): void
     {
         $invoice = Invoice::factory()->create([
-            'customer_name'    => 'Jane Doe',
-            'customer_email'   => 'jane@example.de',
+            'customer_name' => 'Jane Doe',
+            'customer_email' => 'jane@example.de',
             'tax_country_code' => 'DE',
-            'tax_rate'         => 19.0,
-            'tax_amount'       => 18.81,
-            'reverse_charge'   => false,
-            'amount'           => 117.81,
+            'tax_rate' => 19.0,
+            'tax_amount' => 18.81,
+            'reverse_charge' => false,
+            'amount' => 117.81,
         ]);
 
         $rendered = view('invoices.pdf', ['invoice' => $invoice])->render();
@@ -338,10 +339,10 @@ class TaxComplianceTest extends TestCase
     {
         $invoice = Invoice::factory()->create([
             'tax_country_code' => null,
-            'tax_rate'         => 0.0,
-            'tax_amount'       => 0.00,
-            'reverse_charge'   => false,
-            'amount'           => 99.00,
+            'tax_rate' => 0.0,
+            'tax_amount' => 0.00,
+            'reverse_charge' => false,
+            'amount' => 99.00,
         ]);
 
         $rendered = view('invoices.pdf', ['invoice' => $invoice])->render();
@@ -369,8 +370,8 @@ class TaxComplianceTest extends TestCase
     public static function unregisteredSupplierValues(): array
     {
         return [
-            'unset'      => [null],
-            'empty'      => [''],
+            'unset' => [null],
+            'empty' => [''],
             'whitespace' => ['   '],
         ];
     }
@@ -396,10 +397,10 @@ class TaxComplianceTest extends TestCase
 
         $user = User::factory()->create();
         $transaction = Transaction::factory()->create([
-            'user_id'  => $user->id,
-            'amount'   => 99.00,
+            'user_id' => $user->id,
+            'amount' => 99.00,
             'currency' => 'USD',
-            'plan'     => 'studio',
+            'plan' => 'studio',
         ]);
 
         $invoice = app(InvoiceGenerator::class)->generateForTransaction($transaction, $user, [
@@ -470,10 +471,10 @@ class TaxComplianceTest extends TestCase
     public static function malformedCustomerCountries(): array
     {
         return [
-            'empty'        => [''],
+            'empty' => [''],
             'country name' => ['GERMANY'],
             'three-letter' => ['DEU'],
-            'digits'       => ['12'],
+            'digits' => ['12'],
         ];
     }
 
@@ -485,8 +486,8 @@ class TaxComplianceTest extends TestCase
         $user = User::factory()->create();
         $transaction = Transaction::factory()->create([
             'user_id' => $user->id,
-            'amount'  => 29.00,
-            'plan'    => 'pro',
+            'amount' => 29.00,
+            'plan' => 'pro',
         ]);
 
         $invoice = app(InvoiceGenerator::class)->generateForTransaction($transaction, $user, [

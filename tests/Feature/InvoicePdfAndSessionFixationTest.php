@@ -22,9 +22,9 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         Storage::fake('local');
 
         $transaction = Transaction::factory()->create([
-            'amount'   => 29.00,
+            'amount' => 29.00,
             'currency' => 'USD',
-            'plan'     => 'pro',
+            'plan' => 'pro',
         ]);
         $user = User::factory()->create();
 
@@ -56,8 +56,8 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create([
-            'user_id'   => $user->id,
-            'pdf_path'  => 'invoices/2026/INV-2026-00001.pdf',
+            'user_id' => $user->id,
+            'pdf_path' => 'invoices/2026/INV-2026-00001.pdf',
         ]);
 
         // Put a fake PDF file at the path
@@ -76,8 +76,8 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create([
-            'user_id'   => $user->id,
-            'pdf_path'  => 'invoices/2026/INV-2026-00002.html', // old HTML invoice
+            'user_id' => $user->id,
+            'pdf_path' => 'invoices/2026/INV-2026-00002.html', // old HTML invoice
         ]);
 
         Storage::disk('public')->put($invoice->pdf_path, '<html>fake invoice</html>');
@@ -124,9 +124,9 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         $transaction = Transaction::factory()->create(['amount' => 29.00, 'currency' => 'USD', 'plan' => 'pro']);
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create([
-            'user_id'        => $user->id,
+            'user_id' => $user->id,
             'transaction_id' => $transaction->id,
-            'pdf_path'       => null,
+            'pdf_path' => null,
         ]);
 
         $result = app(InvoiceGenerator::class)->generateForTransaction($transaction, $user);
@@ -162,7 +162,7 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create([
-            'user_id'  => $user->id,
+            'user_id' => $user->id,
             'pdf_path' => 'invoices/2026/INV-2026-00077.html',
         ]);
         Storage::disk('public')->put('invoices/2026/INV-2026-00077.html', '<html>old</html>');
@@ -181,10 +181,10 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create([
-            'user_id'        => $user->id,
-            'invoice_number' => 'INV-' . now()->year . '-00088',
-            'issued_at'      => now(),
-            'pdf_path'       => 'invoices/' . now()->year . '/INV-' . now()->year . '-00088.pdf',
+            'user_id' => $user->id,
+            'invoice_number' => 'INV-'.now()->year.'-00088',
+            'issued_at' => now(),
+            'pdf_path' => 'invoices/'.now()->year.'/INV-'.now()->year.'-00088.pdf',
         ]);
 
         $newPath = app(InvoiceGenerator::class)->regeneratePdf($invoice);
@@ -199,7 +199,7 @@ class InvoicePdfAndSessionFixationTest extends TestCase
 
         $user = User::factory()->create();
         $invoice = Invoice::factory()->create([
-            'user_id'  => $user->id,
+            'user_id' => $user->id,
             'pdf_path' => 'storage/invoices/2026/INV-2026-00099.pdf',
         ]);
         Storage::disk('local')->put('invoices/2026/INV-2026-00099.pdf', '%PDF-1.4 fake content');
@@ -236,9 +236,9 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         $sessionBefore = Session::getId();
 
         $this->post(route('register'), [
-            'name'                  => 'Test User',
-            'email'                 => 'test-cr4@example.com',
-            'password'              => 'TestPassword123!',
+            'name' => 'Test User',
+            'email' => 'test-cr4@example.com',
+            'password' => 'TestPassword123!',
             'password_confirmation' => 'TestPassword123!',
         ]);
 
@@ -253,19 +253,19 @@ class InvoicePdfAndSessionFixationTest extends TestCase
         $team = \App\Models\Team::factory()->create();
         $invitation = \App\Models\TeamInvitation::factory()->create([
             'team_id' => $team->id,
-            'email'   => 'invited-cr4@example.com',
-            'token'   => 'test-invitation-token-' . uniqid(),
+            'email' => 'invited-cr4@example.com',
+            'token' => 'test-invitation-token-'.uniqid(),
         ]);
 
         $this->startSession();
         $sessionBefore = Session::getId();
 
         $this->post(route('register'), [
-            'name'              => 'Invited User',
-            'email'             => 'invited-cr4@example.com',
-            'password'          => 'TestPassword123!',
+            'name' => 'Invited User',
+            'email' => 'invited-cr4@example.com',
+            'password' => 'TestPassword123!',
             'password_confirmation' => 'TestPassword123!',
-            'invitation_token'  => $invitation->token,
+            'invitation_token' => $invitation->token,
         ]);
 
         $sessionAfter = Session::getId();

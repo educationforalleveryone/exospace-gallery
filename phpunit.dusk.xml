@@ -3,6 +3,15 @@
     PHPUnit config for Dusk browser tests.
     Run via: php artisan dusk
     (Dusk automatically uses this file instead of phpunit.xml)
+
+    NOTE: these values are NOT overrides when config is cached
+    (bootstrap/cache/config.php wins over every <env> here). The CI dusk
+    job relies on this: it bakes the file-backed sqlite DB and the real
+    APP_URL/APP_KEY via `php artisan config:cache` before running dusk.
+    A local run without config:cache uses these values directly — hence
+    DB_DATABASE must already be a file-backed sqlite in .env, and APP_KEY
+    must come from .env (never hardcode a key here; a placeholder breaks
+    cookie encryption with a confusing cipher error).
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
@@ -20,11 +29,10 @@
     <php>
         <env name="APP_ENV" value="dusk.testing"/>
         <env name="APP_URL" value="http://127.0.0.1:8000"/>
-        <env name="APP_KEY" value="base64:dusk-testing-key-replace-me-with-real-key-via-artisan-key:generate"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="SESSION_DRIVER" value="array"/>
+        <env name="SESSION_DRIVER" value="file"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

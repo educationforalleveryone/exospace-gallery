@@ -24,7 +24,7 @@ trait AssertsSchedule
 
         $this->assertTrue(
             $found,
-            $message !== '' ? $message : "Expected a scheduled command containing [{$needle}]. Registered commands: " . implode(' | ', $commands)
+            $message !== '' ? $message : "Expected a scheduled command containing [{$needle}]. Registered commands: ".implode(' | ', $commands)
         );
     }
 
@@ -40,7 +40,7 @@ trait AssertsSchedule
 
         $this->assertTrue(
             in_array($description, $descriptions, true),
-            $message !== '' ? $message : "Expected a scheduled closure named [{$description}]. Registered descriptions: " . implode(' | ', $descriptions)
+            $message !== '' ? $message : "Expected a scheduled closure named [{$description}]. Registered descriptions: ".implode(' | ', $descriptions)
         );
     }
 }

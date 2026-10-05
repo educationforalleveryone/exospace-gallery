@@ -26,9 +26,9 @@ class WebhookDelivery extends Model
     ];
 
     protected $casts = [
-        'success'      => 'boolean',
+        'success' => 'boolean',
         'delivered_at' => 'datetime',
-        'http_status'  => 'integer',
+        'http_status' => 'integer',
         'attempt_count' => 'integer',
     ];
 

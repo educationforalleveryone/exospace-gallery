@@ -28,11 +28,11 @@ class LandingPricingContentTest extends TestCase
     public function landing_page_prices_match_billing_config(): void
     {
         config([
-            'plans.display.pro.price'    => 29,
+            'plans.display.pro.price' => 29,
             'plans.display.studio.price' => 99,
-            'services.2checkout.recurring_product_id_pro'    => 'prod-pro',
+            'services.2checkout.recurring_product_id_pro' => 'prod-pro',
             'services.2checkout.recurring_product_id_studio' => 'prod-studio',
-            'services.2checkout.recurring_price_pro_monthly'    => '4.99',
+            'services.2checkout.recurring_price_pro_monthly' => '4.99',
             'services.2checkout.recurring_price_studio_monthly' => '14.99',
         ]);
 

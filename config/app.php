@@ -15,7 +15,7 @@ return [
     'business_address' => address_lines(env('EXOSPACE_BUSINESS_ADDRESS')),
 
     'supplier_vat_number' => env('EXOSPACE_SUPPLIER_VAT_NUMBER'),
-    'supplier_country'    => env('EXOSPACE_SUPPLIER_COUNTRY', 'US'),
+    'supplier_country' => env('EXOSPACE_SUPPLIER_COUNTRY', 'US'),
 
     'tax_default_country' => env('EXOSPACE_TAX_DEFAULT_COUNTRY', 'US'),
 

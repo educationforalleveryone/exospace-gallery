@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Services\TurnstileService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ContactController extends Controller
 {
@@ -16,8 +16,8 @@ class ContactController extends Controller
     public function submit(Request $request)
     {
         $validated = $request->validate([
-            'name'    => 'required|string|max:100',
-            'email'   => 'required|email|max:255',
+            'name' => 'required|string|max:100',
+            'email' => 'required|email|max:255',
             'subject' => 'nullable|string|max:200',
             'message' => 'required|string|max:5000',
         ]);
@@ -26,6 +26,7 @@ class ContactController extends Controller
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Captcha verification failed. Please refresh and try again.'], 422);
             }
+
             return back()->withErrors(['captcha' => 'Captcha verification failed. Please refresh and try again.'])->withInput();
         }
 
@@ -36,10 +37,10 @@ class ContactController extends Controller
             $recipient = config('services.contact_form.email') ?: config('mail.from.address');
 
             Mail::raw(
-                "Name: {$validated['name']}\nEmail: {$validated['email']}\nSubject: " . ($validated['subject'] ?? 'No subject') . "\n\n{$validated['message']}",
+                "Name: {$validated['name']}\nEmail: {$validated['email']}\nSubject: ".($validated['subject'] ?? 'No subject')."\n\n{$validated['message']}",
                 function ($msg) use ($validated, $recipient) {
                     $msg->to($recipient)
-                        ->subject('[Exospace Contact] ' . email_subject_line($validated['subject'] ?? 'New message from ' . $validated['name']))
+                        ->subject('[Exospace Contact] '.email_subject_line($validated['subject'] ?? 'New message from '.$validated['name']))
                         ->replyTo($validated['email'], $validated['name']);
                 }
             );
@@ -53,7 +54,7 @@ class ContactController extends Controller
             return back()->with('status', 'Thanks! We\'ll get back to you shortly.');
 
         } catch (\Exception $e) {
-            Log::error('Contact form failed: ' . $e->getMessage());
+            Log::error('Contact form failed: '.$e->getMessage());
 
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'Failed to send message.'], 500);

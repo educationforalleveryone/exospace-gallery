@@ -11,12 +11,11 @@ use Tests\TestCase;
 
 class SecurityHardeningTest extends TestCase
 {
-
     private function actingAsFullAdmin(User $user): self
     {
         return $this->actingAs($user)->withSession([
-            'mfa_verified'          => true,
-            'mfa_verified_at'       => now()->timestamp,
+            'mfa_verified' => true,
+            'mfa_verified_at' => now()->timestamp,
             'auth.password_confirmed_at' => now()->timestamp,
         ]);
     }
@@ -61,7 +60,7 @@ class SecurityHardeningTest extends TestCase
         }
 
         $this->assertTrue($hasThrottle,
-            'POST /confirm-password must have throttle middleware. Found: ' . json_encode($middleware));
+            'POST /confirm-password must have throttle middleware. Found: '.json_encode($middleware));
     }
 
     public function test_team_invitation_show_does_not_leak_account_exists_for_guests(): void
@@ -146,7 +145,7 @@ class SecurityHardeningTest extends TestCase
         $actor = User::factory()->create(['email_verified_at' => now()]);
         $this->actingAs($actor);
         $controller = app(\App\Http\Controllers\SuperAdmin\SystemController::class);
-        $request = \Illuminate\Http\Request::create('/master-control/users/' . $secondAdmin->id . '/toggle-super-admin', 'POST');
+        $request = \Illuminate\Http\Request::create('/master-control/users/'.$secondAdmin->id.'/toggle-super-admin', 'POST');
         $request->setLaravelSession(app('session.store'));
         app()->instance('request', $request);
         $redirect = $controller->toggleSuperAdmin($secondAdmin->fresh());

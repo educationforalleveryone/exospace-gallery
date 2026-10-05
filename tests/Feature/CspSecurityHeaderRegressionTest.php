@@ -91,9 +91,9 @@ class CspSecurityHeaderRegressionTest extends TestCase
 
     private function runMiddlewareAndGetCsp(): string
     {
-        $middleware = new \App\Http\Middleware\SecurityHeaders();
+        $middleware = new \App\Http\Middleware\SecurityHeaders;
         $response = $middleware->handle(
-            new \Illuminate\Http\Request(),
+            new \Illuminate\Http\Request,
             fn () => new \Illuminate\Http\Response('ok')
         );
 

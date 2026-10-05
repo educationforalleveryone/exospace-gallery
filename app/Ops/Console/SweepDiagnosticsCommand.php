@@ -21,8 +21,8 @@ class SweepDiagnosticsCommand extends Command
     private const MIN_CADENCE_MINUTES = 15;
 
     /**
-      * @var array<string, string>
-      */
+     * @var array<string, string>
+     */
     private const EVENT_CATEGORIES = [
         // Explicit per-id mappings where the domain differs from the prefix.
         'app.cache' => 'REDIS',

@@ -21,18 +21,19 @@ class AnonymizeGdprRequestPii extends Command
     public function handle(): int
     {
         $retentionMonths = (int) $this->option('retention-months');
-        $dryRun          = (bool) $this->option('dry-run');
-        $batchSize       = (int) $this->option('batch-size');
+        $dryRun = (bool) $this->option('dry-run');
+        $batchSize = (int) $this->option('batch-size');
 
         $cutoff = now()->subMonths($retentionMonths);
 
         $this->info("GDPR deletion request PII anonymization for records older than {$retentionMonths} months (before {$cutoff->toDateString()})");
-        $this->info("  Dry run: " . ($dryRun ? 'YES' : 'NO'));
+        $this->info('  Dry run: '.($dryRun ? 'YES' : 'NO'));
         $this->info("  Batch size: {$batchSize}");
         $this->newLine();
 
         if (! Schema::hasTable('gdpr_deletion_requests')) {
-            $this->warn("  gdpr_deletion_requests table does not exist — skipping.");
+            $this->warn('  gdpr_deletion_requests table does not exist — skipping.');
+
             return self::SUCCESS;
         }
 
@@ -40,13 +41,14 @@ class AnonymizeGdprRequestPii extends Command
             ->where('requested_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('requester_ip')
-                  ->orWhereNotNull('reason');
+                    ->orWhereNotNull('requester_ip')
+                    ->orWhereNotNull('reason');
             })
             ->count();
 
         if ($needsAnonymization === 0) {
-            $this->info("  No deletion request rows need anonymization (all old rows already anonymized).");
+            $this->info('  No deletion request rows need anonymization (all old rows already anonymized).');
+
             return self::SUCCESS;
         }
 
@@ -54,6 +56,7 @@ class AnonymizeGdprRequestPii extends Command
 
         if ($dryRun) {
             $this->warn("  [DRY-RUN] Would anonymize {$needsAnonymization} deletion request rows. No changes made.");
+
             return self::SUCCESS;
         }
 
@@ -64,8 +67,8 @@ class AnonymizeGdprRequestPii extends Command
             ->where('requested_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('requester_ip')
-                  ->orWhereNotNull('reason');
+                    ->orWhereNotNull('requester_ip')
+                    ->orWhereNotNull('reason');
             })
             ->orderBy('id')
             ->chunkById($batchSize, function ($rows) use ($appId, &$anonymized) {
@@ -76,10 +79,10 @@ class AnonymizeGdprRequestPii extends Command
                     DB::table('gdpr_deletion_requests')
                         ->where('id', $row->id)
                         ->update([
-                            'email'        => 'anonymized:' . substr(hash('sha256', $appId . $row->email), 0, 16),
+                            'email' => 'anonymized:'.substr(hash('sha256', $appId.$row->email), 0, 16),
                             'requester_ip' => null,
-                            'reason'       => null,
-                            'updated_at'   => now(),
+                            'reason' => null,
+                            'updated_at' => now(),
                         ]);
                     $anonymized++;
                 }
@@ -90,9 +93,9 @@ class AnonymizeGdprRequestPii extends Command
         $this->info("  Anonymized {$anonymized} deletion request rows.");
 
         Log::info('AnonymizeGdprRequestPii: complete', [
-            'anonymized'        => $anonymized,
-            'retention_months'  => $retentionMonths,
-            'cutoff'            => $cutoff->toDateString(),
+            'anonymized' => $anonymized,
+            'retention_months' => $retentionMonths,
+            'cutoff' => $cutoff->toDateString(),
         ]);
 
         return self::SUCCESS;

@@ -22,7 +22,7 @@ class ContactFormTest extends TestCase
      */
     private function captureRawMail(): Email
     {
-        $captured = new Email();
+        $captured = new Email;
 
         Mail::shouldReceive('raw')->once()->andReturnUsing(
             function (string $text, \Closure $callback) use ($captured): void {
@@ -48,8 +48,8 @@ class ContactFormTest extends TestCase
         Mail::shouldReceive('raw')->never();
 
         $this->post('/contact', [
-            'name'    => str_repeat('a', 101),
-            'email'   => 'visitor@example.com',
+            'name' => str_repeat('a', 101),
+            'email' => 'visitor@example.com',
             'message' => str_repeat('m', 5001),
         ])->assertSessionHasErrors(['name', 'message']);
     }
@@ -60,8 +60,8 @@ class ContactFormTest extends TestCase
         Mail::shouldReceive('raw')->never();
 
         $this->post('/contact', [
-            'name'    => 'Visitor',
-            'email'   => 'not-an-email',
+            'name' => 'Visitor',
+            'email' => 'not-an-email',
             'message' => 'Hello there',
         ])->assertSessionHasErrors('email');
     }
@@ -74,8 +74,8 @@ class ContactFormTest extends TestCase
         $captured = $this->captureRawMail();
 
         $this->post('/contact', [
-            'name'    => 'Visitor',
-            'email'   => 'visitor@example.com',
+            'name' => 'Visitor',
+            'email' => 'visitor@example.com',
             'subject' => 'support',
             'message' => 'I need a hand with my gallery.',
         ])->assertRedirect()->assertSessionHas('status');
@@ -92,14 +92,14 @@ class ContactFormTest extends TestCase
             // An empty env value lands as an existing-but-blank key — exactly
             // the misconfiguration that would otherwise 500 every submission.
             'services.contact_form.email' => '',
-            'mail.from.address'           => 'noreply@example.test',
+            'mail.from.address' => 'noreply@example.test',
         ]);
 
         $captured = $this->captureRawMail();
 
         $this->post('/contact', [
-            'name'    => 'Visitor',
-            'email'   => 'visitor@example.com',
+            'name' => 'Visitor',
+            'email' => 'visitor@example.com',
             'message' => 'Hello',
         ])->assertRedirect();
 
@@ -112,8 +112,8 @@ class ContactFormTest extends TestCase
         Mail::shouldReceive('raw')->once()->andThrow(new \RuntimeException('transport down'));
 
         $this->post('/contact', [
-            'name'    => 'Visitor',
-            'email'   => 'visitor@example.com',
+            'name' => 'Visitor',
+            'email' => 'visitor@example.com',
             'message' => 'Hello',
         ])->assertSessionHasErrors('message')->assertSessionMissing('status');
     }
@@ -132,8 +132,8 @@ class ContactFormTest extends TestCase
         $this->captureRawMail();
 
         $this->postJson('/contact', [
-            'name'    => 'Visitor',
-            'email'   => 'visitor@example.com',
+            'name' => 'Visitor',
+            'email' => 'visitor@example.com',
             'message' => 'Hello',
         ])->assertOk()->assertJsonPath('message', 'Message sent successfully.');
     }
@@ -146,8 +146,8 @@ class ContactFormTest extends TestCase
         $captured = $this->captureRawMail();
 
         $this->post('/contact', [
-            'name'    => "Visitor\r\nBcc: victim@example.com",
-            'email'   => 'visitor@example.com',
+            'name' => "Visitor\r\nBcc: victim@example.com",
+            'email' => 'visitor@example.com',
             'message' => 'Hello',
         ])->assertRedirect();
 

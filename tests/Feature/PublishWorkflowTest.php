@@ -19,13 +19,13 @@ class PublishWorkflowTest extends TestCase
     private function storePayload(array $overrides = []): array
     {
         return array_merge([
-            'title'           => 'Spring Showcase Test Gallery',
-            'description'     => 'A draft-first gallery.',
-            'wall_texture'    => 'white',
-            'frame_style'     => 'modern',
+            'title' => 'Spring Showcase Test Gallery',
+            'description' => 'A draft-first gallery.',
+            'wall_texture' => 'white',
+            'frame_style' => 'modern',
             'lighting_preset' => 'bright',
-            'floor_material'  => 'wood',
-            'room_layout'     => 'square',
+            'floor_material' => 'wood',
+            'room_layout' => 'square',
         ], $overrides);
     }
 
@@ -174,8 +174,8 @@ class PublishWorkflowTest extends TestCase
             Storage::disk('public')->put($path, 'fake-jpeg-bytes');
             GalleryImage::factory()->create([
                 'gallery_id' => $gallery->id,
-                'path'       => $path,
-                'filename'   => $filename,
+                'path' => $path,
+                'filename' => $filename,
             ]);
         }
 
@@ -241,7 +241,7 @@ class PublishWorkflowTest extends TestCase
         $gallery = Gallery::factory()->create(['user_id' => $user->id, 'is_active' => false]);
         $image = GalleryImage::factory()->create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Blue Composition No. 4',
+            'title' => 'Blue Composition No. 4',
         ]);
 
         $response = $this->actingAs($user)->get("/admin/galleries/{$gallery->id}/edit");
@@ -348,7 +348,7 @@ class PublishWorkflowTest extends TestCase
         $response = $this->actingAs($user)->get('/admin/galleries');
 
         $response->assertOk()
-            ->assertSee('Upgrade to Pro for ' . config('plans.limits.pro.max_galleries') . ' galleries')
+            ->assertSee('Upgrade to Pro for '.config('plans.limits.pro.max_galleries').' galleries')
             ->assertDontSee('Upgrade to Pro for unlimited galleries');
     }
 
@@ -396,8 +396,8 @@ class PublishWorkflowTest extends TestCase
         ]);
         GalleryImage::factory()->create([
             'gallery_id' => $source->id,
-            'path'       => 'gallery-images/src.jpg',
-            'filename'   => 'src.jpg',
+            'path' => 'gallery-images/src.jpg',
+            'filename' => 'src.jpg',
         ]);
 
         $this->actingAs($user)->post("/admin/galleries/{$source->id}/duplicate");
@@ -439,8 +439,8 @@ class PublishWorkflowTest extends TestCase
 
         $html = $response->getContent();
         $this->assertGreaterThan(
-            strpos($html, 'gallery/' . $fresh->slug),
-            strpos($html, 'gallery/' . $old->slug),
+            strpos($html, 'gallery/'.$fresh->slug),
+            strpos($html, 'gallery/'.$old->slug),
             'The freshly published exhibition must rank first under ?sort=published.',
         );
     }

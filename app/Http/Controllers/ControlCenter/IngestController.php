@@ -47,25 +47,25 @@ class IngestController extends Controller
     private function ingest(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'junit'       => ['required', 'file'],
-            'profile'     => ['required', 'string', 'max:64', function (string $attr, mixed $value, \Closure $fail) {
+            'junit' => ['required', 'file'],
+            'profile' => ['required', 'string', 'max:64', function (string $attr, mixed $value, \Closure $fail) {
                 if (! config()->has("test-profiles.profiles.{$value}")) {
                     $fail("Unknown profile [{$value}].");
                 }
             }],
             'environment' => ['nullable', 'in:ci,local,staging'],
-            'trigger'     => ['nullable', 'in:manual,ci,api,schedule'],
-            'git_branch'  => ['nullable', 'string', 'max:120'],
-            'git_commit'  => ['nullable', 'string', 'max:40'],
-            'git_tag'     => ['nullable', 'string', 'max:120'],
-            'runner'      => ['nullable', 'string', 'max:64'],
-            'ci_run_url'  => ['nullable', 'url', 'max:500'],
+            'trigger' => ['nullable', 'in:manual,ci,api,schedule'],
+            'git_branch' => ['nullable', 'string', 'max:120'],
+            'git_commit' => ['nullable', 'string', 'max:40'],
+            'git_tag' => ['nullable', 'string', 'max:120'],
+            'runner' => ['nullable', 'string', 'max:64'],
+            'ci_run_url' => ['nullable', 'url', 'max:500'],
             'duration_ms' => ['nullable', 'integer', 'min:0'],
         ]);
 
         /**
- * @var \Illuminate\Http\UploadedFile|null $artifact
- */
+         * @var \Illuminate\Http\UploadedFile|null $artifact
+         */
         $artifact = $request->file('junit');
 
         if ($artifact === null || ! $artifact->isValid()) {
@@ -89,18 +89,18 @@ class IngestController extends Controller
             }
 
             $run = app(RunRecorder::class)->record([
-                'profile'     => $profileKey,
+                'profile' => $profileKey,
                 'environment' => $validated['environment'] ?? 'ci',
-                'safety'      => (string) config("test-profiles.profiles.{$profileKey}.safety", 'test-only'),
-                'trigger'     => $validated['trigger'] ?? 'ci',
-                'runner'      => $validated['runner'] ?? 'github-actions',
-                'git_branch'  => $validated['git_branch'] ?? null,
-                'git_commit'  => $validated['git_commit'] ?? null,
-                'git_tag'     => $validated['git_tag'] ?? null,
-                'ci_run_url'  => $validated['ci_run_url'] ?? null,
+                'safety' => (string) config("test-profiles.profiles.{$profileKey}.safety", 'test-only'),
+                'trigger' => $validated['trigger'] ?? 'ci',
+                'runner' => $validated['runner'] ?? 'github-actions',
+                'git_branch' => $validated['git_branch'] ?? null,
+                'git_commit' => $validated['git_commit'] ?? null,
+                'git_tag' => $validated['git_tag'] ?? null,
+                'ci_run_url' => $validated['ci_run_url'] ?? null,
             ], $tmpPath, [
                 'duration_ms' => isset($validated['duration_ms']) ? (int) $validated['duration_ms'] : null,
-                'started_at'  => now(),
+                'started_at' => now(),
                 'finished_at' => now(),
             ]);
         } catch (\Throwable $e) {
@@ -112,13 +112,13 @@ class IngestController extends Controller
         }
 
         return response()->json([
-            'message'   => 'Run ingested.',
-            'run_id'    => $run->id,
-            'status'    => $run->status,
-            'totals'    => [
-                'total'   => $run->total,
-                'passed'  => $run->passed,
-                'failed'  => $run->failed,
+            'message' => 'Run ingested.',
+            'run_id' => $run->id,
+            'status' => $run->status,
+            'totals' => [
+                'total' => $run->total,
+                'passed' => $run->passed,
+                'failed' => $run->failed,
                 'errored' => $run->errored,
                 'skipped' => $run->skipped,
             ],

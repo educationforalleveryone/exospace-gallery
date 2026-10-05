@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Services\TestCenter;
 
 use App\Models\QaTestRun;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 class ReleaseReadinessService
 {
@@ -23,38 +21,38 @@ class ReleaseReadinessService
 
         if ($envConfig === null) {
             return [
-                'verdict'      => 'unproven',
-                'summary'      => ['blocking' => 0, 'advisory_failing' => 0, 'passing' => 0, 'total_gates' => 0, 'reasons' => ["No release gate configuration for [{$environment}]."]],
-                'gates'        => collect(),
+                'verdict' => 'unproven',
+                'summary' => ['blocking' => 0, 'advisory_failing' => 0, 'passing' => 0, 'total_gates' => 0, 'reasons' => ["No release gate configuration for [{$environment}]."]],
+                'gates' => collect(),
                 'evaluated_at' => now(),
             ];
         }
 
         $freshnessHours = (int) ($this->config['freshness_hours'] ?? 48);
-        $gates          = collect();
-        $reasons        = [];
-        $blockingFail   = 0;
-        $advisoryFail   = 0;
-        $passingCount   = 0;
-        $totalGates     = count($envConfig['gates'] ?? []);
+        $gates = collect();
+        $reasons = [];
+        $blockingFail = 0;
+        $advisoryFail = 0;
+        $passingCount = 0;
+        $totalGates = count($envConfig['gates'] ?? []);
 
         foreach (($envConfig['gates'] ?? []) as $key => $gate) {
-            $profileKey  = $gate['profile'] ?? $key;
+            $profileKey = $gate['profile'] ?? $key;
             $requirePass = (bool) ($gate['require_passed'] ?? true);
             $hasExplicitKey = array_key_exists('max_age_hours', $gate);
-            $expires        = ! ($hasExplicitKey && $gate['max_age_hours'] === null);
-            $maxAgeHrs      = (float) ($hasExplicitKey ? $gate['max_age_hours'] : ($this->config['freshness_hours'] ?? 48));
-            $isBlocking     = ($gate['mode'] ?? 'blocking') === 'blocking';
+            $expires = ! ($hasExplicitKey && $gate['max_age_hours'] === null);
+            $maxAgeHrs = (float) ($hasExplicitKey ? $gate['max_age_hours'] : ($this->config['freshness_hours'] ?? 48));
+            $isBlocking = ($gate['mode'] ?? 'blocking') === 'blocking';
 
             /**
- * @var QaTestRun|null $run
- */
+             * @var QaTestRun|null $run
+             */
             $run = $this->latestQualifyingRun($profileKey);
 
             if ($run === null) {
                 $everRan = QaTestRun::where('profile', $profileKey)->exists();
-                $state   = 'missing';
-                $note    = $everRan
+                $state = 'missing';
+                $note = $everRan
                     ? 'No run inside the freshness window — evidence is stale.'
                     : 'Never executed/imported through the Control Center.';
             } else {
@@ -62,13 +60,13 @@ class ReleaseReadinessService
 
                 if ($expires && $ageHrs > $maxAgeHrs) {
                     $state = 'stale';
-                    $note  = sprintf('Newest run is %.1fh old (limit %gh). Re-run to re-prove.', $ageHrs, $maxAgeHrs);
+                    $note = sprintf('Newest run is %.1fh old (limit %gh). Re-run to re-prove.', $ageHrs, $maxAgeHrs);
                 } elseif (! $requirePass) {
                     $state = 'satisfied';
-                    $note  = sprintf('Executed %dh ago (%s).', (int) $ageHrs, $run->displayStatus());
+                    $note = sprintf('Executed %dh ago (%s).', (int) $ageHrs, $run->displayStatus());
                 } else {
                     $state = $run->status === QaTestRun::STATUS_PASSED ? 'satisfied' : 'failing';
-                    $note  = sprintf(
+                    $note = sprintf(
                         '%s · %d/%d green · %dh ago%s',
                         strtoupper((string) $run->displayStatus()),
                         $run->passed,
@@ -80,9 +78,9 @@ class ReleaseReadinessService
             }
 
             $verdict = match ($state) {
-                'satisfied'                 => 'green',
+                'satisfied' => 'green',
                 'stale', 'missing', 'failing' => $isBlocking ? 'red-blocking' : 'amber-advisory',
-                default                     => 'amber-advisory',
+                default => 'amber-advisory',
             };
 
             if ($verdict === 'green') {
@@ -96,15 +94,15 @@ class ReleaseReadinessService
             }
 
             $gates->put($key, [
-                'label'       => $gate['label'],
-                'profile'     => $profileKey,
-                'mode'        => $isBlocking ? 'blocking' : 'advisory',
-                'state'       => $state,
-                'verdict'     => $verdict,
-                'note'        => $note,
-                'run_id'      => $run?->id,
+                'label' => $gate['label'],
+                'profile' => $profileKey,
+                'mode' => $isBlocking ? 'blocking' : 'advisory',
+                'state' => $state,
+                'verdict' => $verdict,
+                'note' => $note,
+                'run_id' => $run?->id,
                 'environment' => $run?->environment,
-                'created_at'  => $run?->created_at,
+                'created_at' => $run?->created_at,
             ]);
         }
 
@@ -122,9 +120,9 @@ class ReleaseReadinessService
         }
 
         return [
-            'verdict'      => $overallVerdict,
-            'summary'      => ['blocking' => $blockingFail, 'advisory_failing' => $advisoryFail, 'passing' => $passingCount, 'total_gates' => $totalGates, 'reasons' => $reasons],
-            'gates'        => $gates,
+            'verdict' => $overallVerdict,
+            'summary' => ['blocking' => $blockingFail, 'advisory_failing' => $advisoryFail, 'passing' => $passingCount, 'total_gates' => $totalGates, 'reasons' => $reasons],
+            'gates' => $gates,
             'evaluated_at' => now(),
         ];
     }

@@ -9,8 +9,10 @@ use App\Services\OperationalAlertService;
 use App\Services\Seo\SeoAuditService;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\Request;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -201,6 +203,32 @@ class SecretExposureBoundaryTest extends TestCase
         $output = Artisan::output();
 
         $this->assertStringContainsString('overly permissive', $output);
+    }
+
+    /**
+     * Database/cache connection failures can embed the connection DSN
+     * (mysql://user:password@host). The preflight output lands in deploy
+     * logs and operator terminals, so its exception messages must pass
+     * through the shared LogRedactor before being printed.
+     */
+    public function test_preflight_redacts_credentials_from_database_failure_output(): void
+    {
+        DB::shouldReceive('select')->andThrow(
+            new QueryException(
+                'mysql',
+                'SELECT 1',
+                [],
+                new \Exception('SQLSTATE[HY000] [1045] Access denied for mysql://root:sup3r-secret-pw@db.internal:3306/exospace'),
+            ),
+        );
+
+        Artisan::call('exospace:preflight');
+        $output = Artisan::output();
+
+        $this->assertStringContainsString('DB connection failed:', $output);
+        $this->assertStringNotContainsString('sup3r-secret-pw', $output,
+            'The preflight output must never echo DSN credentials.');
+        $this->assertStringContainsString('[REDACTED]', $output);
     }
 
     /**

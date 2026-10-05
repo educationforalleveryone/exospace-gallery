@@ -8,33 +8,35 @@ return new class extends Migration
     private const SLUG = 'nebula-drift';
 
     private const OLD_VERSION = '1.0.0';
+
     private const NEW_VERSION = '2.0.0';
 
     private const OLD_DESCRIPTION =
         'Artworks drift through a cosmic cloud — distant stars and a purple nebula with quiet depth between them. For digital art and otherworldly exhibitions.';
+
     private const NEW_DESCRIPTION =
         'A deep-field nebula surrounds the exhibition — layered cosmic masses drifting along a tilted galactic band, a slow stardrift current, and a lone meridian ring overhead. Artworks float above pools of light on a dark starlit floor.';
 
     private const OLD_FIXTURES = [
         [
-            'id'          => 'nebula-center',
-            'type'        => 'point',
-            'position'    => [0, 5, 0],
-            'color'       => '0x8844ff',
-            'intensity'   => 0.5,
+            'id' => 'nebula-center',
+            'type' => 'point',
+            'position' => [0, 5, 0],
+            'color' => '0x8844ff',
+            'intensity' => 0.5,
             'cast_shadow' => false,
-            'distance'    => 30,
-            'decay'       => 1.5,
+            'distance' => 30,
+            'decay' => 1.5,
         ],
     ];
 
     private const NEW_FIXTURES = [
         [
-            'id'          => 'nebula-key',
-            'type'        => 'directional',
-            'position'    => [30, 45, -18],
-            'color'       => '0x9ab0e0',
-            'intensity'   => 0.45,
+            'id' => 'nebula-key',
+            'type' => 'directional',
+            'position' => [30, 45, -18],
+            'color' => '0x9ab0e0',
+            'intensity' => 0.45,
             'cast_shadow' => false,
         ],
     ];
@@ -42,11 +44,11 @@ return new class extends Migration
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
-        $visual   = json_decode((string) $row->visual_config, true) ?: [];
+        $visual = json_decode((string) $row->visual_config, true) ?: [];
         $material = json_decode((string) $row->material_config, true) ?: [];
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
 
@@ -59,7 +61,7 @@ return new class extends Migration
 
         // Added keys — union (absent key only).
         foreach ($this->addedVisualKeys() as $key => $value) {
-            if (!array_key_exists($key, $visual)) {
+            if (! array_key_exists($key, $visual)) {
                 $visual[$key] = $value;
             }
         }
@@ -70,27 +72,27 @@ return new class extends Migration
             }
         }
 
-        if (!array_key_exists('nebula', $visual)) {
+        if (! array_key_exists('nebula', $visual)) {
             $visual['nebula'] = [
-                'dominant'  => '0x5a4ae0',
+                'dominant' => '0x5a4ae0',
                 'secondary' => '0x2e6ac8',
-                'accent'    => '0xd85a9e',
+                'accent' => '0xd85a9e',
             ];
         }
-        if (!is_array($visual['post_fx'] ?? null)) {
+        if (! is_array($visual['post_fx'] ?? null)) {
             $visual['post_fx'] = [];
         }
         $visual['post_fx'] += [
-            'bloom'             => true,
-            'bloom_strength'    => 0.35,
-            'bloom_threshold'   => 0.8,
-            'bloom_radius'      => 0.35,
-            'vignette'          => true,
+            'bloom' => true,
+            'bloom_strength' => 0.35,
+            'bloom_threshold' => 0.8,
+            'bloom_radius' => 0.35,
+            'vignette' => true,
             'vignette_darkness' => 0.55,
-            'vignette_offset'   => 1.3,
-            'vignette_blend'    => 'black',
+            'vignette_offset' => 1.3,
+            'vignette_blend' => 'black',
         ];
-        if (!is_array($visual['placement'] ?? null)) {
+        if (! is_array($visual['placement'] ?? null)) {
             $visual['placement'] = [];
         }
         $visual['placement'] += [
@@ -106,13 +108,13 @@ return new class extends Migration
             }
         }
         foreach ($materialChanges['added'] as $key => $value) {
-            if (!array_key_exists($key, $material)) {
+            if (! array_key_exists($key, $material)) {
                 $material[$key] = $value;
             }
         }
 
         $update = [
-            'visual_config'   => json_encode($visual),
+            'visual_config' => json_encode($visual),
             'material_config' => json_encode($material),
         ];
 
@@ -136,11 +138,11 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'material_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
-        $visual   = json_decode((string) $row->visual_config, true) ?: [];
+        $visual = json_decode((string) $row->visual_config, true) ?: [];
         $material = json_decode((string) $row->material_config, true) ?: [];
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
 
@@ -159,7 +161,7 @@ return new class extends Migration
         }
 
         // Restore the superseded body flag (the pre-pass state).
-        if (!array_key_exists('void_starfield', $visual)) {
+        if (! array_key_exists('void_starfield', $visual)) {
             $visual['void_starfield'] = true;
         }
 
@@ -194,7 +196,7 @@ return new class extends Migration
         }
 
         $update = [
-            'visual_config'   => json_encode($visual),
+            'visual_config' => json_encode($visual),
             'material_config' => json_encode($material),
         ];
 
@@ -217,30 +219,30 @@ return new class extends Migration
     {
         return [
             // N2: the purple ambient tinted every lit artwork canvas.
-            'ambient_color'         => ['from' => '0x8844ff', 'to' => '0x7a86b8'],
-            'ambient_intensity'     => ['from' => 0.2, 'to' => 0.55],
+            'ambient_color' => ['from' => '0x8844ff', 'to' => '0x7a86b8'],
+            'ambient_intensity' => ['from' => 0.2, 'to' => 0.55],
             // N6: the pool target ≈ 4.2 (void family: void 4.55, cathedral 4.0).
-            'spot_intensity'        => ['from' => 0.55, 'to' => 1.2],
+            'spot_intensity' => ['from' => 0.55, 'to' => 1.2],
             // N8-adjacent: the rig is luminous, not murk.
             'tone_mapping_exposure' => ['from' => 0.6, 'to' => 0.85],
             // Fog survives 40-work scale (near/far retune).
-            'fog_near'              => ['from' => 10, 'to' => 12],
-            'fog_far'               => ['from' => 40, 'to' => 70],
+            'fog_near' => ['from' => 10, 'to' => 12],
+            'fog_far' => ['from' => 40, 'to' => 70],
             // N9: env_intensity 0 + environment 'none' = no HDRI, ever.
-            'env_intensity'         => ['from' => 0.05, 'to' => 0],
+            'env_intensity' => ['from' => 0.05, 'to' => 0],
         ];
     }
 
     private function addedVisualKeys(): array
     {
         return [
-            'environment'            => 'none',  // the sky is procedural
-            'floor_edge_fade'        => true,    // the disc dissolves into the void
-            'void_depth_gradient'    => true,    // the shared zenith depth cue, reused
-            'void_deepfield'         => true,    // layered band sky + current + ring
-            'artwork_light_base'     => 0.5,     // the void-family standing glow
+            'environment' => 'none',  // the sky is procedural
+            'floor_edge_fade' => true,    // the disc dissolves into the void
+            'void_depth_gradient' => true,    // the shared zenith depth cue, reused
+            'void_deepfield' => true,    // layered band sky + current + ring
+            'artwork_light_base' => 0.5,     // the void-family standing glow
             'artwork_light_pool_cap' => 12,      // a 12-piece hang lit at once
-            'hemisphere_intensity'   => 0.35,    // vertical fill for unlit far canvases
+            'hemisphere_intensity' => 0.35,    // vertical fill for unlit far canvases
         ];
     }
 
@@ -255,7 +257,7 @@ return new class extends Migration
     {
         return [
             'changed' => [
-                'floor_color'     => ['from' => '0x100525', 'to' => '0x0b0724'],
+                'floor_color' => ['from' => '0x100525', 'to' => '0x0b0724'],
                 'floor_roughness' => ['from' => 0.3, 'to' => 0.32],
                 'floor_metalness' => ['from' => 0.5, 'to' => 0.15],
             ],

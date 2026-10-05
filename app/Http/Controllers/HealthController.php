@@ -6,7 +6,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class HealthController extends Controller
@@ -25,12 +24,14 @@ class HealthController extends Controller
         }
 
         try {
-            $testKey = 'health:check:' . uniqid();
+            $testKey = 'health:check:'.uniqid();
             Cache::put($testKey, 'ok', 10);
             $val = Cache::get($testKey);
             Cache::forget($testKey);
             $checks['cache'] = ['status' => $val === 'ok' ? 'ok' : 'degraded'];
-            if ($val !== 'ok') $allHealthy = false;
+            if ($val !== 'ok') {
+                $allHealthy = false;
+            }
         } catch (\Throwable $e) {
             $checks['cache'] = ['status' => 'down', 'error' => 'Cache unreachable'];
             $allHealthy = false;
@@ -42,7 +43,9 @@ class HealthController extends Controller
                 'status' => $failedCount > 100 ? 'degraded' : 'ok',
                 'failed_jobs' => $failedCount,
             ];
-            if ($failedCount > 100) $allHealthy = false;
+            if ($failedCount > 100) {
+                $allHealthy = false;
+            }
         } catch (\Throwable $e) {
             $checks['queue'] = ['status' => 'down', 'error' => 'Cannot query failed_jobs'];
             $allHealthy = false;
@@ -55,7 +58,9 @@ class HealthController extends Controller
                     'status' => $failedWebhooks > 20 ? 'degraded' : ($failedWebhooks > 5 ? 'warning' : 'ok'),
                     'failed_webhooks' => $failedWebhooks,
                 ];
-                if ($failedWebhooks > 20) $allHealthy = false;
+                if ($failedWebhooks > 20) {
+                    $allHealthy = false;
+                }
             } else {
                 $checks['billing_webhooks'] = ['status' => 'skipped', 'detail' => 'ledger table not migrated yet'];
             }

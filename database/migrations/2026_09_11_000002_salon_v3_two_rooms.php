@@ -10,7 +10,7 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'the-salon')
             ->first(['id', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
         if ($row->version === '3.0.0') {
@@ -21,9 +21,9 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update([
                 'visual_config' => json_encode($this->v3Payload(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-                'description'   => $this->v3Description(),
-                'tags'          => json_encode(['salon', 'warm', 'intimate', 'portrait', 'two-room']),
-                'version'       => '3.0.0',
+                'description' => $this->v3Description(),
+                'tags' => json_encode(['salon', 'warm', 'intimate', 'portrait', 'two-room']),
+                'version' => '3.0.0',
             ]);
     }
 
@@ -32,7 +32,7 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'the-salon')
             ->first(['id', 'visual_config', 'version', 'description']);
-        if (!$row || $row->version !== '3.0.0') {
+        if (! $row || $row->version !== '3.0.0') {
             return; // nothing this migration owns
         }
 
@@ -48,32 +48,36 @@ return new class extends Migration
                 $st = array_values(array_filter($vc['structure'], fn ($e) => is_array($e) && ($e['id'] ?? null) !== 'salon-curtain'));
                 $byId = [];
                 foreach ($st as $i => $el) {
-                    if (isset($el['id'])) { $byId[$el['id']] = $i; }
+                    if (isset($el['id'])) {
+                        $byId[$el['id']] = $i;
+                    }
                 }
                 $v3DoorIds = ['door-leaf-l', 'door-leaf-r', 'door-panel-ll', 'door-panel-lu', 'door-panel-rl', 'door-panel-ru', 'door-jamb-l', 'door-jamb-r', 'door-head', 'door-overdoor', 'door-knob-l', 'door-knob-r', 'door-plate-l', 'door-plate-r'];
                 if (count(array_intersect($v3DoorIds, array_keys($byId))) === count($v3DoorIds)) {
                     $firstIdx = $byId['door-leaf-l'];
-                    $dropIdx  = array_map(fn ($id) => $byId[$id], $v3DoorIds);
+                    $dropIdx = array_map(fn ($id) => $byId[$id], $v3DoorIds);
                     $head = array_slice($st, 0, $firstIdx);
                     $tail = array_values(array_filter(
                         array_slice($st, $firstIdx),
-                        fn ($_, $k) => !in_array($firstIdx + $k, $dropIdx, true),
+                        fn ($_, $k) => ! in_array($firstIdx + $k, $dropIdx, true),
                         ARRAY_FILTER_USE_BOTH
                     ));
                     $st = array_values(array_merge($head, $this->v21Door(), $tail));
                 }
                 $byId = [];
                 foreach ($st as $i => $el) {
-                    if (isset($el['id'])) { $byId[$el['id']] = $i; }
+                    if (isset($el['id'])) {
+                        $byId[$el['id']] = $i;
+                    }
                 }
                 $v3RoseIds = ['rose-disc-a', 'rose-ring-a', 'rose-glow-a', 'rose-disc-b', 'rose-ring-b', 'rose-glow-b'];
                 if (count(array_intersect($v3RoseIds, array_keys($byId))) === count($v3RoseIds)) {
                     $firstIdx = $byId['rose-disc-a'];
-                    $dropIdx  = array_map(fn ($id) => $byId[$id], $v3RoseIds);
+                    $dropIdx = array_map(fn ($id) => $byId[$id], $v3RoseIds);
                     $head = array_slice($st, 0, $firstIdx);
                     $tail = array_values(array_filter(
                         array_slice($st, $firstIdx),
-                        fn ($_, $k) => !in_array($firstIdx + $k, $dropIdx, true),
+                        fn ($_, $k) => ! in_array($firstIdx + $k, $dropIdx, true),
                         ARRAY_FILTER_USE_BOTH
                     ));
                     $st = array_values(array_merge($head, $this->v21Rose(), $tail));
@@ -86,9 +90,9 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update([
                 'visual_config' => json_encode($vc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-                'description'   => $this->v21Description(),
-                'tags'          => json_encode(['salon', 'warm', 'intimate', 'portrait']),
-                'version'       => '2.1.0',
+                'description' => $this->v21Description(),
+                'tags' => json_encode(['salon', 'warm', 'intimate', 'portrait']),
+                'version' => '2.1.0',
             ]);
     }
 
@@ -132,43 +136,43 @@ return new class extends Migration
     private function v3Payload(): array
     {
         return [
-            'wall_height'             => 3.8,
-            'wall_depth'              => 0.15,
-            'ceiling_type'            => 'flat',
-            'ceiling_color'           => '0xd8cbb0',
-            'ceiling_height'          => 3.8,
-            'background_color'        => '0x171310',
-            'fog_color'               => '0x171310',
-            'fog_near'                => 22,
-            'fog_far'                 => 70,
-            'ambient_color'           => '0xffe9cf',
-            'ambient_intensity'       => 0.5,
-            'spot_intensity'          => 1.5,
-            'fill_intensity'          => 0.8,
-            'tone_mapping_exposure'   => 1.0,
-            'frame_override'          => 'classic',
-            'environment'             => 'studio',
-            'env_intensity'           => 0.18,
-            'hemisphere_intensity'    => 0.22,
-            'hemisphere_sky_color'    => '0xfff1dc',
+            'wall_height' => 3.8,
+            'wall_depth' => 0.15,
+            'ceiling_type' => 'flat',
+            'ceiling_color' => '0xd8cbb0',
+            'ceiling_height' => 3.8,
+            'background_color' => '0x171310',
+            'fog_color' => '0x171310',
+            'fog_near' => 22,
+            'fog_far' => 70,
+            'ambient_color' => '0xffe9cf',
+            'ambient_intensity' => 0.5,
+            'spot_intensity' => 1.5,
+            'fill_intensity' => 0.8,
+            'tone_mapping_exposure' => 1.0,
+            'frame_override' => 'classic',
+            'environment' => 'studio',
+            'env_intensity' => 0.18,
+            'hemisphere_intensity' => 0.22,
+            'hemisphere_sky_color' => '0xfff1dc',
             'hemisphere_ground_color' => '0x4a3f33',
-            'artwork_light_base'      => 0.3,
-            'artwork_light_pool_cap'  => 12,
-            'structure_pass'          => 'rooms',
-            'placement'               => [
-                'density'          => 'intimate',
+            'artwork_light_base' => 0.3,
+            'artwork_light_pool_cap' => 12,
+            'structure_pass' => 'rooms',
+            'placement' => [
+                'density' => 'intimate',
                 'pair_orientation' => true,
-                'focal_wall'       => 'front',
-                'wall_length_cap'  => 12.6,
-                'salon_rows'       => 2,
-                'upper_row_y'      => 2.98,
-                'room_divider'     => ['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
-                'row_caps'         => [
+                'focal_wall' => 'front',
+                'wall_length_cap' => 12.6,
+                'salon_rows' => 2,
+                'upper_row_y' => 2.98,
+                'room_divider' => ['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
+                'row_caps' => [
                     ['maxWidth' => 2.0, 'maxHeight' => 1.45],
                     ['maxWidth' => 1.7, 'maxHeight' => 0.84],
                 ],
             ],
-            'structure'               => [
+            'structure' => [
                 ['id' => 'base-front', 'primitive' => 'box', 'at' => ['from' => 'wall_front', 'offset' => [0, 0.09, 0.0]], 'size' => [1, 0.18, 0.024], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
                 ['id' => 'base-back', 'primitive' => 'box', 'at' => ['from' => 'wall_back', 'offset' => [0, 0.09, 0.0]], 'size' => [1, 0.18, 0.024], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
                 ['id' => 'base-left', 'primitive' => 'box', 'at' => ['from' => 'wall_left', 'offset' => [0, 0.09, 0.0]], 'turn' => 'in', 'size' => [1, 0.18, 0.024], 'fit' => 'wall', 'fit_pad' => 0.02, 'material' => 'wood_dark', 'merge' => 'salon-trim', 'tier_floor' => 'low'],
@@ -226,7 +230,7 @@ return new class extends Migration
                 ['id' => 'rose-ring-b', 'primitive' => 'torus', 'at' => ['from' => 'center', 'offset' => [0, 3.755, -2.4]], 'rot' => [1.5707963, 0, 0], 'size' => [0.5, 0.05], 'params' => ['seg' => 24, 'seg2' => 32], 'material' => 'bronze', 'tier_floor' => 'low'],
                 ['id' => 'rose-glow-b', 'primitive' => 'cylinder', 'at' => ['from' => 'center', 'offset' => [0, 3.768, -2.4]], 'size' => [0.32, 0.02], 'params' => ['seg' => 20], 'material' => ['color' => '0xfff1dc', 'emissive' => '0xffe2b8', 'emissiveIntensity' => 0.9], 'tier_floor' => 'low'],
             ],
-            'post_fx'                 => ['bloom' => false, 'vignette' => true, 'vignette_darkness' => 0.38, 'vignette_offset' => 1.1, 'vignette_blend' => 'black'],
+            'post_fx' => ['bloom' => false, 'vignette' => true, 'vignette_darkness' => 0.38, 'vignette_offset' => 1.1, 'vignette_blend' => 'black'],
         ];
     }
 };

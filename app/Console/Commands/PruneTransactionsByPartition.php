@@ -23,17 +23,18 @@ class PruneTransactionsByPartition extends Command
 
         if (! in_array($driver, ['mysql', 'mariadb'], true)) {
             $this->info("Driver {$driver} doesn't support partitioning — skipping.");
+
             return self::SUCCESS;
         }
 
         $retentionYears = (int) $this->option('retention-years');
-        $futureMonths   = (int) $this->option('future-months');
-        $dryRun         = (bool) $this->option('dry-run');
+        $futureMonths = (int) $this->option('future-months');
+        $dryRun = (bool) $this->option('dry-run');
 
-        $this->info("Transactions partition maintenance");
+        $this->info('Transactions partition maintenance');
         $this->info("  Retention: {$retentionYears} years");
         $this->info("  Future partitions: {$futureMonths} months");
-        $this->info("  Dry run: " . ($dryRun ? 'YES' : 'NO'));
+        $this->info('  Dry run: '.($dryRun ? 'YES' : 'NO'));
         $this->newLine();
 
         $created = $this->createFuturePartitions($futureMonths, $dryRun);
@@ -43,11 +44,11 @@ class PruneTransactionsByPartition extends Command
         $this->info("Summary: created {$created} partitions, dropped {$dropped} partitions.");
 
         Log::info('PruneTransactionsByPartition: complete', [
-            'created'         => $created,
-            'dropped'         => $dropped,
+            'created' => $created,
+            'dropped' => $dropped,
             'retention_years' => $retentionYears,
-            'future_months'   => $futureMonths,
-            'dry_run'         => $dryRun,
+            'future_months' => $futureMonths,
+            'dry_run' => $dryRun,
         ]);
 
         return self::SUCCESS;
@@ -60,7 +61,7 @@ class PruneTransactionsByPartition extends Command
 
         for ($i = 0; $i <= $futureMonths; $i++) {
             $month = $now->copy()->addMonths($i)->startOfMonth();
-            $partitionName = 'p' . $month->format('Ym');
+            $partitionName = 'p'.$month->format('Ym');
             $lessThan = $month->copy()->addMonth()->format('Y-m-d');
 
             // Check if partition already exists.
@@ -85,6 +86,7 @@ class PruneTransactionsByPartition extends Command
                     $this->info("  Created partition: {$partitionName} (< {$lessThan} = ts {$lessThanTimestamp})");
                 } catch (\Throwable $e) {
                     $this->error("  Failed to create {$partitionName}: {$e->getMessage()}");
+
                     continue;
                 }
             }
@@ -125,10 +127,11 @@ class PruneTransactionsByPartition extends Command
                 } catch (\Throwable $e) {
                     // Invalid timestamp — skip this partition.
                     Log::warning('PruneTransactionsByPartition: could not parse partition description as Unix timestamp', [
-                        'partition'        => $name,
-                        'description'      => $description,
-                        'error'            => $e->getMessage(),
+                        'partition' => $name,
+                        'description' => $description,
+                        'error' => $e->getMessage(),
                     ]);
+
                     continue;
                 }
             } else {
@@ -159,12 +162,13 @@ class PruneTransactionsByPartition extends Command
                     $this->warn("  Dropped partition: {$name} (upper bound {$upperBound}, age {$upperDate->diffForHumans()})");
 
                     Log::info('PruneTransactionsByPartition: dropped old partition', [
-                        'partition'   => $name,
+                        'partition' => $name,
                         'upper_bound' => $upperBound,
-                        'age_days'    => $upperDate->diffInDays(now()),
+                        'age_days' => $upperDate->diffInDays(now()),
                     ]);
                 } catch (\Throwable $e) {
                     $this->error("  Failed to drop {$name}: {$e->getMessage()}");
+
                     continue;
                 }
             }

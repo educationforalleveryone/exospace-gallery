@@ -11,11 +11,10 @@ export const GARDEN_ASSET_MANIFEST = Object.freeze({
     bench:       { file: 'bench_01.glb',       targetHeight: 0.85, solid: true, castShadow: true,  proxy: [1.8, 0.9, 0.65] },
 });
 
-const ASSET_BASE_DEFAULT = 'assets/venues/sculpture-garden/';
-
 export function resolveGardenAssetRequests(gardenCfg) {
     const cfg = gardenCfg || {};
-    let base = String(cfg.assets_base || ASSET_BASE_DEFAULT);
+    if (!cfg.assets_base) return [];   // the DB payload is the sole identity source
+    let base = String(cfg.assets_base);
     if (!/^(https?:)?\/\//.test(base) && !base.startsWith('/')) base = '/' + base;
     base = base.replace(/\/?$/, '/');
     const declared = (cfg.assets && typeof cfg.assets === 'object') ? cfg.assets : {};

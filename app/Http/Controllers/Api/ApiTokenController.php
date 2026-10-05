@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 
 class ApiTokenController extends Controller
 {
@@ -15,13 +14,13 @@ class ApiTokenController extends Controller
 
         return response()->json([
             'data' => [
-                'id'              => $user->id,
-                'name'            => $user->name,
-                'email'           => $user->email,
-                'plan'            => $user->plan,
-                'max_galleries'   => $user->max_galleries,
-                'max_images'      => $user->max_images,
-                'created_at'      => $user->created_at?->toIso8601String(),
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'plan' => $user->plan,
+                'max_galleries' => $user->max_galleries,
+                'max_images' => $user->max_images,
+                'created_at' => $user->created_at?->toIso8601String(),
             ],
         ]);
     }
@@ -31,12 +30,12 @@ class ApiTokenController extends Controller
         $tokens = $request->user()->tokens()->get(['id', 'name', 'abilities', 'last_used_at', 'created_at']);
 
         return response()->json([
-            'data' => $tokens->map(fn($t) => [
-                'id'           => $t->id,
-                'name'         => $t->name,
-                'abilities'    => $t->abilities,
+            'data' => $tokens->map(fn ($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'abilities' => $t->abilities,
                 'last_used_at' => $t->last_used_at?->toIso8601String(),
-                'created_at'   => $t->created_at?->toIso8601String(),
+                'created_at' => $t->created_at?->toIso8601String(),
             ]),
         ]);
     }
@@ -44,7 +43,7 @@ class ApiTokenController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'name'      => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'abilities' => ['nullable', 'array'],
             'abilities.*' => ['string', 'in:read,write'],
         ]);
@@ -58,9 +57,9 @@ class ApiTokenController extends Controller
 
         return response()->json([
             'data' => [
-                'token'    => $token->plainTextToken,
-                'name'     => $validated['name'],
-                'abilities'=> $abilities,
+                'token' => $token->plainTextToken,
+                'name' => $validated['name'],
+                'abilities' => $abilities,
             ],
             'message' => 'Token created. Store it securely — it won\'t be shown again.',
         ], 201);

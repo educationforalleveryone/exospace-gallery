@@ -59,14 +59,14 @@ class SeoAudit extends Command
     {
         $webhook = (string) config('services.operational_alerts.webhook_url');
 
-        if (!$webhook) {
+        if (! $webhook) {
             $this->line('OPERATIONAL_ALERT_WEBHOOK not set — skipping Slack notification.');
 
             return;
         }
 
         $hasWarning = collect($issues)->contains(fn ($i) => $i['severity'] === 'warning');
-        if (!$hasWarning && !$this->option('slack')) {
+        if (! $hasWarning && ! $this->option('slack')) {
             return; // only informational issues — stay quiet by default
         }
 

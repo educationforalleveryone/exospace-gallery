@@ -16,7 +16,9 @@ class WebhookDeliveryHistoryTest extends TestCase
     use RefreshDatabase;
 
     private const ENV_URL = 'https://env.example.com/exospace';
+
     private const ENV_SECRET = 'env-shared-secret';
+
     private const SUB_URL_A = 'https://sub-a.example.com/hook';
 
     protected function setUp(): void
@@ -32,7 +34,7 @@ class WebhookDeliveryHistoryTest extends TestCase
     private function createMfaSuperAdmin(): User
     {
         return User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
     }
@@ -42,7 +44,7 @@ class WebhookDeliveryHistoryTest extends TestCase
         $admin ??= $this->createMfaSuperAdmin();
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -52,7 +54,7 @@ class WebhookDeliveryHistoryTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
 
         // Anonymous user → redirect to login.
@@ -61,7 +63,7 @@ class WebhookDeliveryHistoryTest extends TestCase
 
         // Non-super-admin (verified + MFA) → 403.
         $nonSuper = User::factory()->withMfa()->create([
-            'is_super_admin'    => false,
+            'is_super_admin' => false,
             'email_verified_at' => now(),
         ]);
         $this->actingAs($nonSuper)
@@ -75,11 +77,11 @@ class WebhookDeliveryHistoryTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
 
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
@@ -94,38 +96,38 @@ class WebhookDeliveryHistoryTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
 
         $oldest = WebhookDelivery::create([
             'subscription_id' => $sub->id,
-            'event_type'      => 'billing.recipient_added',
-            'target_url'      => self::SUB_URL_A,
-            'http_status'     => 200,
-            'attempt_count'   => 1,
-            'success'         => true,
-            'error_message'   => null,
-            'delivered_at'    => now()->subHours(3),
+            'event_type' => 'billing.recipient_added',
+            'target_url' => self::SUB_URL_A,
+            'http_status' => 200,
+            'attempt_count' => 1,
+            'success' => true,
+            'error_message' => null,
+            'delivered_at' => now()->subHours(3),
         ]);
         $middle = WebhookDelivery::create([
             'subscription_id' => $sub->id,
-            'event_type'      => 'billing.recipient_added',
-            'target_url'      => self::SUB_URL_A,
-            'http_status'     => 500,
-            'attempt_count'   => 3,
-            'success'         => false,
-            'error_message'   => 'Non-2xx response: HTTP 500',
-            'delivered_at'    => now()->subHours(2),
+            'event_type' => 'billing.recipient_added',
+            'target_url' => self::SUB_URL_A,
+            'http_status' => 500,
+            'attempt_count' => 3,
+            'success' => false,
+            'error_message' => 'Non-2xx response: HTTP 500',
+            'delivered_at' => now()->subHours(2),
         ]);
         $newest = WebhookDelivery::create([
             'subscription_id' => $sub->id,
-            'event_type'      => 'billing.recipient_added',
-            'target_url'      => self::SUB_URL_A,
-            'http_status'     => 200,
-            'attempt_count'   => 1,
-            'success'         => true,
-            'error_message'   => null,
-            'delivered_at'    => now()->subHour(),
+            'event_type' => 'billing.recipient_added',
+            'target_url' => self::SUB_URL_A,
+            'http_status' => 200,
+            'attempt_count' => 1,
+            'success' => true,
+            'error_message' => null,
+            'delivered_at' => now()->subHour(),
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()->get(route('super.webhooks.deliveries', $sub));
@@ -153,18 +155,18 @@ class WebhookDeliveryHistoryTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
 
         WebhookDelivery::create([
             'subscription_id' => $sub->id,
-            'event_type'      => 'billing.recipient_added',
-            'target_url'      => self::SUB_URL_A,
-            'http_status'     => 200,
-            'attempt_count'   => 1,
-            'success'         => true,
-            'error_message'   => null,
-            'delivered_at'    => now()->subMinutes(5),
+            'event_type' => 'billing.recipient_added',
+            'target_url' => self::SUB_URL_A,
+            'http_status' => 200,
+            'attempt_count' => 1,
+            'success' => true,
+            'error_message' => null,
+            'delivered_at' => now()->subMinutes(5),
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()->get(route('super.webhooks.deliveries', $sub));
@@ -179,7 +181,7 @@ class WebhookDeliveryHistoryTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()->get(route('super.webhooks.deliveries', $sub));
@@ -201,18 +203,18 @@ class WebhookDeliveryHistoryTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
 
         WebhookDelivery::create([
             'subscription_id' => $sub->id,
-            'event_type'      => 'billing.recipient_added',
-            'target_url'      => self::SUB_URL_A,
-            'http_status'     => null,
-            'attempt_count'   => \App\Services\OutboundWebhookService::MAX_RETRIES,
-            'success'         => false,
-            'error_message'   => 'Connection timed out',
-            'delivered_at'    => now()->subHour(),
+            'event_type' => 'billing.recipient_added',
+            'target_url' => self::SUB_URL_A,
+            'http_status' => null,
+            'attempt_count' => \App\Services\OutboundWebhookService::MAX_RETRIES,
+            'success' => false,
+            'error_message' => 'Connection timed out',
+            'delivered_at' => now()->subHour(),
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()->get(route('super.webhooks.deliveries', $sub));
@@ -220,7 +222,7 @@ class WebhookDeliveryHistoryTest extends TestCase
         $response->assertOk();
         $response->assertSee('failed', false);
         $response->assertSee('Connection timed out', false);
-        $response->assertSee('attempt ' . \App\Services\OutboundWebhookService::MAX_RETRIES . '/' . \App\Services\OutboundWebhookService::MAX_RETRIES, false);
+        $response->assertSee('attempt '.\App\Services\OutboundWebhookService::MAX_RETRIES.'/'.\App\Services\OutboundWebhookService::MAX_RETRIES, false);
     }
 
     public function test_deliveries_page_does_not_write_audit_row(): void
@@ -228,17 +230,17 @@ class WebhookDeliveryHistoryTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
         WebhookDelivery::create([
             'subscription_id' => $sub->id,
-            'event_type'      => 'billing.recipient_added',
-            'target_url'      => self::SUB_URL_A,
-            'http_status'     => 200,
-            'attempt_count'   => 1,
-            'success'         => true,
-            'error_message'   => null,
-            'delivered_at'    => now(),
+            'event_type' => 'billing.recipient_added',
+            'target_url' => self::SUB_URL_A,
+            'http_status' => 200,
+            'attempt_count' => 1,
+            'success' => true,
+            'error_message' => null,
+            'delivered_at' => now(),
         ]);
 
         $auditBefore = \App\Models\AdminAuditLog::count();

@@ -1,39 +1,42 @@
 #!/usr/bin/env php
 <?php
 
-$base = __DIR__ . '/../public/assets/textures';
+$base = __DIR__.'/../public/assets/textures';
 
 // Material → placeholder RGB colour (matches MATERIAL_PRESETS in config.js)
 $materials = [
     'walls' => [
-        'white'    => [0xf5, 0xf5, 0xf5],
-        'concrete' => [0x8a, 0x8a, 0x8a],
-        'brick'    => [0xa0, 0x82, 0x6d],
-        'wood'     => [0x8b, 0x6f, 0x47],
-        'plaster'  => [0xea, 0xe3, 0xd2],
-        'marble'   => [0xe8, 0xe8, 0xe8],
-        'velvet'   => [0x3b, 0x1f, 0x3b],
+        'white' => [0xF5, 0xF5, 0xF5],
+        'concrete' => [0x8A, 0x8A, 0x8A],
+        'brick' => [0xA0, 0x82, 0x6D],
+        'wood' => [0x8B, 0x6F, 0x47],
+        'plaster' => [0xEA, 0xE3, 0xD2],
+        'marble' => [0xE8, 0xE8, 0xE8],
+        'velvet' => [0x3B, 0x1F, 0x3B],
     ],
     'floors' => [
-        'wood'     => [0x5c, 0x40, 0x33],
-        'marble'   => [0xe8, 0xe8, 0xe8],
-        'concrete' => [0x6b, 0x6b, 0x6b],
-        'terrazzo' => [0xb0, 0xa8, 0x90],
-        'grass'    => [0x3a, 0x6a, 0x2a],
-        'sand'     => [0xc8, 0xb2, 0x7a],
-        'water'    => [0x1a, 0x4a, 0x6a],
+        'wood' => [0x5C, 0x40, 0x33],
+        'marble' => [0xE8, 0xE8, 0xE8],
+        'concrete' => [0x6B, 0x6B, 0x6B],
+        'terrazzo' => [0xB0, 0xA8, 0x90],
+        'grass' => [0x3A, 0x6A, 0x2A],
+        'sand' => [0xC8, 0xB2, 0x7A],
+        'water' => [0x1A, 0x4A, 0x6A],
     ],
     'ceilings' => [
-        'flat'   => [0xff, 0xff, 0xff],
-        'beamed' => [0x8b, 0x6f, 0x47],
-        'glass'  => [0xaa, 0xcc, 0xee],
+        'flat' => [0xFF, 0xFF, 0xFF],
+        'beamed' => [0x8B, 0x6F, 0x47],
+        'glass' => [0xAA, 0xCC, 0xEE],
     ],
 ];
 
 // ── 1K JPEG placeholder via GD (no external deps required) ──────────────────
-function makePlaceholderJpg(string $path, array $rgb): void {
-    if (file_exists($path)) return; // don't overwrite real textures
-    if (!is_dir(dirname($path))) {
+function makePlaceholderJpg(string $path, array $rgb): void
+{
+    if (file_exists($path)) {
+        return;
+    } // don't overwrite real textures
+    if (! is_dir(dirname($path))) {
         mkdir(dirname($path), 0775, true);
     }
     $img = imagecreatetruecolor(64, 64);
@@ -53,7 +56,7 @@ foreach ($materials as $surface => $list) {
         $count++;
 
         // Normal map — neutral blue (0x80, 0x80, 0xff) — represents flat surface
-        makePlaceholderJpg("{$dir}/normal.jpg", [0x80, 0x80, 0xff]);
+        makePlaceholderJpg("{$dir}/normal.jpg", [0x80, 0x80, 0xFF]);
         $count++;
 
         // Roughness — mid-grey (0.5 = neutral)
@@ -61,24 +64,26 @@ foreach ($materials as $surface => $list) {
         $count++;
 
         // AO — white (no occlusion)
-        makePlaceholderJpg("{$dir}/ao.jpg", [0xff, 0xff, 0xff]);
+        makePlaceholderJpg("{$dir}/ao.jpg", [0xFF, 0xFF, 0xFF]);
         $count++;
     }
 }
 
 // ── Shared canvas normal map (artwork surface texture) ──────────────────────
 $sharedDir = "{$base}/shared";
-if (!is_dir($sharedDir)) mkdir($sharedDir, 0775, true);
-if (!file_exists("{$sharedDir}/canvas_normal.jpg")) {
+if (! is_dir($sharedDir)) {
+    mkdir($sharedDir, 0775, true);
+}
+if (! file_exists("{$sharedDir}/canvas_normal.jpg")) {
     $img = imagecreatetruecolor(64, 64);
-    $color = imagecolorallocate($img, 0x80, 0x80, 0xff);
+    $color = imagecolorallocate($img, 0x80, 0x80, 0xFF);
     imagefill($img, 0, 0, $color);
     // Add subtle noise so the normal map doesn't look completely flat
     for ($i = 0; $i < 256; $i++) {
         $x = rand(0, 63);
         $y = rand(0, 63);
         $v = 0x80 + rand(-10, 10);
-        imagesetpixel($img, $x, $y, imagecolorallocate($img, $v, $v, 0xff));
+        imagesetpixel($img, $x, $y, imagecolorallocate($img, $v, $v, 0xFF));
     }
     imagejpeg($img, "{$sharedDir}/canvas_normal.jpg", 85);
     imagedestroy($img);
@@ -87,32 +92,38 @@ if (!file_exists("{$sharedDir}/canvas_normal.jpg")) {
 
 // ── Empty .gitkeep files in HDRI dir (download-cc0-assets.sh fills these) ───
 $envDir = "{$base}/env";
-if (!is_dir($envDir)) mkdir($envDir, 0775, true);
+if (! is_dir($envDir)) {
+    mkdir($envDir, 0775, true);
+}
 file_put_contents("{$envDir}/.gitkeep", "# HDRIs go here — run bash scripts/download-cc0-assets.sh\n");
 
-$thumbDir = __DIR__ . '/../public/assets/thumbnails/venues';
-if (!is_dir($thumbDir)) mkdir($thumbDir, 0775, true);
+$thumbDir = __DIR__.'/../public/assets/thumbnails/venues';
+if (! is_dir($thumbDir)) {
+    mkdir($thumbDir, 0775, true);
+}
 
 $venueThumbs = [
-    'white-cube'        => [0xe8, 0xe8, 0xe8],
-    'infinite-void'     => [0x05, 0x05, 0x10],
-    'industrial-loft'   => [0x2a, 0x28, 0x20],
-    'dark-museum'       => [0x0a, 0x0a, 0x0a],
-    'zen-gallery'       => [0x2a, 0x22, 0x18],
-    'crystal-cathedral' => [0x07, 0x0b, 0x14],  // the arcade void (matches background_color)
-    'nebula-drift'      => [0x1a, 0x05, 0x30],
-    'luxury-penthouse'  => [0x0d, 0x0f, 0x18],
-    'cyber-gallery'     => [0x02, 0x08, 0x20],
-    'sculpture-garden'  => [0x4a, 0x8a, 0x3a],
-    'mirror-lake'       => [0x20, 0x28, 0x30],
+    'white-cube' => [0xE8, 0xE8, 0xE8],
+    'infinite-void' => [0x05, 0x05, 0x10],
+    'industrial-loft' => [0x2A, 0x28, 0x20],
+    'dark-museum' => [0x0A, 0x0A, 0x0A],
+    'zen-gallery' => [0x2A, 0x22, 0x18],
+    'crystal-cathedral' => [0x07, 0x0B, 0x14],  // the arcade void (matches background_color)
+    'nebula-drift' => [0x1A, 0x05, 0x30],
+    'luxury-penthouse' => [0x0D, 0x0F, 0x18],
+    'cyber-gallery' => [0x02, 0x08, 0x20],
+    'sculpture-garden' => [0x4A, 0x8A, 0x3A],
+    'mirror-lake' => [0x20, 0x28, 0x30],
 ];
 foreach ($venueThumbs as $slug => $rgb) {
     makePlaceholderJpg("{$thumbDir}/{$slug}.jpg", $rgb);
     $count++;
 }
 
-$sfxDir = __DIR__ . '/../public/assets/audio/sfx';
-if (!is_dir($sfxDir)) mkdir($sfxDir, 0775, true);
+$sfxDir = __DIR__.'/../public/assets/audio/sfx';
+if (! is_dir($sfxDir)) {
+    mkdir($sfxDir, 0775, true);
+}
 file_put_contents("{$sfxDir}/.gitkeep", "# SFX files go here — footstep.mp3, interaction_click.mp3\n");
 
 echo "────────────────────────────────────────────────────────────────\n";

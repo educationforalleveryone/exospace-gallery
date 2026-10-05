@@ -9,7 +9,6 @@ use App\Models\ProcessedWebhook;
 use App\Models\Transaction;
 use App\Services\BillingExportService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class BillingController extends Controller
@@ -47,12 +46,12 @@ class BillingController extends Controller
 
         $since = now()->subDays(90);
         $stats = [
-            'refunds'        => Transaction::where('status', 'refunded')->where('created_at', '>=', $since)->count(),
-            'partial'        => Transaction::where('status', 'partial_refund')->where('created_at', '>=', $since)->count(),
-            'chargebacks'    => Transaction::where('status', 'chargeback')->where('created_at', '>=', $since)->count(),
-            'failed_webhooks'=> ProcessedWebhook::where('status', 'failed')->count(),
-            'replayed'       => ProcessedWebhook::where('replay_count', '>', 0)->count(),
-            'revenue_90d'    => (float) Transaction::where('status', 'completed')
+            'refunds' => Transaction::where('status', 'refunded')->where('created_at', '>=', $since)->count(),
+            'partial' => Transaction::where('status', 'partial_refund')->where('created_at', '>=', $since)->count(),
+            'chargebacks' => Transaction::where('status', 'chargeback')->where('created_at', '>=', $since)->count(),
+            'failed_webhooks' => ProcessedWebhook::where('status', 'failed')->count(),
+            'replayed' => ProcessedWebhook::where('replay_count', '>', 0)->count(),
+            'revenue_90d' => (float) Transaction::where('status', 'completed')
                 ->where('created_at', '>=', $since)
                 ->sum('amount'),
         ];
@@ -104,12 +103,12 @@ class BillingController extends Controller
 
         AdminAuditLog::record('billing.exported', $request->user(), [
             'export_type' => $type,
-            'status'      => $type === 'webhooks' ? $webhookStatus : $status,
-            'days'        => $days,
-            'row_count'   => $count,
+            'status' => $type === 'webhooks' ? $webhookStatus : $status,
+            'days' => $days,
+            'row_count' => $count,
         ]);
 
-        $filename = 'exospace-' . $type . '-' . now()->format('Ymd-His') . '.csv';
+        $filename = 'exospace-'.$type.'-'.now()->format('Ymd-His').'.csv';
 
         return response()->streamDownload(function () use ($query, $headers, $row) {
             $out = fopen('php://output', 'w');
@@ -134,12 +133,12 @@ class BillingController extends Controller
         }
 
         if (! $row->payload) {
-            return back()->with('error', 'Webhook #' . $row->id . ' has no stored payload (row created before payloads were stored, or the payload was oversized) — replay is not possible. Use the 2Checkout merchant dashboard instead.');
+            return back()->with('error', 'Webhook #'.$row->id.' has no stored payload (row created before payloads were stored, or the payload was oversized) — replay is not possible. Use the 2Checkout merchant dashboard instead.');
         }
 
         $payload = is_string($row->payload) ? json_decode($row->payload, true) : $row->payload;
         if (! is_array($payload)) {
-            return back()->with('error', 'Webhook #' . $row->id . ' has a corrupted stored payload — replay is not possible.');
+            return back()->with('error', 'Webhook #'.$row->id.' has a corrupted stored payload — replay is not possible.');
         }
 
         $synthetic = \Illuminate\Http\Request::create('/webhooks/2checkout', 'POST', $payload);
@@ -153,30 +152,30 @@ class BillingController extends Controller
             $httpStatus = 500;
             \Illuminate\Support\Facades\Log::error('BillingController: webhook replay threw', [
                 'webhook_id' => $row->id,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
         $row->update([
-            'status'          => $ok ? 'processed' : 'failed',
-            'replay_count'    => ($row->replay_count ?? 0) + 1,
-            'last_replayed_at'=> now(),
-            'updated_at'      => now(),
+            'status' => $ok ? 'processed' : 'failed',
+            'replay_count' => ($row->replay_count ?? 0) + 1,
+            'last_replayed_at' => now(),
+            'updated_at' => now(),
         ]);
 
         AdminAuditLog::record('webhook.replayed', $row, [
-            'message_type'   => $row->message_type,
-            'invoice_id'     => $row->invoice_id,
-            'outcome'        => $ok ? 'processed' : 'failed',
-            'http_status'    => $httpStatus,
-            'replay_number'  => $row->replay_count,
+            'message_type' => $row->message_type,
+            'invoice_id' => $row->invoice_id,
+            'outcome' => $ok ? 'processed' : 'failed',
+            'http_status' => $httpStatus,
+            'replay_number' => $row->replay_count,
         ]);
 
         return back()->with(
             $ok ? 'success' : 'error',
             $ok
-                ? 'Replayed ' . $row->message_type . ' (webhook #' . $row->id . ') — pipeline returned ' . $httpStatus . '.'
-                : 'Replay of ' . $row->message_type . ' (webhook #' . $row->id . ') returned ' . $httpStatus . ' — the ledger row stays marked failed; check the logs.'
+                ? 'Replayed '.$row->message_type.' (webhook #'.$row->id.') — pipeline returned '.$httpStatus.'.'
+                : 'Replay of '.$row->message_type.' (webhook #'.$row->id.') returned '.$httpStatus.' — the ledger row stays marked failed; check the logs.'
         );
     }
 
@@ -194,21 +193,21 @@ class BillingController extends Controller
         if ($exists) {
             return back()
                 ->withInput()
-                ->withErrors(['email' => '"' . $email . '" is already a recipient.']);
+                ->withErrors(['email' => '"'.$email.'" is already a recipient.']);
         }
 
         $recipient = null;
         try {
             $recipient = Schema::hasTable('billing_digest_recipients')
                 ? BillingDigestRecipient::create([
-                    'email'   => $email,
+                    'email' => $email,
                     'added_by' => $request->user()->id,
                 ])
                 : null;
         } catch (\Illuminate\Database\UniqueConstraintViolationException) {
             return back()
                 ->withInput()
-                ->withErrors(['email' => '"' . $email . '" is already a recipient (concurrent add detected).']);
+                ->withErrors(['email' => '"'.$email.'" is already a recipient (concurrent add detected).']);
         }
 
         if ($recipient !== null) {
@@ -219,15 +218,15 @@ class BillingController extends Controller
             \App\Services\OutboundWebhookService::dispatch(
                 'billing.recipient_added',
                 [
-                    'recipient_email'   => $recipient->email,
-                    'actor_admin_id'    => $request->user()->id,
+                    'recipient_email' => $recipient->email,
+                    'actor_admin_id' => $request->user()->id,
                     'actor_admin_email' => $request->user()->email,
-                    'recipients_total'  => BillingDigestRecipient::count(),
+                    'recipients_total' => BillingDigestRecipient::count(),
                 ],
             );
         }
 
-        return back()->with('success', 'Added ' . $email . ' to the billing digest recipient list.');
+        return back()->with('success', 'Added '.$email.' to the billing digest recipient list.');
     }
 
     public function destroyRecipient(Request $request, BillingDigestRecipient $recipient)
@@ -243,10 +242,10 @@ class BillingController extends Controller
         \App\Services\OutboundWebhookService::dispatch(
             'billing.recipient_removed',
             [
-                'recipient_email'    => $email,
-                'actor_admin_id'     => $request->user()->id,
-                'actor_admin_email'  => $request->user()->email,
-                'recipients_remaining'=> $remainingAfter,
+                'recipient_email' => $email,
+                'actor_admin_id' => $request->user()->id,
+                'actor_admin_email' => $request->user()->email,
+                'recipients_remaining' => $remainingAfter,
             ],
         );
 
@@ -254,14 +253,14 @@ class BillingController extends Controller
         $envHasAny = $this->parseEnvRecipients() !== [];
 
         if ($remaining === 0 && ! $envHasAny) {
-            return back()->with('warning', 'Removed ' . $email . ' — the recipient list is now empty and no BILLING_EXPORT_EMAIL fallback is configured. The weekly billing digest is effectively disabled until a recipient is re-added.');
+            return back()->with('warning', 'Removed '.$email.' — the recipient list is now empty and no BILLING_EXPORT_EMAIL fallback is configured. The weekly billing digest is effectively disabled until a recipient is re-added.');
         }
 
         if ($remaining === 0) {
-            return back()->with('warning', 'Removed ' . $email . ' — the UI-managed recipient list is now empty. The digest will fall back to BILLING_EXPORT_EMAIL until new recipients are added here.');
+            return back()->with('warning', 'Removed '.$email.' — the UI-managed recipient list is now empty. The digest will fall back to BILLING_EXPORT_EMAIL until new recipients are added here.');
         }
 
-        return back()->with('success', 'Removed ' . $email . ' from the billing digest recipient list.');
+        return back()->with('success', 'Removed '.$email.' from the billing digest recipient list.');
     }
 
     private function parseEnvRecipients(): array

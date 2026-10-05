@@ -48,6 +48,7 @@ class ReconcileArtworkMedia extends Command
             if (! Storage::disk('public')->exists($relativePath)) {
                 $unrecoverable++;
                 $this->warn("  [missing file] image {$image->id}: {$relativePath}");
+
                 continue;
             }
 
@@ -67,8 +68,8 @@ class ReconcileArtworkMedia extends Command
 
         if ($unrecoverable > 0) {
             Log::warning('ReconcileArtworkMedia: artworks whose legacy file is gone', [
-                'count'      => $unrecoverable,
-                'image_ids'  => $missingMedia
+                'count' => $unrecoverable,
+                'image_ids' => $missingMedia
                     ->filter(fn (GalleryImage $i) => ! Storage::disk('public')->exists(Str::after($i->path, 'storage/')))
                     ->pluck('id')
                     ->all(),

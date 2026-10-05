@@ -8,10 +8,10 @@ use App\Models\GalleryImage;
 use App\Support\ResilientCache;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Intervention\Image\ImageManager;
-use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Geometry\Factories\RectangleFactory;
+use Intervention\Image\ImageManager;
 
 class OgImageController extends Controller
 {
@@ -20,9 +20,9 @@ class OgImageController extends Controller
     public function __construct()
     {
         if (extension_loaded('imagick')) {
-            $this->manager = new ImageManager(new ImagickDriver());
+            $this->manager = new ImageManager(new ImagickDriver);
         } else {
-            $this->manager = new ImageManager(new GdDriver());
+            $this->manager = new ImageManager(new GdDriver);
         }
     }
 
@@ -73,7 +73,7 @@ class OgImageController extends Controller
         });
 
         return response($pngBytes, 200, [
-            'Content-Type'  => 'image/png',
+            'Content-Type' => 'image/png',
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
@@ -103,7 +103,7 @@ class OgImageController extends Controller
         );
 
         return response($pngBytes, 200, [
-            'Content-Type'  => 'image/png',
+            'Content-Type' => 'image/png',
             'Cache-Control' => 'public, max-age=3600',
         ]);
     }
@@ -117,12 +117,13 @@ class OgImageController extends Controller
         if ($radial !== null) {
             try {
                 $canvas->place($radial, 'top-left', 0, 0);
-            } catch (\Throwable) {}
+            } catch (\Throwable) {
+            }
         }
 
         // Left half: portrait or latest artwork
         $imagePath = $artist->portrait_path
-            ? storage_path('app/public/' . ltrim($artist->portrait_path, '/'))
+            ? storage_path('app/public/'.ltrim($artist->portrait_path, '/'))
             : ($latestWorkPath ? public_path(ltrim($latestWorkPath, '/')) : null);
 
         if ($imagePath && file_exists($imagePath)) {
@@ -133,7 +134,8 @@ class OgImageController extends Controller
                 if ($overlay !== null) {
                     try {
                         $canvas->place($overlay, 'top-left', 0, 0);
-                    } catch (\Throwable) {}
+                    } catch (\Throwable) {
+                    }
                 }
             } catch (\Throwable) {
                 // Skip on unreadable image
@@ -212,7 +214,8 @@ class OgImageController extends Controller
                 if ($overlay !== null) {
                     try {
                         $canvas->place($overlay, 'top-left', 0, 0);
-                    } catch (\Throwable) {}
+                    } catch (\Throwable) {
+                    }
                 }
             } catch (\Throwable) {
                 // If cover image fails, just skip it
@@ -243,7 +246,7 @@ class OgImageController extends Controller
 
             // Artist name
             if ($artwork->artist) {
-                $this->text($canvas, 'by ' . $artwork->artist->name, $textX, $titleY + 10, '#a78bfa', 18, 'normal');
+                $this->text($canvas, 'by '.$artwork->artist->name, $textX, $titleY + 10, '#a78bfa', 18, 'normal');
             }
 
             // Artwork description
@@ -307,9 +310,9 @@ class OgImageController extends Controller
     {
         // Try Liberation Sans (commonly available on Linux) with bold/normal variants
         $fontBase = '/usr/share/fonts/truetype/liberation/LiberationSans';
-        $fontPath = $weight === 'bold' ? $fontBase . '-Bold.ttf' : $fontBase . '-Regular.ttf';
+        $fontPath = $weight === 'bold' ? $fontBase.'-Bold.ttf' : $fontBase.'-Regular.ttf';
 
-        if (!file_exists($fontPath)) {
+        if (! file_exists($fontPath)) {
             // Last resort: let Intervention pick a default
             $fontPath = null;
         }
@@ -336,11 +339,11 @@ class OgImageController extends Controller
         $current = '';
 
         foreach ($words as $word) {
-            if (mb_strlen($current . ' ' . $word) > $maxChars && $current !== '') {
+            if (mb_strlen($current.' '.$word) > $maxChars && $current !== '') {
                 $lines[] = $current;
                 $current = $word;
             } else {
-                $current = $current === '' ? $word : $current . ' ' . $word;
+                $current = $current === '' ? $word : $current.' '.$word;
             }
         }
         if ($current !== '') {
@@ -390,6 +393,7 @@ class OgImageController extends Controller
             }
 
             $cached = $img;
+
             return $cached;
         } catch (\Throwable $e) {
             return null;
@@ -426,6 +430,7 @@ class OgImageController extends Controller
             }
 
             $cached = $img;
+
             return $cached;
         } catch (\Throwable $e) {
             return null;

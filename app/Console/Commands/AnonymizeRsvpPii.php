@@ -21,18 +21,19 @@ class AnonymizeRsvpPii extends Command
     public function handle(): int
     {
         $retentionMonths = (int) $this->option('retention-months');
-        $dryRun          = (bool) $this->option('dry-run');
-        $batchSize       = (int) $this->option('batch-size');
+        $dryRun = (bool) $this->option('dry-run');
+        $batchSize = (int) $this->option('batch-size');
 
         $cutoff = now()->subMonths($retentionMonths);
 
         $this->info("RSVP PII anonymization for records older than {$retentionMonths} months (before {$cutoff->toDateString()})");
-        $this->info("  Dry run: " . ($dryRun ? 'YES' : 'NO'));
+        $this->info('  Dry run: '.($dryRun ? 'YES' : 'NO'));
         $this->info("  Batch size: {$batchSize}");
         $this->newLine();
 
         if (! Schema::hasTable('event_rsvps')) {
-            $this->warn("  event_rsvps table does not exist — skipping.");
+            $this->warn('  event_rsvps table does not exist — skipping.');
+
             return self::SUCCESS;
         }
 
@@ -41,13 +42,14 @@ class AnonymizeRsvpPii extends Command
             ->where('created_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('name')
-                  ->orWhereNotNull('ip_address');
+                    ->orWhereNotNull('name')
+                    ->orWhereNotNull('ip_address');
             })
             ->count();
 
         if ($needsAnonymization === 0) {
-            $this->info("  No RSVP rows need anonymization (all old rows already anonymized).");
+            $this->info('  No RSVP rows need anonymization (all old rows already anonymized).');
+
             return self::SUCCESS;
         }
 
@@ -55,6 +57,7 @@ class AnonymizeRsvpPii extends Command
 
         if ($dryRun) {
             $this->warn("  [DRY-RUN] Would anonymize {$needsAnonymization} RSVP rows. No changes made.");
+
             return self::SUCCESS;
         }
 
@@ -65,8 +68,8 @@ class AnonymizeRsvpPii extends Command
             ->where('created_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('name')
-                  ->orWhereNotNull('ip_address');
+                    ->orWhereNotNull('name')
+                    ->orWhereNotNull('ip_address');
             })
             ->orderBy('id')
             ->chunkById($batchSize, function ($rows) use ($appId, &$anonymized) {
@@ -74,8 +77,8 @@ class AnonymizeRsvpPii extends Command
                     DB::table('event_rsvps')
                         ->where('id', $row->id)
                         ->update([
-                            'email'      => 'anonymized:' . substr(hash('sha256', $appId . $row->email), 0, 16),
-                            'name'       => null,
+                            'email' => 'anonymized:'.substr(hash('sha256', $appId.$row->email), 0, 16),
+                            'name' => null,
                             'ip_address' => null,
                             'updated_at' => now(),
                         ]);
@@ -88,9 +91,9 @@ class AnonymizeRsvpPii extends Command
         $this->info("  Anonymized {$anonymized} RSVP rows.");
 
         Log::info('AnonymizeRsvpPii: complete', [
-            'anonymized'        => $anonymized,
-            'retention_months'  => $retentionMonths,
-            'cutoff'            => $cutoff->toDateString(),
+            'anonymized' => $anonymized,
+            'retention_months' => $retentionMonths,
+            'cutoff' => $cutoff->toDateString(),
         ]);
 
         return self::SUCCESS;

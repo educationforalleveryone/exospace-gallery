@@ -16,8 +16,8 @@ class ProrationConfigAndUiComponentsTest extends TestCase
     public function test_audit_p12_7_proration_reads_prices_from_config(): void
     {
         $user = User::factory()->pro()->create([
-            'plan_started_at'  => now()->subDays(15),
-            'plan_expires_at'  => now()->addDays(15),
+            'plan_started_at' => now()->subDays(15),
+            'plan_expires_at' => now()->addDays(15),
         ]);
 
         $service = app(ProrationService::class);
@@ -37,8 +37,8 @@ class ProrationConfigAndUiComponentsTest extends TestCase
         config(['plans.display.studio.price' => 200]);
 
         $user = User::factory()->pro()->create([
-            'plan_started_at'  => now()->subDays(15),
-            'plan_expires_at'  => now()->addDays(15),
+            'plan_started_at' => now()->subDays(15),
+            'plan_expires_at' => now()->addDays(15),
         ]);
 
         $service = app(ProrationService::class);
@@ -51,9 +51,9 @@ class ProrationConfigAndUiComponentsTest extends TestCase
     public function test_audit_p12_7_proration_handles_unknown_plan_gracefully(): void
     {
         $user = User::factory()->create([
-            'plan'             => 'free',
-            'plan_started_at'  => null,
-            'plan_expires_at'  => null,
+            'plan' => 'free',
+            'plan_started_at' => null,
+            'plan_expires_at' => null,
         ]);
 
         $service = app(ProrationService::class);
@@ -88,8 +88,8 @@ class ProrationConfigAndUiComponentsTest extends TestCase
 
         foreach ($icons as $icon) {
             $rendered = view('components.empty-state', [
-                'icon'        => $icon,
-                'title'       => 'Test title',
+                'icon' => $icon,
+                'title' => 'Test title',
                 'description' => 'Test description',
             ])->render();
 
@@ -103,7 +103,7 @@ class ProrationConfigAndUiComponentsTest extends TestCase
     public function test_audit_p12_4_tooltip_is_accessible(): void
     {
         $rendered = view('components.tooltip', [
-            'text'     => 'Helpful tip',
+            'text' => 'Helpful tip',
             'position' => 'top',
         ])->render();
 
@@ -117,10 +117,10 @@ class ProrationConfigAndUiComponentsTest extends TestCase
     {
         $positions = ['top', 'right', 'bottom', 'left'];
         $expectedClasses = [
-            'top'    => 'bottom-full',
-            'right'  => 'left-full',
+            'top' => 'bottom-full',
+            'right' => 'left-full',
             'bottom' => 'top-full',
-            'left'   => 'right-full',
+            'left' => 'right-full',
         ];
 
         foreach ($positions as $pos) {

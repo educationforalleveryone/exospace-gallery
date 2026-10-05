@@ -45,6 +45,7 @@ class ReconcileSubscriptions extends Command
         if ($users->isEmpty()) {
             $this->info('No subscription-bearing paid users to reconcile.');
             app(JobHeartbeatService::class)->stamp('exospace:reconcile-subscriptions');
+
             return self::SUCCESS;
         }
 
@@ -63,10 +64,11 @@ class ReconcileSubscriptions extends Command
             if (! $response->successful()) {
                 $errors++;
                 Log::warning('ReconcileSubscriptions: subscription lookup failed', [
-                    'user_id'         => $user->id,
+                    'user_id' => $user->id,
                     'subscription_id' => $user->subscription_id,
-                    'status'          => $response->status(),
+                    'status' => $response->status(),
                 ]);
+
                 continue; // conservative: never act on a failed lookup
             }
 
@@ -74,9 +76,10 @@ class ReconcileSubscriptions extends Command
             if (! is_array($data)) {
                 $errors++;
                 Log::warning('ReconcileSubscriptions: unparseable subscription payload', [
-                    'user_id'         => $user->id,
+                    'user_id' => $user->id,
                     'subscription_id' => $user->subscription_id,
                 ]);
+
                 continue;
             }
 
@@ -84,6 +87,7 @@ class ReconcileSubscriptions extends Command
             if ($dead === null) {
                 // Payload shape not recognised — treat as a lookup failure.
                 $errors++;
+
                 continue;
             }
 
@@ -98,15 +102,17 @@ class ReconcileSubscriptions extends Command
             if ($localStillPaid) {
                 $this->alertDrift($user, 'paid-period-still-active',
                     '2Checkout reports the subscription as ended, but the local plan is paid until '
-                    . $user->plan_expires_at->toDateString() . '. No action taken — expiry will '
-                    . 'downgrade the account at the end of the paid period. Verify the cancellation '
-                    . 'was expected.');
+                    .$user->plan_expires_at->toDateString().'. No action taken — expiry will '
+                    .'downgrade the account at the end of the paid period. Verify the cancellation '
+                    .'was expected.');
                 $alerts++;
+
                 continue;
             }
 
             if ($dryRun) {
                 $this->warn("[dry-run] would downgrade user {$user->id} ({$user->plan}, subscription {$user->subscription_id}) to free.");
+
                 continue;
             }
 
@@ -120,14 +126,14 @@ class ReconcileSubscriptions extends Command
 
             AdminAuditLog::record('subscription.reconciled_downgrade', $user, [
                 'subscription_id' => $user->subscription_id,
-                'from_plan'       => $fromPlan,
-                'reason'          => '2CO reports subscription ended; local expiry already past',
+                'from_plan' => $fromPlan,
+                'reason' => '2CO reports subscription ended; local expiry already past',
             ]);
 
             $this->alertDrift($user, 'auto-downgraded',
                 "User {$user->id} ({$user->email}) held plan '{$fromPlan}' with a subscription 2Checkout "
-                . "reports as ended, and the local paid period had already expired. Automatically downgraded "
-                . 'to free (missed cancellation webhook).');
+                .'reports as ended, and the local paid period had already expired. Automatically downgraded '
+                .'to free (missed cancellation webhook).');
             $downgraded++;
         }
 
@@ -147,9 +153,9 @@ class ReconcileSubscriptions extends Command
         if ($freeWithLiveRef->isNotEmpty()) {
             app(OperationalAlertService::class)->alert(
                 'Subscription reconciliation: free users with live subscription references',
-                $freeWithLiveRef->count() . " user(s) are on the free plan while still holding 2Checkout subscription "
-                . 'references (possible missed payment webhooks — verify before granting): '
-                . $freeWithLiveRef->take(10)->implode(', ') . ($freeWithLiveRef->count() > 10 ? '…' : ''),
+                $freeWithLiveRef->count().' user(s) are on the free plan while still holding 2Checkout subscription '
+                .'references (possible missed payment webhooks — verify before granting): '
+                .$freeWithLiveRef->take(10)->implode(', ').($freeWithLiveRef->count() > 10 ? '…' : ''),
                 'warning',
                 'reconcile-subscriptions:free-with-reference',
             );
@@ -160,7 +166,7 @@ class ReconcileSubscriptions extends Command
             app(OperationalAlertService::class)->alert(
                 'Subscription reconciliation aborted: 2Checkout API unreliable',
                 "{$errors}/{$checked} subscription lookups failed this run. No further action was taken on "
-                . 'those users. Check 2CO API credentials/network before the next run.',
+                .'those users. Check 2CO API credentials/network before the next run.',
                 'critical',
                 'reconcile-subscriptions:api-unreliable',
             );
@@ -221,7 +227,7 @@ class ReconcileSubscriptions extends Command
     {
         $this->warn("Drift [{$kind}]: {$message}");
         app(OperationalAlertService::class)->alert(
-            'Subscription reconciliation: ' . str_replace('-', ' ', $kind),
+            'Subscription reconciliation: '.str_replace('-', ' ', $kind),
             $message,
             'warning',
             "reconcile-subscriptions:{$kind}:{$user->id}",

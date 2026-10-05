@@ -4,24 +4,35 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class VenueCyberSignalRoomTest extends TestCase
 {
+    use RefreshDatabase;
+
     private const SEEDED_REACTIVE = [
-        'enabled'       => true,
-        'dead_zone'     => 0.18,
-        'ref_speed'     => 3.0,
-        'attack'        => 0.18,
-        'release'       => 1.1,
+        'enabled' => true,
+        'dead_zone' => 0.18,
+        'ref_speed' => 3.0,
+        'attack' => 0.18,
+        'release' => 1.1,
         'max_intensity' => 1.0,
-        'bezel_color'   => '0x00e5ff',
+        'bezel_color' => '0x00e5ff',
     ];
 
     private const V1_DESCRIPTION = 'A dark electric space ringed with neon on every edge, the floor traced in light. For digital and web3 creators.';
 
     private const V2_DESCRIPTION = 'A signal room for digital natives: dark anodized walls, a floor traced in light, neon ringing every edge — and artworks that behave like living media. Stand still and they hold still. Move, and they react to you.';
+
+    private function jsonNormalized(array $value): array
+    {
+        // DB JSON columns encode integral floats as ints (json_encode without
+        // JSON_PRESERVE_ZERO_FRACTION); normalize the expectation the same way
+        // so assertSame stays value-strict across the storage round-trip.
+        return json_decode(json_encode($value), true);
+    }
 
     public function test_the_seeded_row_declares_the_signal_room(): void
     {
@@ -30,7 +41,7 @@ class VenueCyberSignalRoomTest extends TestCase
         $config = $this->visualConfig('cyber-gallery');
 
         $this->assertSame(
-            self::SEEDED_REACTIVE,
+            $this->jsonNormalized(self::SEEDED_REACTIVE),
             $config['artwork_reactive'] ?? null,
             '[cyber-gallery] must declare the movement-reactive artwork signature with the designed tuning.'
         );
@@ -56,7 +67,7 @@ class VenueCyberSignalRoomTest extends TestCase
         $this->assertTrue($material['texture_tint'] ?? false, '[cyber-gallery] THE parity fix — the declared dark tint must reach textured builds (the concrete PBR set used to re-tint every desktop wall 0xffffff while low-end rendered the declared dark).');
         $this->assertSame('0x0a0a14', $material['wall_color'] ?? null, '[cyber-gallery] must declare the dark anodized wall colour.');
         $this->assertSame('0x0b0d14', $material['floor_color'] ?? null, '[cyber-gallery] must declare a dark floor (null meant the bright preset concrete was the brightest plane in a dark venue).');
-        $this->assertSame(2.0, $material['floor_tile_meters'] ?? null, '[cyber-gallery] must declare the polished signal-floor tile rhythm.');
+        $this->assertSame(2.0, (float) ($material['floor_tile_meters'] ?? 0.0), '[cyber-gallery] must declare the polished signal-floor tile rhythm.');
 
         $this->assertSame('2.0.0', (string) DB::table('venue_templates')->where('slug', 'cyber-gallery')->value('version'), '[cyber-gallery] version must pin 2.0.0 (Signal Room).');
     }
@@ -85,7 +96,7 @@ class VenueCyberSignalRoomTest extends TestCase
         $config = json_decode((string) $row->visual_config, true);
         $material = json_decode((string) $row->material_config, true);
 
-        $this->assertSame(self::SEEDED_REACTIVE, $config['artwork_reactive'] ?? null, 'up() must add the signature to a legacy row.');
+        $this->assertSame($this->jsonNormalized(self::SEEDED_REACTIVE), $config['artwork_reactive'] ?? null, 'up() must add the signature to a legacy row.');
         $this->assertSame('none', $config['environment'] ?? null);
         $this->assertSame('black', $config['frame_override'] ?? null);
         $this->assertSame(0.42, $config['ambient_intensity'] ?? null, 'The guarded rewrite must lift the murk rig (0.18 → 0.42).');
@@ -114,20 +125,20 @@ class VenueCyberSignalRoomTest extends TestCase
 
         // A super-admin retuned the rig and the signature BEFORE the pass.
         $adminConfig = [
-            'fog_near'              => 8,
-            'fog_far'               => 30,
-            'ambient_intensity'     => 0.5,
-            'spot_intensity'        => 2.0,
-            'fill_intensity'        => 0.6,
+            'fog_near' => 8,
+            'fog_far' => 30,
+            'ambient_intensity' => 0.5,
+            'spot_intensity' => 2.0,
+            'fill_intensity' => 0.6,
             'tone_mapping_exposure' => 0.9,
-            'frame_override'        => 'brushed',
-            'artwork_reactive'      => ['enabled' => true, 'dead_zone' => 0.3, 'ref_speed' => 4.0, 'bezel_color' => '0xff00aa'],
+            'frame_override' => 'brushed',
+            'artwork_reactive' => ['enabled' => true, 'dead_zone' => 0.3, 'ref_speed' => 4.0, 'bezel_color' => '0xff00aa'],
         ];
         DB::table('venue_templates')->where('slug', 'cyber-gallery')->update([
-            'visual_config'  => json_encode($adminConfig),
+            'visual_config' => json_encode($adminConfig),
             'material_config' => json_encode(['texture_tint' => false, 'floor_color' => '0x111122', 'floor_roughness' => 0.7, 'floor_metalness' => 0.2]),
-            'description'    => 'My own signal room copy.',
-            'version'        => '9.9.9',
+            'description' => 'My own signal room copy.',
+            'version' => '9.9.9',
         ]);
 
         $this->migration()->up();
@@ -138,7 +149,7 @@ class VenueCyberSignalRoomTest extends TestCase
 
         $this->assertSame(0.5, $config['ambient_intensity'], 'An admin value that differs from the seeded "from" guard must never be rewritten.');
         $this->assertSame('brushed', $config['frame_override'], 'An admin frame choice wins over the pass default.');
-        $this->assertSame($adminConfig['artwork_reactive'], $config['artwork_reactive'] ?? null, 'An admin-declared signature (any shape) is never overwritten.');
+        $this->assertSame($this->jsonNormalized($adminConfig['artwork_reactive']), $config['artwork_reactive'] ?? null, 'An admin-declared signature (any shape) is never overwritten.');
         $this->assertFalse($material['texture_tint'], 'An admin texture_tint choice wins.');
         $this->assertSame('0x111122', $material['floor_color'], 'An admin floor wins over the null-floor rewrite.');
         $this->assertSame('My own signal room copy.', (string) $row->description, 'Admin copy is never touched.');
@@ -168,7 +179,7 @@ class VenueCyberSignalRoomTest extends TestCase
 
         // Idempotent down: a second run is a safe no-op.
         $this->migration()->down();
-        $again = (array) DB::table('venue_templates')->where('slug', 'cyber-gallery')->first(['visual_config']);
+        $again = (array) DB::table('venue_templates')->where('slug', 'cyber-gallery')->first(['visual_config', 'material_config', 'description', 'version']);
         $this->assertSame((array) $row, $again, 'A second down() run must be a no-op.');
     }
 
@@ -209,11 +220,11 @@ class VenueCyberSignalRoomTest extends TestCase
 
         $exporter = app(\App\Services\VenueConfigExporter::class);
 
-        $cyber   = \App\Models\VenueTemplate::where('slug', 'cyber-gallery')->firstOrFail();
-        $config  = $exporter->forVenuePreview($cyber);
+        $cyber = \App\Models\VenueTemplate::where('slug', 'cyber-gallery')->firstOrFail();
+        $config = $exporter->forVenuePreview($cyber);
 
         $this->assertSame(
-            self::SEEDED_REACTIVE,
+            $this->jsonNormalized(self::SEEDED_REACTIVE),
             $config['visual_config']['artwork_reactive'] ?? null,
             'The movement-reactive declaration must reach the client payload (preview and public view share the exporter).'
         );
@@ -232,34 +243,34 @@ class VenueCyberSignalRoomTest extends TestCase
 
         DB::table('venue_templates')->where('slug', 'cyber-gallery')->update([
             'description' => self::V1_DESCRIPTION,
-            'version'     => '1.0.0',
+            'version' => '1.0.0',
             'visual_config' => json_encode([
-                'wall_height'            => 6,
-                'wall_depth'             => 0.4,
-                'ceiling_type'           => 'flat',
-                'ceiling_color'          => '0x04081a',
-                'ceiling_height'         => 6,
-                'ceiling_neon'           => true,
-                'background_color'       => '0x020412',
-                'fog_color'              => '0x020412',
-                'fog_near'               => 6,
-                'fog_far'                => 22,
-                'ambient_color'          => '0x3060ff',
-                'ambient_intensity'      => 0.18,
-                'spot_intensity'         => 0.55,
-                'fill_intensity'         => 0.1,
-                'tone_mapping_exposure'  => 0.5,
-                'frame_override'         => null,
-                'structure_pass'         => 'rooms',
+                'wall_height' => 6,
+                'wall_depth' => 0.4,
+                'ceiling_type' => 'flat',
+                'ceiling_color' => '0x04081a',
+                'ceiling_height' => 6,
+                'ceiling_neon' => true,
+                'background_color' => '0x020412',
+                'fog_color' => '0x020412',
+                'fog_near' => 6,
+                'fog_far' => 22,
+                'ambient_color' => '0x3060ff',
+                'ambient_intensity' => 0.18,
+                'spot_intensity' => 0.55,
+                'fill_intensity' => 0.1,
+                'tone_mapping_exposure' => 0.5,
+                'frame_override' => null,
+                'structure_pass' => 'rooms',
             ]),
             'material_config' => json_encode([
-                'wall_color'           => '0x0a0a14',
-                'wall_roughness'       => 0.6,
-                'wall_metalness'       => 0.3,
+                'wall_color' => '0x0a0a14',
+                'wall_roughness' => 0.6,
+                'wall_metalness' => 0.3,
                 'wall_normal_strength' => 0.5,
-                'floor_color'          => null,
-                'floor_roughness'      => 0.4,
-                'floor_metalness'      => 0.5,
+                'floor_color' => null,
+                'floor_roughness' => 0.4,
+                'floor_metalness' => 0.5,
                 'floor_normal_strength' => 0.5,
             ]),
         ]);

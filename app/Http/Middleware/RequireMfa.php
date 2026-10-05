@@ -19,7 +19,7 @@ class RequireMfa
         }
 
         $isSuperAdmin = $user->is_super_admin === true;
-        $mfaEnabled   = ! empty($user->google2fa_secret);
+        $mfaEnabled = ! empty($user->google2fa_secret);
 
         if ($isSuperAdmin) {
             if (! $mfaEnabled) {
@@ -27,6 +27,7 @@ class RequireMfa
                     return redirect()->route('mfa.setup')
                         ->with('warning', 'Multi-factor authentication is required for super-admin accounts. Please set it up now.');
                 }
+
                 return $next($request);
             }
         } else {

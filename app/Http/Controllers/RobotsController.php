@@ -28,7 +28,7 @@ class RobotsController extends Controller
     private function primaryRobots(): string
     {
         $lines = [
-            '# ' . config('seo.site_name', 'Exospace') . ' — robots.txt',
+            '# '.config('seo.site_name', 'Exospace').' — robots.txt',
             '# Public exhibitions, artists, artworks and hubs are crawlable.',
             '# Admin, auth, billing and duplicate/preview endpoints are not.',
             '',
@@ -37,15 +37,15 @@ class RobotsController extends Controller
         ];
 
         foreach ((array) config('seo.robots.disallow', []) as $path) {
-            $lines[] = 'Disallow: ' . $path;
+            $lines[] = 'Disallow: '.$path;
         }
         foreach ((array) config('seo.robots.disallow_query', []) as $pattern) {
-            $lines[] = 'Disallow: ' . $pattern;
+            $lines[] = 'Disallow: '.$pattern;
         }
 
         $lines[] = '';
         $lines[] = '# Sitemap';
-        $lines[] = 'Sitemap: ' . rtrim((string) config('app.url'), '/') . '/sitemap.xml';
+        $lines[] = 'Sitemap: '.rtrim((string) config('app.url'), '/').'/sitemap.xml';
         $lines[] = '';
 
         return implode("\n", $lines);
@@ -56,7 +56,7 @@ class RobotsController extends Controller
         $host = $request->getSchemeAndHttpHost();
 
         $lines = [
-            '# robots.txt for ' . $host,
+            '# robots.txt for '.$host,
             '# This host serves a single white-label exhibition. Everything is',
             '# crawlable; the sitemap below lists this exhibition only.',
             '',
@@ -66,7 +66,7 @@ class RobotsController extends Controller
             'Disallow: /login',
             'Disallow: /register',
             '',
-            'Sitemap: ' . $host . '/sitemap.xml',
+            'Sitemap: '.$host.'/sitemap.xml',
             '',
         ];
 

@@ -17,7 +17,9 @@ class PruneWebhookDeliveriesTest extends TestCase
     use RefreshDatabase;
 
     private const ENV_URL = 'https://env.example.com/exospace';
+
     private const ENV_SECRET = 'env-shared-secret';
+
     private const SUB_URL_A = 'https://sub-a.example.com/hook';
 
     protected function setUp(): void
@@ -35,7 +37,7 @@ class PruneWebhookDeliveriesTest extends TestCase
         return WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, 'is_active' => true, 'added_by' => null,
+            'secret' => null, 'is_active' => true, 'added_by' => null,
         ]);
     }
 
@@ -43,13 +45,13 @@ class PruneWebhookDeliveriesTest extends TestCase
     {
         return WebhookDelivery::create([
             'subscription_id' => $sub->id,
-            'event_type'      => $sub->event_type,
-            'target_url'      => $sub->target_url,
-            'http_status'     => $httpStatus,
-            'attempt_count'   => 1,
-            'success'         => $success,
-            'error_message'   => $success ? null : 'Non-2xx response: HTTP ' . $httpStatus,
-            'delivered_at'    => now()->subDays($daysOld),
+            'event_type' => $sub->event_type,
+            'target_url' => $sub->target_url,
+            'http_status' => $httpStatus,
+            'attempt_count' => 1,
+            'success' => $success,
+            'error_message' => $success ? null : 'Non-2xx response: HTTP '.$httpStatus,
+            'delivered_at' => now()->subDays($daysOld),
         ]);
     }
 

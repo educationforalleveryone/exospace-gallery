@@ -61,24 +61,24 @@ class InvoiceGenerator
             // The number lookup locks the latest row, so it must stay in the same
             // transaction as the insert or concurrent webhooks reuse a number.
             $invoice = DB::transaction(fn () => Invoice::create([
-                'user_id'              => $user->id,
-                'transaction_id'       => $transaction->id,
-                'invoice_number'       => $this->generateInvoiceNumber(),
-                'amount'               => $amount,
-                'tax_amount'           => $taxAmount,
-                'tax_rate'             => $taxRate,
-                'currency'             => $transaction->currency,
-                'plan'                 => $transaction->plan,
-                'billing_type'         => $billingType,
-                'customer_name'        => $transaction->customer_name ?? $user->name,
-                'customer_email'       => $transaction->customer_email ?? $user->email,
-                'billing_address'      => $overrides['billing_address'] ?? null,
-                'customer_vat_number'  => $customerVatNumber,
-                'supplier_vat_number'  => $supplierVatNumber,
-                'tax_country_code'     => $taxCountryCode,
-                'reverse_charge'       => $reverseCharge,
-                'pdf_path'             => null, // set after PDF generation
-                'issued_at'            => now(),
+                'user_id' => $user->id,
+                'transaction_id' => $transaction->id,
+                'invoice_number' => $this->generateInvoiceNumber(),
+                'amount' => $amount,
+                'tax_amount' => $taxAmount,
+                'tax_rate' => $taxRate,
+                'currency' => $transaction->currency,
+                'plan' => $transaction->plan,
+                'billing_type' => $billingType,
+                'customer_name' => $transaction->customer_name ?? $user->name,
+                'customer_email' => $transaction->customer_email ?? $user->email,
+                'billing_address' => $overrides['billing_address'] ?? null,
+                'customer_vat_number' => $customerVatNumber,
+                'supplier_vat_number' => $supplierVatNumber,
+                'tax_country_code' => $taxCountryCode,
+                'reverse_charge' => $reverseCharge,
+                'pdf_path' => null, // set after PDF generation
+                'issued_at' => now(),
             ]), 3);
 
             // Generate the real PDF via dompdf
@@ -86,16 +86,16 @@ class InvoiceGenerator
             $invoice->forceFill(['pdf_path' => $pdfPath])->save();
 
             Log::info('InvoiceGenerator: invoice created', [
-                'invoice_id'        => $invoice->id,
-                'invoice_number'    => $invoice->invoice_number,
-                'transaction_id'    => $transaction->id,
-                'user_id'           => $user->id,
-                'amount'            => $amount,
-                'tax_rate'          => $taxRate,
-                'tax_amount'        => $taxAmount,
-                'reverse_charge'    => $reverseCharge,
-                'tax_country_code'  => $taxCountryCode,
-                'pdf_path'          => $pdfPath,
+                'invoice_id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'transaction_id' => $transaction->id,
+                'user_id' => $user->id,
+                'amount' => $amount,
+                'tax_rate' => $taxRate,
+                'tax_amount' => $taxAmount,
+                'reverse_charge' => $reverseCharge,
+                'tax_country_code' => $taxCountryCode,
+                'pdf_path' => $pdfPath,
             ]);
 
             return $invoice;
@@ -103,9 +103,10 @@ class InvoiceGenerator
         } catch (\Throwable $e) {
             Log::error('InvoiceGenerator: failed to generate invoice', [
                 'transaction_id' => $transaction->id,
-                'user_id'        => $user->id,
-                'error'          => $e->getMessage(),
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -130,8 +131,8 @@ class InvoiceGenerator
                 Storage::disk($disk)->delete($previous);
             } catch (\Throwable $e) {
                 Log::warning('InvoiceGenerator: could not remove replaced invoice file', [
-                    'disk'  => $disk,
-                    'path'  => $previous,
+                    'disk' => $disk,
+                    'path' => $previous,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -143,9 +144,9 @@ class InvoiceGenerator
         $year = now()->year;
         $prefix = "INV-{$year}-";
 
-        return DB::transaction(function () use ($year, $prefix) {
+        return DB::transaction(function () use ($prefix) {
             $lastInvoice = DB::table('invoices')
-                ->where('invoice_number', 'like', $prefix . '%')
+                ->where('invoice_number', 'like', $prefix.'%')
                 ->lockForUpdate()
                 ->orderByDesc('invoice_number')
                 ->value('invoice_number');
@@ -157,7 +158,7 @@ class InvoiceGenerator
                 $sequence = (int) end($parts) + 1;
             }
 
-            return $prefix . str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
+            return $prefix.str_pad((string) $sequence, 5, '0', STR_PAD_LEFT);
         });
     }
 
@@ -187,9 +188,9 @@ class InvoiceGenerator
             Storage::disk('local')->put($relativePath, $pdfContent);
 
             Log::info('InvoiceGenerator: PDF generated via dompdf', [
-                'invoice_id'  => $invoice->id,
-                'pdf_path'    => $relativePath,
-                'size_bytes'  => strlen($pdfContent),
+                'invoice_id' => $invoice->id,
+                'pdf_path' => $relativePath,
+                'size_bytes' => strlen($pdfContent),
             ]);
         } else {
             // Fallback: store as HTML (backward compatibility during transition)
@@ -198,8 +199,8 @@ class InvoiceGenerator
             Storage::disk('local')->put($relativePath, $html);
 
             Log::warning('InvoiceGenerator: dompdf not installed — falling back to HTML. Run: composer require dompdf/dompdf', [
-                'invoice_id'  => $invoice->id,
-                'html_path'   => $relativePath,
+                'invoice_id' => $invoice->id,
+                'html_path' => $relativePath,
             ]);
         }
 
@@ -218,15 +219,16 @@ class InvoiceGenerator
 
             Log::info('InvoiceGenerator: invoice PDF regenerated', [
                 'invoice_id' => $invoice->id,
-                'pdf_path'   => $pdfPath,
+                'pdf_path' => $pdfPath,
             ]);
 
             return $pdfPath;
         } catch (\Throwable $e) {
             Log::error('InvoiceGenerator: failed to regenerate invoice PDF', [
                 'invoice_id' => $invoice->id,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }

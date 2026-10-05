@@ -44,8 +44,8 @@ class ResilientCache
     }
 
     /**
-     * @param array{0: \DateTimeInterface|int, 1: \DateTimeInterface|int} $ttls [fresh, stale]
-     * @param array{seconds?: int}|null $lockSeconds
+     * @param  array{0: \DateTimeInterface|int, 1: \DateTimeInterface|int}  $ttls  [fresh, stale]
+     * @param  array{seconds?: int}|null  $lockSeconds
      */
     public static function flexible(string $key, array $ttls, Closure $callback, ?array $lockSeconds = null): mixed
     {
@@ -61,9 +61,9 @@ class ResilientCache
     private static function report(string $op, string $key, Throwable $e): void
     {
         Log::warning('Cache unavailable — serving uncached data', [
-            'op'     => $op,
-            'key'    => $key,
-            'error'  => $e->getMessage(),
+            'op' => $op,
+            'key' => $key,
+            'error' => $e->getMessage(),
         ]);
     }
 }

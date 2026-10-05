@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\Gallery;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class ArtistController extends Controller
 {
@@ -25,8 +25,8 @@ class ArtistController extends Controller
             $search = mb_substr($search, 0, 100);
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('bio', 'like', "%{$search}%")
-                  ->orWhere('location', 'like', "%{$search}%");
+                    ->orWhere('bio', 'like', "%{$search}%")
+                    ->orWhere('location', 'like', "%{$search}%");
             });
         }
 
@@ -37,30 +37,31 @@ class ArtistController extends Controller
 
     public function create(): View
     {
-        $artist = new Artist();
+        $artist = new Artist;
+
         return view('admin.artists.create', compact('artist'));
     }
 
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name'      => ['required', 'string', 'max:100'],
-            'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/', Rule::unique('artists', 'slug')],
-            'bio'       => ['nullable', 'string', 'max:2000'],
+            'name' => ['required', 'string', 'max:100'],
+            'slug' => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/', Rule::unique('artists', 'slug')],
+            'bio' => ['nullable', 'string', 'max:2000'],
             // SEO OS: curator-facing SEO overrides.
-            'seo_title'       => ['nullable', 'string', 'max:200'],
+            'seo_title' => ['nullable', 'string', 'max:200'],
             'seo_description' => ['nullable', 'string', 'max:300'],
-            'website'   => ['nullable', 'string', 'max:500', 'url'],
+            'website' => ['nullable', 'string', 'max:500', 'url'],
             'instagram' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
-            'twitter'   => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
-            'email'     => ['nullable', 'string', 'max:255', 'email'],
-            'location'  => ['nullable', 'string', 'max:255'],
-            'portrait'  => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'twitter' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
+            'email' => ['nullable', 'string', 'max:255', 'email'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'portrait' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         // Normalize social handles (strip leading @)
         foreach (['instagram', 'twitter'] as $field) {
-            if (!empty($validated[$field])) {
+            if (! empty($validated[$field])) {
                 $validated[$field] = ltrim($validated[$field], '@');
             }
         }
@@ -91,7 +92,7 @@ class ArtistController extends Controller
             }
         } catch (\Throwable $e) {
             // No row was created, so the uploaded portrait would be orphaned.
-            if (!empty($validated['portrait_path'])) {
+            if (! empty($validated['portrait_path'])) {
                 try {
                     Storage::disk('public')->delete($validated['portrait_path']);
                 } catch (\Throwable) {
@@ -104,9 +105,9 @@ class ArtistController extends Controller
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
             $profile = $artist->seoProfileOrCreate();
             $profile->fill([
-                'title_override'       => $validated['seo_title'] ?? null,
+                'title_override' => $validated['seo_title'] ?? null,
                 'description_override' => $validated['seo_description'] ?? null,
-                'updated_by'           => $request->user()->id,
+                'updated_by' => $request->user()->id,
             ])->save();
             unset($validated['seo_title'], $validated['seo_description']);
         }
@@ -126,6 +127,7 @@ class ArtistController extends Controller
             ->groupBy('gallery_id')
             ->map(function ($images) {
                 $gallery = $images->first()->gallery;
+
                 return [
                     'gallery' => $gallery,
                     'images' => $images,
@@ -147,22 +149,22 @@ class ArtistController extends Controller
         $this->authorizeArtistMutation($artist);
 
         $validated = $request->validate([
-            'name'      => ['required', 'string', 'max:100'],
-            'slug'      => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/', Rule::unique('artists', 'slug')->ignore($artist)],
-            'bio'       => ['nullable', 'string', 'max:2000'],
+            'name' => ['required', 'string', 'max:100'],
+            'slug' => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/', Rule::unique('artists', 'slug')->ignore($artist)],
+            'bio' => ['nullable', 'string', 'max:2000'],
             // SEO OS: curator-facing SEO overrides.
-            'seo_title'       => ['nullable', 'string', 'max:200'],
+            'seo_title' => ['nullable', 'string', 'max:200'],
             'seo_description' => ['nullable', 'string', 'max:300'],
-            'website'   => ['nullable', 'string', 'max:500', 'url'],
+            'website' => ['nullable', 'string', 'max:500', 'url'],
             'instagram' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
-            'twitter'   => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
-            'email'     => ['nullable', 'string', 'max:255', 'email'],
-            'location'  => ['nullable', 'string', 'max:255'],
-            'portrait'  => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'twitter' => ['nullable', 'string', 'max:30', 'regex:/^[A-Za-z0-9._]+$/'],
+            'email' => ['nullable', 'string', 'max:255', 'email'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'portrait' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         foreach (['instagram', 'twitter'] as $field) {
-            if (!empty($validated[$field])) {
+            if (! empty($validated[$field])) {
                 $validated[$field] = ltrim($validated[$field], '@');
             }
         }
@@ -170,9 +172,9 @@ class ArtistController extends Controller
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
             $profile = $artist->seoProfileOrCreate();
             $profile->fill([
-                'title_override'       => $validated['seo_title'] ?? null,
+                'title_override' => $validated['seo_title'] ?? null,
                 'description_override' => $validated['seo_description'] ?? null,
-                'updated_by'           => $request->user()->id,
+                'updated_by' => $request->user()->id,
             ])->save();
             unset($validated['seo_title'], $validated['seo_description']);
         }
@@ -257,11 +259,11 @@ class ArtistController extends Controller
             ->get(['id', 'name', 'location', 'portrait_path']);
 
         return response()->json($artists->map(fn ($a) => [
-            'id'           => $a->id,
-            'name'         => $a->name,
-            'location'     => $a->location,
+            'id' => $a->id,
+            'name' => $a->name,
+            'location' => $a->location,
             'portrait_url' => $a->portrait_url,
-            'initials'     => $a->initials,
+            'initials' => $a->initials,
         ]));
     }
 
@@ -271,7 +273,7 @@ class ArtistController extends Controller
             Storage::disk('public')->delete($path);
         } catch (\Throwable $e) {
             Log::warning('ArtistController: file cleanup failed', [
-                'path'  => $path,
+                'path' => $path,
                 'error' => $e->getMessage(),
             ]);
         }

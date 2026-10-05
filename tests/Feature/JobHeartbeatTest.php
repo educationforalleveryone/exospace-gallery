@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Services\JobHeartbeatService;
 use App\Services\OperationalAlertService;
 use Illuminate\Foundation\Testing\RefreshDatabase;

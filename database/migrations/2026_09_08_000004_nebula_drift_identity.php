@@ -8,17 +8,19 @@ return new class extends Migration
     private const SLUG = 'nebula-drift';
 
     private const OLD_VERSION = '2.1.0';
+
     private const NEW_VERSION = '2.2.0';
 
     private const OLD_DESCRIPTION =
         'A deep-field nebula arches over the exhibition — immense cosmic masses wheeling slowly overhead along a galactic band, a stardrift current, and a meridian ring of travelling light. Artworks float above pools of light on a floor that dissolves into the void.';
+
     private const NEW_DESCRIPTION =
         'A deep-field nebula owns the sky — one immense galactic arch with a luminous core wheeling overhead, colossal silhouettes at its edges, a stardrift current, and a meridian thread of travelling light. Artworks hang as a suspended constellation over pools of light, the floor dissolving into the void.';
 
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
@@ -32,11 +34,11 @@ return new class extends Migration
         }
 
         foreach ($this->addedVisualKeys() as $key => $value) {
-            if (!array_key_exists($key, $visual)) {
+            if (! array_key_exists($key, $visual)) {
                 $visual[$key] = $value;
             }
         }
-        if (is_array($visual['placement'] ?? null) && !array_key_exists('elevation_step', $visual['placement'])) {
+        if (is_array($visual['placement'] ?? null) && ! array_key_exists('elevation_step', $visual['placement'])) {
             $visual['placement']['elevation_step'] = 0.7;
         }
 
@@ -57,7 +59,7 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 

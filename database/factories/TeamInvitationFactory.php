@@ -23,11 +23,11 @@ class TeamInvitationFactory extends Factory
         $plaintext = Str::random(64);
 
         return [
-            'team_id'   => Team::factory(),
-            'email'     => fake()->safeEmail(),
-            'token'     => hash('sha256', $plaintext),
-            'role'      => fake()->randomElement(['editor', 'viewer']),
-            'expires_at'=> now()->addDays(7),
+            'team_id' => Team::factory(),
+            'email' => fake()->safeEmail(),
+            'token' => hash('sha256', $plaintext),
+            'role' => fake()->randomElement(['editor', 'viewer']),
+            'expires_at' => now()->addDays(7),
         ];
     }
 

@@ -48,15 +48,15 @@ class StartController extends Controller
 
         if ($verdict['allowed'] && $this->canExecuteLocally()) {
             $run = QaTestRun::create([
-                'uuid'          => (string) \Str::uuid(),
-                'profile'       => $profileKey,
-                'environment'   => 'local',
-                'safety'        => $profile['safety'],
-                'trigger'       => 'api',
-                'runner'        => 'dashboard-queue',
-                'git_branch'    => null,
-                'git_commit'    => null,
-                'status'        => QaTestRun::STATUS_QUEUED,
+                'uuid' => (string) \Str::uuid(),
+                'profile' => $profileKey,
+                'environment' => 'local',
+                'safety' => $profile['safety'],
+                'trigger' => 'api',
+                'runner' => 'dashboard-queue',
+                'git_branch' => null,
+                'git_commit' => null,
+                'status' => QaTestRun::STATUS_QUEUED,
             ]);
 
             RunQaProfile::dispatch($run->id);

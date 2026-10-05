@@ -38,9 +38,9 @@ class IncrementGalleryViews implements ShouldQueue
             }
         } catch (\Throwable $e) {
             Log::warning('IncrementGalleryViews: failed', [
-                'gallery_id'         => $this->galleryId,
-                'venue_template_id'  => $this->venueTemplateId,
-                'error'              => $e->getMessage(),
+                'gallery_id' => $this->galleryId,
+                'venue_template_id' => $this->venueTemplateId,
+                'error' => $e->getMessage(),
             ]);
         }
     }

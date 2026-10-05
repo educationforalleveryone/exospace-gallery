@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class VenueSculptureGardenTest extends TestCase
 {
+    use RefreshDatabase;
+
     private const V2_DESCRIPTION = 'Open-air garden exhibition. Hedges, trees, sky, and stone paths. Artworks on easels along a winding path.';
 
     private const V3_DESCRIPTION = 'A curated landscape exhibition. A stone promenade leads from the garden gate to a bronze centrepiece, then on to sculpture clearings framed by trees, hedges and rolling meadow. Works are discovered one by one — never all at once.';
@@ -16,13 +19,13 @@ class VenueSculptureGardenTest extends TestCase
     private const V4_DESCRIPTION = 'A curated open-air exhibition. A gravel walk leads from the tree-lined gate to a bronze centrepiece on a travertine court, then on to works presented on outdoor museum stands across lawns and sculpture clearings, framed by mature trees and a distant treeline.';
 
     private const V4_ASSETS = [
-        'tree_large'  => 'tree_large_01.glb',
+        'tree_large' => 'tree_large_01.glb',
         'tree_medium' => 'tree_medium_01.glb',
         'tree_accent' => 'tree_medium_02.glb',
-        'shrub'       => 'shrub_01.glb',
-        'grass'       => 'grass_clump_01.glb',
-        'boulder'     => 'boulder_01.glb',
-        'bench'       => 'bench_01.glb',
+        'shrub' => 'shrub_01.glb',
+        'grass' => 'grass_clump_01.glb',
+        'boulder' => 'boulder_01.glb',
+        'bench' => 'bench_01.glb',
     ];
 
     public function test_the_seeded_row_declares_the_asset_park(): void
@@ -62,7 +65,7 @@ class VenueSculptureGardenTest extends TestCase
 
         $material = $this->materialConfig('sculpture-garden');
         $this->assertSame('0x5e7a46', $material['floor_color'] ?? null, '[sculpture-garden] must declare the muted lawn green fallback.');
-        $this->assertSame(3.0, $material['floor_tile_meters'] ?? null);
+        $this->assertSame(3.0, (float) ($material['floor_tile_meters'] ?? 0.0));
 
         $this->assertSame('4.0.0', (string) DB::table('venue_templates')->where('slug', 'sculpture-garden')->value('version'), '[sculpture-garden] version must pin 4.0.0 (The Sculpture Park).');
     }
@@ -147,7 +150,7 @@ class VenueSculptureGardenTest extends TestCase
         $this->assertSame(self::V4_ASSETS, $config['garden']['assets'] ?? null, 'up() must add the 7-role asset manifest.');
         $this->assertSame(true, $config['garden']['sky_environment'] ?? null, 'up() must preserve the v3 sky_environment switch.');
         $this->assertSame('0x5e7a46', $material['floor_color'] ?? null, 'up() must retune the lawn colour.');
-        $this->assertSame(3.0, $material['floor_tile_meters'] ?? null);
+        $this->assertSame(3.0, (float) ($material['floor_tile_meters'] ?? 0.0));
         $this->assertSame(self::V4_DESCRIPTION, (string) $row->description, 'up() must upgrade the v3.0.0 copy.');
         $this->assertSame('4.0.0', (string) $row->version);
     }
@@ -220,13 +223,13 @@ class VenueSculptureGardenTest extends TestCase
         $this->assertArrayNotHasKey('assets', $config['garden'] ?? []);
         $this->assertSame(true, $config['garden']['sky_environment'] ?? null, 'down() preserves the v3 sky_environment switch.');
         $this->assertSame('0x3a6a2a', $material['floor_color'] ?? null, 'down() restores the v3 lawn colour.');
-        $this->assertSame(2.0, $material['floor_tile_meters'] ?? null);
+        $this->assertSame(2.0, (float) ($material['floor_tile_meters'] ?? 0.0));
         $this->assertSame(self::V3_DESCRIPTION, (string) $row->description);
         $this->assertSame('3.0.0', (string) $row->version);
 
         // Idempotent down: a second run is a safe no-op.
         $this->migrationV4()->down();
-        $again = (array) DB::table('venue_templates')->where('slug', 'sculpture-garden')->first(['visual_config']);
+        $again = (array) DB::table('venue_templates')->where('slug', 'sculpture-garden')->first(['visual_config', 'material_config', 'description', 'version']);
         $this->assertSame((array) $row, $again, 'A second down() run must be a no-op.');
     }
 
@@ -248,20 +251,20 @@ class VenueSculptureGardenTest extends TestCase
         $this->seedLegacyGardenRow();
 
         $adminConfig = [
-            'wall_height'            => 0,
-            'open_air'               => true,
-            'layout_shape'           => 'circular',
-            'structure_pass'         => 'garden',
-            'background_color'       => '0x223344',
-            'ambient_intensity'      => 0.6,
-            'tone_mapping_exposure'  => 1.1,
-            'placement_mode'         => 'float',
-            'garden'                 => ['sky_environment' => false],
+            'wall_height' => 0,
+            'open_air' => true,
+            'layout_shape' => 'circular',
+            'structure_pass' => 'garden',
+            'background_color' => '0x223344',
+            'ambient_intensity' => 0.6,
+            'tone_mapping_exposure' => 1.1,
+            'placement_mode' => 'float',
+            'garden' => ['sky_environment' => false],
         ];
         DB::table('venue_templates')->where('slug', 'sculpture-garden')->update([
             'visual_config' => json_encode($adminConfig),
-            'description'   => 'My own garden copy.',
-            'version'       => '9.9.9',
+            'description' => 'My own garden copy.',
+            'version' => '9.9.9',
         ]);
 
         $this->migration()->up();
@@ -300,7 +303,7 @@ class VenueSculptureGardenTest extends TestCase
 
         // Idempotent down: a second run is a safe no-op.
         $this->migration()->down();
-        $again = (array) DB::table('venue_templates')->where('slug', 'sculpture-garden')->first(['visual_config']);
+        $again = (array) DB::table('venue_templates')->where('slug', 'sculpture-garden')->first(['visual_config', 'description', 'version']);
         $this->assertSame((array) $row, $again, 'A second down() run must be a no-op.');
     }
 
@@ -373,26 +376,26 @@ class VenueSculptureGardenTest extends TestCase
 
         DB::table('venue_templates')->where('slug', 'sculpture-garden')->update([
             'description' => self::V2_DESCRIPTION,
-            'version'     => '2.0.0',
+            'version' => '2.0.0',
             'visual_config' => json_encode([
-                'wall_height'            => 0,
-                'wall_depth'             => 0,
-                'ceiling_type'           => 'none',
-                'ceiling_height'         => 0,
-                'background_color'       => '0x87ceeb',
-                'fog_color'              => null,
-                'fog_near'               => 0,
-                'fog_far'                => 0,
-                'ambient_color'          => '0xe0f0ff',
-                'open_air'               => true,
-                'layout_shape'           => 'circular',
-                'structure_pass'         => 'garden',
-                'ambient_intensity'      => 0.4,
-                'spot_intensity'         => 0.3,
-                'fill_intensity'         => 0.2,
-                'tone_mapping_exposure'  => 0.7,
-                'frame_override'         => null,
-                'sun_shadows'            => true,
+                'wall_height' => 0,
+                'wall_depth' => 0,
+                'ceiling_type' => 'none',
+                'ceiling_height' => 0,
+                'background_color' => '0x87ceeb',
+                'fog_color' => null,
+                'fog_near' => 0,
+                'fog_far' => 0,
+                'ambient_color' => '0xe0f0ff',
+                'open_air' => true,
+                'layout_shape' => 'circular',
+                'structure_pass' => 'garden',
+                'ambient_intensity' => 0.4,
+                'spot_intensity' => 0.3,
+                'fill_intensity' => 0.2,
+                'tone_mapping_exposure' => 0.7,
+                'frame_override' => null,
+                'sun_shadows' => true,
             ]),
         ]);
     }

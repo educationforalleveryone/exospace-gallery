@@ -27,8 +27,8 @@ trait HasMarketingUnsubscribe
         $url = $this->unsubscribeUrl($user);
 
         return [
-            'List-Unsubscribe'        => "<{$url}>",
-            'List-Unsubscribe-Post'   => 'List-Unsubscribe=One-Click',
+            'List-Unsubscribe' => "<{$url}>",
+            'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
         ];
     }
 }

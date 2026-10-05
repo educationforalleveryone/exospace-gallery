@@ -38,10 +38,10 @@ class QueryPerformanceOptimizationTest extends TestCase
     public function test_get_srcset_does_not_requery_media_when_called_twice(): void
     {
         $gallery = Gallery::factory()->create(['is_active' => true]);
-        $user    = User::factory()->create();
-        $image   = \App\Models\GalleryImage::factory()->create([
+        $user = User::factory()->create();
+        $image = \App\Models\GalleryImage::factory()->create([
             'gallery_id' => $gallery->id,
-            'path'       => 'galleries/test/image.jpg',
+            'path' => 'galleries/test/image.jpg',
         ]);
 
         DB::flushQueryLog();
@@ -66,42 +66,42 @@ class QueryPerformanceOptimizationTest extends TestCase
         $source = file_get_contents(base_path('app/Http/Controllers/Admin/DashboardController.php'));
 
         $this->assertStringContainsString("DB::table('analytics_daily')", $source, 'DashboardController must query analytics_daily table');
-        $this->assertStringContainsString("Cache::flexible", $source, 'DashboardController must cache the analytics result');
+        $this->assertStringContainsString('Cache::flexible', $source, 'DashboardController must cache the analytics result');
     }
 
     public function test_dashboard_shows_correct_view_counts_with_rollup_data(): void
     {
-        $user    = User::factory()->create();
+        $user = User::factory()->create();
         $gallery = Gallery::factory()->create([
-            'user_id'  => $user->id,
-            'team_id'  => null,
+            'user_id' => $user->id,
+            'team_id' => null,
             'is_active' => true,
         ]);
 
         // Populate analytics_daily for yesterday (6 days ago).
         $yesterday = now()->subDay()->toDateString();
         DB::table('analytics_daily')->insert([
-            'gallery_id'      => $gallery->id,
-            'date'            => $yesterday,
-            'views'           => 50,
+            'gallery_id' => $gallery->id,
+            'date' => $yesterday,
+            'views' => 50,
             'unique_visitors' => 30,
-            'focuses'         => 10,
-            'tour_starts'     => 5,
+            'focuses' => 10,
+            'tour_starts' => 5,
             'avg_dwell_seconds' => 60.0,
         ]);
 
         // Populate raw events for today.
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => 'session-1',
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => 'session-2',
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
 
         // Clear any cached dashboard data from prior tests.
@@ -114,27 +114,27 @@ class QueryPerformanceOptimizationTest extends TestCase
         $response->assertViewHas('views7', 52);        // 50 (rollup) + 2 (today)
     }
 
-    public function nps_dashboard_uses_single_aggregate_query(): void
+    public function test_nps_dashboard_uses_single_aggregate_query(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/SurveyController.php'));
 
         $this->assertStringContainsString("DB::table('survey_responses')", $source, 'must use DB::table for aggregate');
-        $this->assertStringContainsString("SUM(CASE WHEN score >= 9", $source, 'must use SUM(CASE WHEN) for promoters');
-        $this->assertStringContainsString("SUM(CASE WHEN score BETWEEN 7 AND 8", $source, 'must use SUM(CASE WHEN) for passives');
-        $this->assertStringContainsString("SUM(CASE WHEN score <= 6", $source, 'must use SUM(CASE WHEN) for detractors');
-        $this->assertStringContainsString("AVG(score)", $source, 'must use AVG(score) for average');
+        $this->assertStringContainsString('SUM(CASE WHEN score >= 9', $source, 'must use SUM(CASE WHEN) for promoters');
+        $this->assertStringContainsString('SUM(CASE WHEN score BETWEEN 7 AND 8', $source, 'must use SUM(CASE WHEN) for passives');
+        $this->assertStringContainsString('SUM(CASE WHEN score <= 6', $source, 'must use SUM(CASE WHEN) for detractors');
+        $this->assertStringContainsString('AVG(score)', $source, 'must use AVG(score) for average');
     }
 
-    public function nps_dashboard_calculates_correct_scores(): void
+    public function test_nps_dashboard_calculates_correct_scores(): void
     {
         $controller = app(\App\Http\Controllers\SurveyController::class);
-        $request    = \Illuminate\Http\Request::create('/master-control/nps', 'GET');
+        $request = \Illuminate\Http\Request::create('/master-control/nps', 'GET');
 
         foreach ([10, 10, 9, 9, 7, 8, 0, 6] as $score) {
             SurveyResponse::create([
-                'user_id'      => User::factory()->create()->id,
-                'survey_type'  => 'nps',
-                'score'        => $score,
+                'user_id' => User::factory()->create()->id,
+                'survey_type' => 'nps',
+                'score' => $score,
                 'triggered_at' => now(),
                 'responded_at' => now(),
             ]);
@@ -156,10 +156,10 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertSame(7.4, $stats['avg_score']);
     }
 
-    public function nps_dashboard_handles_empty_responses(): void
+    public function test_nps_dashboard_handles_empty_responses(): void
     {
         $controller = app(\App\Http\Controllers\SurveyController::class);
-        $request    = \Illuminate\Http\Request::create('/master-control/nps', 'GET');
+        $request = \Illuminate\Http\Request::create('/master-control/nps', 'GET');
 
         $response = $controller->npsDashboard($request);
 
@@ -172,7 +172,7 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertSame(0.0, $stats['avg_score']);
     }
 
-    public function nps_dashboard_does_not_load_all_responses_into_collection(): void
+    public function test_nps_dashboard_does_not_load_all_responses_into_collection(): void
     {
         $source = file_get_contents(base_path('app/Http/Controllers/SurveyController.php'));
 
@@ -180,7 +180,7 @@ class QueryPerformanceOptimizationTest extends TestCase
         $this->assertNotFalse($start, 'npsDashboard method must exist');
 
         $methodBody = substr($source, $start);
-        $this->assertStringNotContainsString("\$allResponses =", $methodBody, 'must not assign $allResponses (Collection of all rows)');
+        $this->assertStringNotContainsString('$allResponses =', $methodBody, 'must not assign $allResponses (Collection of all rows)');
         $this->assertStringNotContainsString("\$allResponses->where('score'", $methodBody, 'must not filter Collection by score (use SQL aggregate instead)');
     }
 }

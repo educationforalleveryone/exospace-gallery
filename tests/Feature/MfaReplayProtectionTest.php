@@ -19,14 +19,14 @@ class MfaReplayProtectionTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        $this->google2fa = new Google2FA();
+        $this->google2fa = new Google2FA;
     }
 
     private function mfaUser(string $secret, ?int $lastUsed = null): User
     {
         return User::factory()->create([
             'google2fa_secret' => encrypt($secret),
-            'google2fa_ts'     => $lastUsed,
+            'google2fa_ts' => $lastUsed,
         ]);
     }
 
@@ -124,7 +124,7 @@ class MfaReplayProtectionTest extends TestCase
         $plaintextBackup = 'ABCDE12345';
         $user = User::factory()->create([
             'google2fa_secret' => encrypt($secret),
-            'google2fa_ts'     => (int) floor(now()->timestamp / 30),
+            'google2fa_ts' => (int) floor(now()->timestamp / 30),
             'mfa_backup_codes' => [\Illuminate\Support\Facades\Hash::make($plaintextBackup)],
         ]);
 

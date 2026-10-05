@@ -424,8 +424,10 @@ class OpsSentrySummaryTest extends TestCase
         $this->assertStringContainsString('Error volume — last 24 h', $content);
         $this->assertStringContainsString('events', $content);
         $this->assertStringContainsString('peak 30/h', $content);
-        // And no script tag snuck in.
-        $this->assertStringNotContainsString('<script', $content);
+        // And the trend card itself is pure SVG — no chart library snuck in.
+        $trendCard = str($content)->after('Error volume — last 24 h')->before('</svg>')->toString();
+        $this->assertStringNotContainsString('<script', $trendCard);
+        $this->assertStringNotContainsString('chart.js', mb_strtolower($content));
     }
 
     public function test_overview_renders_trend_unavailable_note_when_stats_endpoint_fails(): void

@@ -62,10 +62,11 @@ export const CONFIG = {
     },
 
     environments: {
-        studio:        '/assets/textures/env/studio.hdr',
-        rural_evening: '/assets/textures/env/rural_evening.hdr',
-        night:         '/assets/textures/env/night.hdr',
-        none:          null,
+        // Vocabulary lockstep: VenueTemplate::ENVIRONMENTS (['studio', 'rural_evening', 'night', 'none'])
+        'studio':        '/assets/textures/env/studio.hdr',
+        'rural_evening': '/assets/textures/env/rural_evening.hdr',
+        'night':         '/assets/textures/env/night.hdr',
+        'none':          null,
     },
 
     performance: {

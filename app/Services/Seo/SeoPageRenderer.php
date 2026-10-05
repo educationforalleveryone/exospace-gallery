@@ -6,12 +6,12 @@ namespace App\Services\Seo;
 
 use App\Models\Artist;
 use App\Models\Gallery;
-use App\Models\VenueTemplate;
 use App\Models\SeoPage;
+use App\Models\VenueTemplate;
 use App\Support\ResilientCache;
-use App\Support\SitemapVersion;
 use App\Support\Seo\Breadcrumb;
 use App\Support\Seo\SeoData;
+use App\Support\SitemapVersion;
 use Illuminate\Support\Collection;
 
 class SeoPageRenderer
@@ -32,16 +32,16 @@ class SeoPageRenderer
      */
     private function listingKey(string $kind): string
     {
-        return "seo:page:{$kind}:v" . SitemapVersion::version();
+        return "seo:page:{$kind}:v".SitemapVersion::version();
     }
 
     public function renderBlocks(SeoPage $page): string
     {
         $html = '';
         foreach ($this->validatedBlocks($page) as $block) {
-            $html .= view('seo.pages.blocks.' . $block['type'], [
-                'data'    => $block['data'],
-                'page'    => $page,
+            $html .= view('seo.pages.blocks.'.$block['type'], [
+                'data' => $block['data'],
+                'page' => $page,
                 'context' => $this->blockContext($block['type']),
             ])->render();
         }
@@ -51,11 +51,11 @@ class SeoPageRenderer
 
     public function seoFor(SeoPage $page, bool $isPreview = false): SeoData
     {
-        $indexable = $page->isIndexable() && !$isPreview;
+        $indexable = $page->isIndexable() && ! $isPreview;
 
         $title = $page->effectiveTitle();
         $description = $page->meta_description
-            ?: \Illuminate\Support\Str::limit($this->firstTextBlock($page) ?: $page->title . ' — ' . config('seo.site_name', 'Exospace'), 155);
+            ?: \Illuminate\Support\Str::limit($this->firstTextBlock($page) ?: $page->title.' — '.config('seo.site_name', 'Exospace'), 155);
 
         $seo = new SeoData(
             title: \Illuminate\Support\Str::limit($title, 60),
@@ -64,7 +64,7 @@ class SeoPageRenderer
             robots: $indexable ? null : 'noindex,follow',
             ogTitle: $title,
             ogDescription: $description,
-            ogImage: $page->og_image_path ? asset('storage/' . $page->og_image_path) : asset((string) config('seo.og.default_image', 'img/og-default.png')),
+            ogImage: $page->og_image_path ? asset('storage/'.$page->og_image_path) : asset((string) config('seo.og.default_image', 'img/og-default.png')),
             ogType: $page->type === 'editorial' ? 'article' : 'website',
         );
 
@@ -118,13 +118,13 @@ class SeoPageRenderer
     {
         $blocks = $page->blocks;
 
-        if (!is_array($blocks)) {
+        if (! is_array($blocks)) {
             return [];
         }
 
         $valid = [];
         foreach ($blocks as $block) {
-            if (!is_array($block)) {
+            if (! is_array($block)) {
                 continue;
             }
             $type = $block['type'] ?? null;
@@ -150,38 +150,35 @@ class SeoPageRenderer
 
     private function liveExhibitions(): Collection
     {
-        return ResilientCache::remember($this->listingKey('exhibitions'), self::LISTING_TTL, fn () =>
-            Gallery::publiclyViewable()
-                ->with(['coverImage', 'venueTemplate'])
-                ->has('images', '>=', 1)
-                ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
-                ->orderByDesc('is_featured')
-                ->orderByDesc('view_count')
-                ->take(6)
-                ->get());
+        return ResilientCache::remember($this->listingKey('exhibitions'), self::LISTING_TTL, fn () => Gallery::publiclyViewable()
+            ->with(['coverImage', 'venueTemplate'])
+            ->has('images', '>=', 1)
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
+            ->orderByDesc('is_featured')
+            ->orderByDesc('view_count')
+            ->take(6)
+            ->get());
     }
 
     private function liveArtists(): Collection
     {
-        return ResilientCache::remember($this->listingKey('artists'), self::LISTING_TTL, fn () =>
-            Artist::query()
-                ->whereHas('images.gallery', fn ($q) => $q->publiclyViewable())
-                ->withCount(['images as public_works_count' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())])
-                ->orderByDesc('public_works_count')
-                ->take(6)
-                ->get());
+        return ResilientCache::remember($this->listingKey('artists'), self::LISTING_TTL, fn () => Artist::query()
+            ->whereHas('images.gallery', fn ($q) => $q->publiclyViewable())
+            ->withCount(['images as public_works_count' => fn ($q) => $q->whereHas('gallery', fn ($g) => $g->publiclyViewable())])
+            ->orderByDesc('public_works_count')
+            ->take(6)
+            ->get());
     }
 
     private function liveVenues(): Collection
     {
-        return ResilientCache::remember($this->listingKey('venues'), self::LISTING_TTL, fn () =>
-            VenueTemplate::active()
-                ->published()
-                ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))
-                ->withCount(['galleries as public_galleries_count' => fn ($q) => $q->publiclyViewable()->has('images', '>=', 1)])
-                ->orderByDesc('public_galleries_count')
-                ->take(6)
-                ->get());
+        return ResilientCache::remember($this->listingKey('venues'), self::LISTING_TTL, fn () => VenueTemplate::active()
+            ->published()
+            ->whereHas('galleries', fn ($q) => $q->publiclyViewable()->has('images', '>=', 1))
+            ->withCount(['galleries as public_galleries_count' => fn ($q) => $q->publiclyViewable()->has('images', '>=', 1)])
+            ->orderByDesc('public_galleries_count')
+            ->take(6)
+            ->get());
     }
 
     private function firstTextBlock(SeoPage $page): ?string
@@ -204,8 +201,7 @@ class SeoPageRenderer
             if ($block['type'] === 'faq') {
                 $items = $block['data']['items'] ?? [];
                 if (is_array($items)) {
-                    return array_values(array_filter($items, fn ($i) =>
-                        is_array($i) && !empty($i['question']) && !empty($i['answer'])));
+                    return array_values(array_filter($items, fn ($i) => is_array($i) && ! empty($i['question']) && ! empty($i['answer'])));
                 }
             }
         }

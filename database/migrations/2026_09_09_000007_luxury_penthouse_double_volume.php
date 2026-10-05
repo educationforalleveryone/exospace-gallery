@@ -8,9 +8,11 @@ return new class extends Migration
     private const SLUG = 'luxury-penthouse';
 
     private const OLD_VERSION = '2.1.0';
+
     private const NEW_VERSION = '3.0.0';
 
     private const OLD_DESCRIPTION = 'A private collector\'s floor at dusk — a walnut-and-stone gallery wing warming into a lounge at the glass, the city glowing beyond it, art hung the way a residence lives with it.';
+
     private const NEW_DESCRIPTION = 'A private collector\'s floor in two volumes — a low, coved gallery procession that lifts at a lit seam into a double-height living room glazed to the dusk city on two faces, the largest work living above the stone fireplace, the terrace wrapping the glass corner.';
 
     private const OLD_STRUCTURE = [
@@ -132,25 +134,47 @@ return new class extends Migration
     ];
 
     private const OLD_FIXTURES = [
-                ['id' => 'fire-glow', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 0.95, 1.1]], 'color' => '0xff9a50', 'intensity' => 5, 'distance' => 6, 'decay' => 2, 'cast_shadow' => false],
-                ['id' => 'hearth-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 4.2, 1.3]], 'color' => '0xffd9a0', 'intensity' => 2.2, 'distance' => 5, 'decay' => 1.8, 'cast_shadow' => false],
-                ['id' => 'cove-wash-a', 'type' => 'point', 'anchor' => ['from' => 'wall_left', 'offset' => [0, 4.1, 2.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 12, 'decay' => 1.8, 'cast_shadow' => false],
-                ['id' => 'cove-wash-b', 'type' => 'point', 'anchor' => ['from' => 'wall_inner', 'offset' => [0, 4.1, 2.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 12, 'decay' => 1.8, 'cast_shadow' => false],
-                ['id' => 'lounge-wash', 'type' => 'point', 'anchor' => ['from' => 'glazing', 'offset' => [0, 3.9, 3.4]], 'color' => '0xffe2b8', 'intensity' => 1.8, 'distance' => 8, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'fire-glow', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 0.95, 1.1]], 'color' => '0xff9a50', 'intensity' => 5, 'distance' => 6, 'decay' => 2, 'cast_shadow' => false],
+        ['id' => 'hearth-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 4.2, 1.3]], 'color' => '0xffd9a0', 'intensity' => 2.2, 'distance' => 5, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'cove-wash-a', 'type' => 'point', 'anchor' => ['from' => 'wall_left', 'offset' => [0, 4.1, 2.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 12, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'cove-wash-b', 'type' => 'point', 'anchor' => ['from' => 'wall_inner', 'offset' => [0, 4.1, 2.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 12, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'lounge-wash', 'type' => 'point', 'anchor' => ['from' => 'glazing', 'offset' => [0, 3.9, 3.4]], 'color' => '0xffe2b8', 'intensity' => 1.8, 'distance' => 8, 'decay' => 1.8, 'cast_shadow' => false],
     ];
 
     private const NEW_FIXTURES = [
-                ['id' => 'fire-glow', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 0.95, 1.1]], 'color' => '0xff9a50', 'intensity' => 5, 'distance' => 6, 'decay' => 2, 'cast_shadow' => false],
-                ['id' => 'hearth-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 5.0, 1.3]], 'color' => '0xffd9a0', 'intensity' => 2.2, 'distance' => 5, 'decay' => 1.8, 'cast_shadow' => false],
-                ['id' => 'step-wash', 'type' => 'point', 'anchor' => ['from' => 'junction', 'offset' => [0, 4.65, 1.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 14, 'decay' => 1.8, 'cast_shadow' => false],
-                ['id' => 'gallery-cove-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_left', 'offset' => [0, 2.8, 2.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 12, 'decay' => 1.8, 'cast_shadow' => false],
-                ['id' => 'lounge-wash', 'type' => 'point', 'anchor' => ['from' => 'glazing', 'offset' => [0.5, 4.9, 3.4]], 'color' => '0xffe2b8', 'intensity' => 1.8, 'distance' => 8, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'fire-glow', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 0.95, 1.1]], 'color' => '0xff9a50', 'intensity' => 5, 'distance' => 6, 'decay' => 2, 'cast_shadow' => false],
+        ['id' => 'hearth-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_end', 'offset' => [0, 5.0, 1.3]], 'color' => '0xffd9a0', 'intensity' => 2.2, 'distance' => 5, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'step-wash', 'type' => 'point', 'anchor' => ['from' => 'junction', 'offset' => [0, 4.65, 1.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 14, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'gallery-cove-wash', 'type' => 'point', 'anchor' => ['from' => 'wall_left', 'offset' => [0, 2.8, 2.6]], 'color' => '0xffd9a0', 'intensity' => 3.2, 'distance' => 12, 'decay' => 1.8, 'cast_shadow' => false],
+        ['id' => 'lounge-wash', 'type' => 'point', 'anchor' => ['from' => 'glazing', 'offset' => [0.5, 4.9, 3.4]], 'color' => '0xffe2b8', 'intensity' => 1.8, 'distance' => 8, 'decay' => 1.8, 'cast_shadow' => false],
     ];
+
+    private function jsonCanonical($value)
+    {
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $key => $item) {
+                $out[$key] = $this->jsonCanonical($item);
+            }
+
+            return $out;
+        }
+
+        // JSON storage encodes integral floats as ints; normalise numerically
+        // while preserving key order (an editor re-save reorders keys — that
+        // drift is exactly what the exact-match guard must refuse to touch).
+        return is_int($value) || is_float($value) ? (float) $value : $value;
+    }
+
+    private function jsonEquals($current, $canonical): bool
+    {
+        return json_encode($this->jsonCanonical($current)) === json_encode($this->jsonCanonical($canonical));
+    }
 
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
@@ -165,12 +189,12 @@ return new class extends Migration
 
         // Added keys — union (absent key only).
         foreach ($this->addedVisualKeys() as $key => $value) {
-            if (!array_key_exists($key, $visual)) {
+            if (! array_key_exists($key, $visual)) {
                 $visual[$key] = $value;
             }
         }
 
-        if (($visual['structure'] ?? null) === self::OLD_STRUCTURE) {
+        if ($this->jsonEquals($visual['structure'] ?? null, self::OLD_STRUCTURE)) {
             $visual['structure'] = self::NEW_STRUCTURE;
         }
 
@@ -179,7 +203,7 @@ return new class extends Migration
         ];
 
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
-        if ($fixtures === self::OLD_FIXTURES) {
+        if ($this->jsonEquals($fixtures, self::OLD_FIXTURES)) {
             $update['lighting_fixtures'] = json_encode(self::NEW_FIXTURES);
         }
 
@@ -197,7 +221,7 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
@@ -215,7 +239,7 @@ return new class extends Migration
             }
         }
 
-        if (($visual['structure'] ?? null) === self::NEW_STRUCTURE) {
+        if ($this->jsonEquals($visual['structure'] ?? null, self::NEW_STRUCTURE)) {
             $visual['structure'] = self::OLD_STRUCTURE;
         }
 
@@ -224,7 +248,7 @@ return new class extends Migration
         ];
 
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
-        if ($fixtures === self::NEW_FIXTURES) {
+        if ($this->jsonEquals($fixtures, self::NEW_FIXTURES)) {
             $update['lighting_fixtures'] = json_encode(self::OLD_FIXTURES);
         }
 

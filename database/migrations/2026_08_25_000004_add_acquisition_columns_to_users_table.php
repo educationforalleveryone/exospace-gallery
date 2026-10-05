@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->string('acquisition_channel', 40)->nullable()->after('banned_at')
-                  ->comment('organic|social|referral|campaign|direct');
+                ->comment('organic|social|referral|campaign|direct');
             $table->string('acquisition_referrer', 500)->nullable()->after('acquisition_channel');
             $table->string('acquisition_landing_page', 500)->nullable()->after('acquisition_referrer');
             $table->json('acquisition_utm')->nullable()->after('acquisition_landing_page');

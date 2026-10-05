@@ -25,9 +25,9 @@ class CheckPlanExpiry
                     $limits = User::planLimits('free');
 
                     $attributes = [
-                        'plan'            => 'free',
-                        'max_galleries'   => $limits['max_galleries'],
-                        'max_images'      => $limits['max_images'],
+                        'plan' => 'free',
+                        'max_galleries' => $limits['max_galleries'],
+                        'max_images' => $limits['max_images'],
                         'plan_expires_at' => now(),
                     ];
 
@@ -63,9 +63,10 @@ class CheckPlanExpiry
         } catch (\Throwable $e) {
             Log::warning('CheckPlanExpiry: exception while checking plan expiry', [
                 'user_id' => Auth::id(),
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
+
         return $next($request);
     }
 }

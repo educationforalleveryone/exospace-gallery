@@ -11,12 +11,12 @@ final class OpsActionRegistry
     public const RISK_ELEVATED = 'elevated';
 
     /**
-      * @var array<string, array{
-      * label: string, group: string, risk: string, description: string,
-      * will_do: string[], wont_do: string[], consequence: string,
-      * confirmation_phrase: ?string, requires_password: bool
-      * }>
-      */
+     * @var array<string, array{
+     * label: string, group: string, risk: string, description: string,
+     * will_do: string[], wont_do: string[], consequence: string,
+     * confirmation_phrase: ?string, requires_password: bool
+     * }>
+     */
     private const ACTIONS = [
         'platform.sync' => [
             'label' => 'Refresh platform data now',

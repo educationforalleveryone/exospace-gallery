@@ -6,10 +6,10 @@ use App\Models\Concerns\HasSeoProfile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -17,6 +17,7 @@ class Gallery extends Model
 {
     use HasFactory, SoftDeletes;
     use HasSeoProfile; // SEO OS — admin overrides via seo_profiles
+
     protected $fillable = [
         'user_id', 'team_id', 'title', 'slug', 'description',
         'wall_texture', 'frame_style', 'lighting_preset',
@@ -33,10 +34,10 @@ class Gallery extends Model
     ];
 
     protected $casts = [
-        'is_active'  => 'boolean',
+        'is_active' => 'boolean',
         'view_count' => 'integer',
-        'opens_at'   => 'datetime',
-        'closes_at'  => 'datetime',
+        'opens_at' => 'datetime',
+        'closes_at' => 'datetime',
         'published_at' => 'datetime',
         'visual_overrides' => 'array',
         'custom_domain_verified_at' => 'datetime',
@@ -47,13 +48,13 @@ class Gallery extends Model
         parent::boot();
         static::creating(function ($gallery) {
             if (empty($gallery->slug)) {
-                $gallery->slug = Str::slug($gallery->title) . '-' . uniqid();
+                $gallery->slug = Str::slug($gallery->title).'-'.uniqid();
             }
         });
 
         // Normalise custom_domain on save: lowercase, strip scheme/path.
         static::saving(function ($gallery) {
-            if (!empty($gallery->custom_domain)) {
+            if (! empty($gallery->custom_domain)) {
                 $domain = strtolower(trim($gallery->custom_domain));
                 // Strip http:// or https:// prefix
                 $domain = preg_replace('#^https?://#', '', $domain);
@@ -77,14 +78,14 @@ class Gallery extends Model
 
             $domain = $gallery->getOriginal('custom_domain') ?? $gallery->custom_domain;
 
-            if (!empty($domain)) {
+            if (! empty($domain)) {
                 \Illuminate\Support\Facades\Cache::forget("custom_domain:{$domain}");
             }
 
             $gallery->forceFill([
-                'custom_domain'                     => null,
-                'custom_domain_verification_token'  => null,
-                'custom_domain_verified_at'         => null,
+                'custom_domain' => null,
+                'custom_domain_verification_token' => null,
+                'custom_domain_verified_at' => null,
             ])->saveQuietly();
         });
     }
@@ -137,14 +138,14 @@ class Gallery extends Model
     public function scopePubliclyViewable(Builder $q): Builder
     {
         return $q->where('is_active', true)
-                 ->whereNull('pin_hash')
-                 ->where(function ($q) {
-                     // Not scheduled, OR currently open
-                     $q->whereNull('opens_at')->orWhere('opens_at', '<=', now());
-                 })
-                 ->where(function ($q) {
-                     $q->whereNull('closes_at')->orWhere('closes_at', '>=', now());
-                 });
+            ->whereNull('pin_hash')
+            ->where(function ($q) {
+                // Not scheduled, OR currently open
+                $q->whereNull('opens_at')->orWhere('opens_at', '<=', now());
+            })
+            ->where(function ($q) {
+                $q->whereNull('closes_at')->orWhere('closes_at', '>=', now());
+            });
     }
 
     /**
@@ -157,13 +158,13 @@ class Gallery extends Model
     public function scopePubliclyListable(Builder $q): Builder
     {
         return $q->publiclyViewable()
-                 ->whereDoesntHave('user', fn (Builder $q) => $q->whereNotNull('banned_at'));
+            ->whereDoesntHave('user', fn (Builder $q) => $q->whereNotNull('banned_at'));
     }
 
     public function scopePubliclyAccessible(Builder $q): Builder
     {
         return $q->where('is_active', true)
-                 ->whereDoesntHave('user', fn (Builder $q) => $q->whereNotNull('banned_at'));
+            ->whereDoesntHave('user', fn (Builder $q) => $q->whereNotNull('banned_at'));
     }
 
     public function scopeWithCustomDomain(Builder $q, string $host): Builder
@@ -178,32 +179,34 @@ class Gallery extends Model
         // sitemap locs, canonicals and share links must keep using the URL
         // that actually serves the exhibition.
         if ($this->isCustomDomainVerified()) {
-            return 'https://' . $this->custom_domain;
+            return 'https://'.$this->custom_domain;
         }
+
         return url("/gallery/{$this->slug}");
     }
 
     public function getCoverImageUrlAttribute(): ?string
     {
         $img = $this->coverImage;
+
         return $img ? asset($img->path) : null;
     }
 
     public function hasPinProtection(): bool
     {
-        return !empty($this->pin_hash);
+        return ! empty($this->pin_hash);
     }
 
     public function hasCustomDomain(): bool
     {
-        return !empty($this->custom_domain);
+        return ! empty($this->custom_domain);
     }
 
     // --- Time-gate helpers ---
 
     public function isScheduled(): bool
     {
-        return !is_null($this->opens_at);
+        return ! is_null($this->opens_at);
     }
 
     public function isOpen(): bool
@@ -250,7 +253,7 @@ class Gallery extends Model
 
         $this->forceFill([
             'custom_domain_verification_token' => $token,
-            'custom_domain_verified_at'        => null,
+            'custom_domain_verified_at' => null,
         ])->save();
 
         return $token;
@@ -261,7 +264,8 @@ class Gallery extends Model
         if (empty($this->custom_domain)) {
             return null;
         }
-        return '_exospace.' . $this->custom_domain;
+
+        return '_exospace.'.$this->custom_domain;
     }
 
     public function domainVerificationTxtValue(): ?string
@@ -269,25 +273,28 @@ class Gallery extends Model
         if (empty($this->custom_domain_verification_token)) {
             return null;
         }
-        return 'exospace-verify=' . $this->custom_domain_verification_token;
+
+        return 'exospace-verify='.$this->custom_domain_verification_token;
     }
 
     public function visualOverridesArray(): array
     {
         $v = $this->visual_overrides;
-        if (!is_array($v)) {
+        if (! is_array($v)) {
             return ['visual_config' => [], 'material_config' => [], 'post_fx' => []];
         }
+
         return [
-            'visual_config'   => is_array($v['visual_config']   ?? null) ? $v['visual_config']   : [],
+            'visual_config' => is_array($v['visual_config'] ?? null) ? $v['visual_config'] : [],
             'material_config' => is_array($v['material_config'] ?? null) ? $v['material_config'] : [],
-            'post_fx'         => is_array($v['post_fx']         ?? null) ? $v['post_fx']         : [],
+            'post_fx' => is_array($v['post_fx'] ?? null) ? $v['post_fx'] : [],
         ];
     }
 
     public function hasVisualOverrides(): bool
     {
         $v = $this->visualOverridesArray();
-        return !empty($v['visual_config']) || !empty($v['material_config']) || !empty($v['post_fx']);
+
+        return ! empty($v['visual_config']) || ! empty($v['material_config']) || ! empty($v['post_fx']);
     }
 }

@@ -64,17 +64,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // If null/empty: trust no proxies (fail-closed)
 
         $middleware->alias([
-            'super_admin'   => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
-            'mfa'           => \App\Http\Middleware\RequireMfa::class,
-            'feature_flag'  => \App\Http\Middleware\EnsureFeatureFlagEnabled::class,
-            'ability'       => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
-            'abilities'     => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
-            'ops_access'    => \App\Ops\Http\Middleware\EnsureOpsAccess::class,
-            'ops_operator'  => \App\Ops\Http\Middleware\EnsureOpsOperator::class,
+            'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
+            'mfa' => \App\Http\Middleware\RequireMfa::class,
+            'feature_flag' => \App\Http\Middleware\EnsureFeatureFlagEnabled::class,
+            'ability' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
+            'abilities' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
+            'ops_access' => \App\Ops\Http\Middleware\EnsureOpsAccess::class,
+            'ops_operator' => \App\Ops\Http\Middleware\EnsureOpsOperator::class,
 
-            'cc_access'     => \App\Http\Middleware\EnsureControlCenterAccess::class,
+            'cc_access' => \App\Http\Middleware\EnsureControlCenterAccess::class,
 
-            'banned'        => \App\Http\Middleware\CheckBannedApi::class,
+            'banned' => \App\Http\Middleware\CheckBannedApi::class,
         ]);
 
         // API clients that omit the Accept header must still receive machine-readable

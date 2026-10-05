@@ -54,18 +54,18 @@ class VenuePreviewTest extends TestCase
 
         $response->assertViewHas('galleryData', function ($data) {
             foreach (['id', 'title', 'venue_slug', 'venueConfig', 'images',
-                      'wall_texture', 'floor_material', 'frame_style',
-                      'lighting_preset', 'room_layout', 'imageCount'] as $key) {
-                if (!array_key_exists($key, $data)) {
+                'wall_texture', 'floor_material', 'frame_style',
+                'lighting_preset', 'room_layout', 'imageCount'] as $key) {
+                if (! array_key_exists($key, $data)) {
                     return false;
                 }
             }
 
             foreach ($data['images'] as $img) {
-                if (!isset($img['id'], $img['url'], $img['textures']['large'], $img['aspectRatio'])) {
+                if (! isset($img['id'], $img['url'], $img['textures']['large'], $img['aspectRatio'])) {
                     return false;
                 }
-                if (!str_starts_with((string) $img['id'], 'sample-')) {
+                if (! str_starts_with((string) $img['id'], 'sample-')) {
                     return false;
                 }
             }
@@ -140,15 +140,15 @@ class VenuePreviewTest extends TestCase
         $venue = VenueTemplate::where('slug', 'white-cube')->firstOrFail();
 
         $privateGallery = Gallery::factory()->create([
-            'user_id'          => $owner->id,
+            'user_id' => $owner->id,
             'venue_template_id' => $venue->id,
-            'title'            => 'SECRETS-HOLDER-7Q2',
-            'description'      => 'A private description that must never leak.',
-            'slug'             => 'secrets-holder-7q2',
+            'title' => 'SECRETS-HOLDER-7Q2',
+            'description' => 'A private description that must never leak.',
+            'slug' => 'secrets-holder-7q2',
         ]);
         GalleryImage::factory()->create([
-            'gallery_id'    => $privateGallery->id,
-            'title'         => 'PRIVATE-ARTWORK-9X4',
+            'gallery_id' => $privateGallery->id,
+            'title' => 'PRIVATE-ARTWORK-9X4',
             'original_name' => 'private-artwork-9x4.jpg',
         ]);
 
@@ -157,20 +157,21 @@ class VenuePreviewTest extends TestCase
 
         $html = $response->getContent();
         foreach (['SECRETS-HOLDER-7Q2', 'secrets-holder-7q2', 'PRIVATE-ARTWORK-9X4',
-                  'A private description that must never leak.'] as $secret) {
+            'A private description that must never leak.'] as $secret) {
             $this->assertStringNotContainsString($secret, $html,
                 "Preview for white-cube leaked user data: {$secret}");
         }
 
         $response->assertViewHas('galleryData', function ($data) {
             foreach ($data['images'] as $img) {
-                if (!str_starts_with((string) $img['id'], 'sample-')) {
+                if (! str_starts_with((string) $img['id'], 'sample-')) {
                     return false;
                 }
-                if (!empty($img['artist']) || !empty($img['price']) || !empty($img['forSale'])) {
+                if (! empty($img['artist']) || ! empty($img['price']) || ! empty($img['forSale'])) {
                     return false; // samples are never attributed or for sale
                 }
             }
+
             return true;
         });
     }
@@ -192,12 +193,12 @@ class VenuePreviewTest extends TestCase
         $exporter = app(VenueConfigExporter::class);
 
         $venue = VenueTemplate::factory()->make([
-            'slug'         => 'deco-test',
+            'slug' => 'deco-test',
             'plan_required' => 'free',
-            'decorations'  => [
+            'decorations' => [
                 ['type' => 'bench',  'plan_required' => 'free'],
                 ['type' => 'neon',   'plan_required' => 'pro'],
-                ['type' => 'skyline','plan_required' => 'studio'],
+                ['type' => 'skyline', 'plan_required' => 'studio'],
             ],
         ]);
 
@@ -221,9 +222,9 @@ class VenuePreviewTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $config   = config('sample_exhibitions');
+        $config = config('sample_exhibitions');
         $artworks = $config['collection']['artworks'];
-        $service  = app(SampleExhibitionService::class);
+        $service = app(SampleExhibitionService::class);
 
         foreach (self::SEEDED_SLUGS as $slug) {
             $this->assertArrayHasKey($slug, $config['venues'],
@@ -240,12 +241,12 @@ class VenuePreviewTest extends TestCase
                     "[{$slug}] references unknown sample artwork [{$key}].");
                 $file = $artworks[$key]['file'];
                 $this->assertFileExists(
-                    public_path('assets/sample/artworks/' . $file),
+                    public_path('assets/sample/artworks/'.$file),
                     "[{$slug}] sample artwork file missing: {$file}"
                 );
             }
 
-            $venue  = VenueTemplate::where('slug', $slug)->firstOrFail();
+            $venue = VenueTemplate::where('slug', $slug)->firstOrFail();
             $images = $service->forVenue($venue);
             $this->assertCount(count($selection), $images);
         }
@@ -270,9 +271,9 @@ class VenuePreviewTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $service = app(SampleExhibitionService::class);
-        $venue   = VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
+        $venue = VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
 
-        $first  = $service->forVenue($venue);
+        $first = $service->forVenue($venue);
         $second = $service->forVenue($venue);
 
         $this->assertSame(
@@ -296,7 +297,7 @@ class VenuePreviewTest extends TestCase
         $leaks = [];
         foreach ($queries as $sql) {
             foreach (['galleries', 'images', 'users'] as $table) {
-                if (preg_match('/\b' . $table . '\b/i', $sql)) {
+                if (preg_match('/\b'.$table.'\b/i', $sql)) {
                     $leaks[] = $sql;
                     break;
                 }
@@ -305,7 +306,7 @@ class VenuePreviewTest extends TestCase
 
         $this->assertCount(0, $leaks,
             'Preview must not query gallery/image/user tables. Offending: '
-            . implode(' | ', array_slice($leaks, 0, 3))
-            . (($n = count($leaks)) > 3 ? " … (+{$n} more)" : ''));
+            .implode(' | ', array_slice($leaks, 0, 3))
+            .(($n = count($leaks)) > 3 ? " … (+{$n} more)" : ''));
     }
 }

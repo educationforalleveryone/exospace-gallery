@@ -13,10 +13,13 @@ use Illuminate\Support\Facades\Mail;
 class SendAbandonedCartEmails extends Command
 {
     protected $signature = 'exospace:abandoned-cart';
+
     protected $description = 'Send recovery emails for pending upgrades abandoned > 24 hours.';
 
     private const LOCK_KEY = 'cmd:abandoned-cart';
+
     private const LOCK_TTL = 300; // 5 minutes — generous for 100 emails
+
     private const FREQUENCY_CAP_DAYS = 7; // max 1 email per user per 7 days
 
     public function handle(): int
@@ -30,6 +33,7 @@ class SendAbandonedCartEmails extends Command
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             $this->info('Another abandoned-cart run is in progress — skipping.');
             Log::info('AbandonedCart: lock busy, another run is in progress');
+
             return self::SUCCESS;
         }
 
@@ -49,18 +53,19 @@ class SendAbandonedCartEmails extends Command
             // Only send to users who consented to marketing
             ->whereHas('user', function ($q) {
                 $q->where('marketing_consent', true)
-                  ->whereNotNull('email_verified_at')
-                  ->whereNull('banned_at');
+                    ->whereNotNull('email_verified_at')
+                    ->whereNull('banned_at');
             })
             ->whereDoesntHave('user.pendingUpgrades', function ($q) use ($frequencyCutoff) {
                 $q->whereNotNull('notified_at')
-                  ->where('notified_at', '>', $frequencyCutoff);
+                    ->where('notified_at', '>', $frequencyCutoff);
             })
             ->limit(100)
             ->get();
 
         if ($pending->isEmpty()) {
             $this->info('No abandoned carts to recover.');
+
             return;
         }
 
@@ -79,6 +84,7 @@ class SendAbandonedCartEmails extends Command
 
             if (! $user) {
                 $skipped++;
+
                 continue;
             }
 
@@ -97,6 +103,7 @@ class SendAbandonedCartEmails extends Command
                     'user_id' => $user->id,
                 ]);
                 $skipped++;
+
                 continue;
             }
 
@@ -112,10 +119,10 @@ class SendAbandonedCartEmails extends Command
 
                 $sent++;
                 Log::info('AbandonedCart: sent recovery email', [
-                    'user_id'           => $user->id,
-                    'pending_upgrade_id'=> $upgrade->id,
-                    'plan'              => $upgrade->plan,
-                    'upgrades_marked'   => $upgrades->count(),
+                    'user_id' => $user->id,
+                    'pending_upgrade_id' => $upgrade->id,
+                    'plan' => $upgrade->plan,
+                    'upgrades_marked' => $upgrades->count(),
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('AbandonedCart: email send failed', [

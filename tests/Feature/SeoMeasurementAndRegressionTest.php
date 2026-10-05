@@ -270,26 +270,26 @@ class SeoMeasurementAndRegressionTest extends TestCase
     private function makePublicGallery(array $attrs = []): Gallery
     {
         return Gallery::create(array_merge([
-            'user_id'    => User::factory()->create()->id,
-            'title'      => 'Regression Gallery',
-            'slug'       => 'regression-' . uniqid(),
-            'description'=> 'A description.',
-            'is_active'  => true,
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Regression Gallery',
+            'slug' => 'regression-'.uniqid(),
+            'description' => 'A description.',
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 }

@@ -25,25 +25,25 @@ class DiscoverAndDirectoryPrivacyTest extends TestCase
     private function makeGallery(User $user, array $attrs = []): Gallery
     {
         return Gallery::create(array_merge([
-            'user_id'     => $user->id,
-            'title'       => 'A Show',
-            'slug'        => 'a-show-'.uniqid(),
-            'is_active'   => true,
+            'user_id' => $user->id,
+            'title' => 'A Show',
+            'slug' => 'a-show-'.uniqid(),
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 
@@ -54,7 +54,7 @@ class DiscoverAndDirectoryPrivacyTest extends TestCase
         $this->addArtwork($open);
 
         $pinned = $this->makeGallery(User::factory()->create(), [
-            'title'    => 'Secret Show',
+            'title' => 'Secret Show',
             'pin_hash' => 'hash',
         ]);
         $this->addArtwork($pinned);

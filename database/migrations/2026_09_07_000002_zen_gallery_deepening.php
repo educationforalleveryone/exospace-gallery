@@ -16,6 +16,7 @@ return new class extends Migration
         if (is_bool($from)) {
             return is_bool($current) && $current === $from;
         }
+
         return is_numeric($current) && (float) $current === (float) $from;
     }
 
@@ -24,28 +25,28 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'zen-gallery')
             ->first(['id', 'visual_config', 'material_config', 'default_settings', 'supported_layouts', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
-            'wall_height'            => ['from' => 3.2,        'to' => 3.6],
-            'wall_depth'             => ['from' => 0.15,       'to' => 0.3],
-            'ceiling_color'          => ['from' => '0x1e1c14', 'to' => '0xe9e2d0'],
-            'ceiling_height'         => ['from' => 3.2,        'to' => 3.6],
-            'background_color'       => ['from' => '0x1a1710', 'to' => '0xeee7d8'],
-            'fog_color'              => ['from' => '0x1a1710', 'to' => '0xeee7d8'],
-            'fog_near'               => ['from' => 12,         'to' => 18],
-            'fog_far'                => ['from' => 40,         'to' => 60],
-            'ambient_color'          => ['from' => '0xffe8c2', 'to' => '0xfff2dd'],
-            'ambient_intensity'      => ['from' => 0.22,       'to' => 0.5],
-            'spot_intensity'         => ['from' => 0.45,       'to' => 2.2],
-            'fill_intensity'         => ['from' => 0.14,       'to' => 1.3],
-            'tone_mapping_exposure'  => ['from' => 0.55,       'to' => 0.95],
+            'wall_height' => ['from' => 3.2,        'to' => 3.6],
+            'wall_depth' => ['from' => 0.15,       'to' => 0.3],
+            'ceiling_color' => ['from' => '0x1e1c14', 'to' => '0xe9e2d0'],
+            'ceiling_height' => ['from' => 3.2,        'to' => 3.6],
+            'background_color' => ['from' => '0x1a1710', 'to' => '0xeee7d8'],
+            'fog_color' => ['from' => '0x1a1710', 'to' => '0xeee7d8'],
+            'fog_near' => ['from' => 12,         'to' => 18],
+            'fog_far' => ['from' => 40,         'to' => 60],
+            'ambient_color' => ['from' => '0xffe8c2', 'to' => '0xfff2dd'],
+            'ambient_intensity' => ['from' => 0.22,       'to' => 0.5],
+            'spot_intensity' => ['from' => 0.45,       'to' => 2.2],
+            'fill_intensity' => ['from' => 0.14,       'to' => 1.3],
+            'tone_mapping_exposure' => ['from' => 0.55,       'to' => 0.95],
             // v1 declared null (no override) — v2 declares sumi ink.
-            'environment'            => ['from' => 'studio',   'to' => 'none'],
+            'environment' => ['from' => 'studio',   'to' => 'none'],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -54,48 +55,48 @@ return new class extends Migration
         }
 
         // Key adds — only when absent (an admin's declared value wins).
-        if (!array_key_exists('artwork_light_base', $vc)) {
+        if (! array_key_exists('artwork_light_base', $vc)) {
             $vc['artwork_light_base'] = 0.25;
         }
-        if (!array_key_exists('artwork_light_pool_cap', $vc)) {
+        if (! array_key_exists('artwork_light_pool_cap', $vc)) {
             $vc['artwork_light_pool_cap'] = 10;
         }
-        if (!array_key_exists('hemisphere_intensity', $vc)) {
+        if (! array_key_exists('hemisphere_intensity', $vc)) {
             $vc['hemisphere_intensity'] = 0.1;
         }
-        if (!array_key_exists('env_intensity', $vc)) {
+        if (! array_key_exists('env_intensity', $vc)) {
             $vc['env_intensity'] = 0;
         }
-        if (!array_key_exists('bays', $vc)) {
+        if (! array_key_exists('bays', $vc)) {
             $vc['bays'] = [
-                'fin_width'         => 0.16,
-                'fin_depth'         => 0.14,
-                'fin_top'           => 3.12,
-                'header_height'     => 0.20,
-                'recess_lift'       => 0.012,
-                'step_height'       => 0.08,
-                'step_depth'        => 0.36,
-                'clerestory_gap'    => 0.05,
+                'fin_width' => 0.16,
+                'fin_depth' => 0.14,
+                'fin_top' => 3.12,
+                'header_height' => 0.20,
+                'recess_lift' => 0.012,
+                'step_height' => 0.08,
+                'step_depth' => 0.36,
+                'clerestory_gap' => 0.05,
                 'clerestory_height' => 0.24,
             ];
         }
-        if (!array_key_exists('placement', $vc)) {
+        if (! array_key_exists('placement', $vc)) {
             $vc['placement'] = [
-                'density'          => 'generous',
-                'focal_wall'       => 'front',
+                'density' => 'generous',
+                'focal_wall' => 'front',
                 'pair_orientation' => true,
             ];
         }
-        if (!array_key_exists('post_fx', $vc)) {
+        if (! array_key_exists('post_fx', $vc)) {
             $vc['post_fx'] = [
-                'bloom'             => false,
-                'vignette'          => true,
+                'bloom' => false,
+                'vignette' => true,
                 'vignette_darkness' => 0.3,
-                'vignette_offset'   => 1.1,
+                'vignette_offset' => 1.1,
             ];
         }
 
-        if (!array_key_exists('frame_override', $vc) || $vc['frame_override'] === null) {
+        if (! array_key_exists('frame_override', $vc) || $vc['frame_override'] === null) {
             $vc['frame_override'] = 'black';
         }
 
@@ -126,17 +127,17 @@ return new class extends Migration
             $mc['floor_normal_strength'] = 0.5;
         }
         // The v1 wall/floor colours were explicit nulls (→ preset colours).
-        if (!array_key_exists('wall_color', $mc) || $mc['wall_color'] === null) {
+        if (! array_key_exists('wall_color', $mc) || $mc['wall_color'] === null) {
             $mc['wall_color'] = '0xe6dfcf';
         }
-        if (!array_key_exists('floor_color', $mc) || $mc['floor_color'] === null) {
+        if (! array_key_exists('floor_color', $mc) || $mc['floor_color'] === null) {
             $mc['floor_color'] = '0xa98d64';
         }
-        if (!array_key_exists('texture_tint', $mc)) {
+        if (! array_key_exists('texture_tint', $mc)) {
             $mc['texture_tint'] = true;   // THE fix — declared colours become
-                                          // authoritative over the PBR sets
+            // authoritative over the PBR sets
         }
-        if (!array_key_exists('floor_tile_meters', $mc)) {
+        if (! array_key_exists('floor_tile_meters', $mc)) {
             $mc['floor_tile_meters'] = 1.8;
         }
         DB::table('venue_templates')
@@ -185,26 +186,26 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'zen-gallery')
             ->first(['id', 'visual_config', 'material_config', 'default_settings', 'supported_layouts', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
         $vcRewrites = [
-            'wall_height'            => ['from' => 3.6,        'to' => 3.2],
-            'wall_depth'             => ['from' => 0.3,        'to' => 0.15],
-            'ceiling_color'          => ['from' => '0xe9e2d0', 'to' => '0x1e1c14'],
-            'ceiling_height'         => ['from' => 3.6,        'to' => 3.2],
-            'background_color'       => ['from' => '0xeee7d8', 'to' => '0x1a1710'],
-            'fog_color'              => ['from' => '0xeee7d8', 'to' => '0x1a1710'],
-            'fog_near'               => ['from' => 18,         'to' => 12],
-            'fog_far'                => ['from' => 60,         'to' => 40],
-            'ambient_color'          => ['from' => '0xfff2dd', 'to' => '0xffe8c2'],
-            'ambient_intensity'      => ['from' => 0.5,        'to' => 0.22],
-            'spot_intensity'         => ['from' => 2.2,        'to' => 0.45],
-            'fill_intensity'         => ['from' => 1.3,        'to' => 0.14],
-            'tone_mapping_exposure'  => ['from' => 0.95,       'to' => 0.55],
-            'environment'            => ['from' => 'none',     'to' => 'studio'],
+            'wall_height' => ['from' => 3.6,        'to' => 3.2],
+            'wall_depth' => ['from' => 0.3,        'to' => 0.15],
+            'ceiling_color' => ['from' => '0xe9e2d0', 'to' => '0x1e1c14'],
+            'ceiling_height' => ['from' => 3.6,        'to' => 3.2],
+            'background_color' => ['from' => '0xeee7d8', 'to' => '0x1a1710'],
+            'fog_color' => ['from' => '0xeee7d8', 'to' => '0x1a1710'],
+            'fog_near' => ['from' => 18,         'to' => 12],
+            'fog_far' => ['from' => 60,         'to' => 40],
+            'ambient_color' => ['from' => '0xfff2dd', 'to' => '0xffe8c2'],
+            'ambient_intensity' => ['from' => 0.5,        'to' => 0.22],
+            'spot_intensity' => ['from' => 2.2,        'to' => 0.45],
+            'fill_intensity' => ['from' => 1.3,        'to' => 0.14],
+            'tone_mapping_exposure' => ['from' => 0.95,       'to' => 0.55],
+            'environment' => ['from' => 'none',     'to' => 'studio'],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -213,40 +214,40 @@ return new class extends Migration
         }
         // Remove the added keys only while they still equal what up() wrote.
         foreach ([
-            'artwork_light_base'     => 0.25,
+            'artwork_light_base' => 0.25,
             'artwork_light_pool_cap' => 10,
-            'hemisphere_intensity'   => 0.1,
-            'env_intensity'          => 0,
+            'hemisphere_intensity' => 0.1,
+            'env_intensity' => 0,
         ] as $key => $seeded) {
             if (($vc[$key] ?? null) === $seeded) {
                 unset($vc[$key]);
             }
         }
         if (($vc['bays'] ?? null) === [
-            'fin_width'         => 0.16,
-            'fin_depth'         => 0.14,
-            'fin_top'           => 3.12,
-            'header_height'     => 0.20,
-            'recess_lift'       => 0.012,
-            'step_height'       => 0.08,
-            'step_depth'        => 0.36,
-            'clerestory_gap'    => 0.05,
+            'fin_width' => 0.16,
+            'fin_depth' => 0.14,
+            'fin_top' => 3.12,
+            'header_height' => 0.20,
+            'recess_lift' => 0.012,
+            'step_height' => 0.08,
+            'step_depth' => 0.36,
+            'clerestory_gap' => 0.05,
             'clerestory_height' => 0.24,
         ]) {
             unset($vc['bays']);
         }
         if (($vc['placement'] ?? null) === [
-            'density'          => 'generous',
-            'focal_wall'       => 'front',
+            'density' => 'generous',
+            'focal_wall' => 'front',
             'pair_orientation' => true,
         ]) {
             unset($vc['placement']);
         }
         if (($vc['post_fx'] ?? null) === [
-            'bloom'             => false,
-            'vignette'          => true,
+            'bloom' => false,
+            'vignette' => true,
             'vignette_darkness' => 0.3,
-            'vignette_offset'   => 1.1,
+            'vignette_offset' => 1.1,
         ]) {
             unset($vc['post_fx']);
         }

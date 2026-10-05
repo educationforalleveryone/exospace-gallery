@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Services\OperationalAlertService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schedule;
 use Tests\TestCase;
 
 class InfrastructureTest extends TestCase
@@ -118,7 +117,7 @@ class InfrastructureTest extends TestCase
         app(OperationalAlertService::class)->alert('Test Alert', 'Test message', 'warning');
 
         \Illuminate\Support\Facades\Log::shouldHaveReceived('warning')
-            ->withArgs(fn($message) => str_contains($message, 'Test Alert'))
+            ->withArgs(fn ($message) => str_contains($message, 'Test Alert'))
             ->atLeast()
             ->once();
     }
@@ -178,7 +177,7 @@ class InfrastructureTest extends TestCase
         $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events());
         $this->assertTrue(
             $events->contains(fn ($e) => $e->description === 'operational-alerts'),
-            "The operational-alerts callback event is not scheduled.",
+            'The operational-alerts callback event is not scheduled.',
         );
     }
 }

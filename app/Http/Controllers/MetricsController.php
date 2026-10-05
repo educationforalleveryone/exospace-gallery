@@ -53,15 +53,15 @@ class MetricsController extends Controller
 
         $lines[] = '# HELP exospace_queue_failed_jobs Number of failed jobs in the queue';
         $lines[] = '# TYPE exospace_queue_failed_jobs gauge';
-        $lines[] = 'exospace_queue_failed_jobs ' . ($queue['failed_jobs'] ?? '0');
+        $lines[] = 'exospace_queue_failed_jobs '.($queue['failed_jobs'] ?? '0');
 
         $lines[] = '# HELP exospace_queue_pending_jobs Number of pending jobs waiting to be processed';
         $lines[] = '# TYPE exospace_queue_pending_jobs gauge';
-        $lines[] = 'exospace_queue_pending_jobs ' . ($queue['pending_jobs'] ?? '0');
+        $lines[] = 'exospace_queue_pending_jobs '.($queue['pending_jobs'] ?? '0');
 
         $lines[] = '# HELP exospace_db_status Database connection status (1=up, 0=down)';
         $lines[] = '# TYPE exospace_db_status gauge';
-        $lines[] = 'exospace_db_status ' . ($database['status'] === 'ok' ? '1' : '0');
+        $lines[] = 'exospace_db_status '.($database['status'] === 'ok' ? '1' : '0');
 
         if ($storage['status'] === 'ok') {
             $freeBytes = $storage['free_mb'] !== null ? $storage['free_mb'] * 1024 * 1024 : null;
@@ -71,31 +71,31 @@ class MetricsController extends Controller
             if ($freeBytes !== null) {
                 $lines[] = '# HELP exospace_disk_free_bytes Free disk space in bytes';
                 $lines[] = '# TYPE exospace_disk_free_bytes gauge';
-                $lines[] = 'exospace_disk_free_bytes ' . (int) $freeBytes;
+                $lines[] = 'exospace_disk_free_bytes '.(int) $freeBytes;
             }
 
             if ($totalBytes !== null) {
                 $lines[] = '# HELP exospace_disk_total_bytes Total disk space in bytes';
                 $lines[] = '# TYPE exospace_disk_total_bytes gauge';
-                $lines[] = 'exospace_disk_total_bytes ' . (int) $totalBytes;
+                $lines[] = 'exospace_disk_total_bytes '.(int) $totalBytes;
             }
 
             if ($usedPct !== null) {
                 $lines[] = '# HELP exospace_disk_used_ratio Disk usage ratio (0.0 to 1.0)';
                 $lines[] = '# TYPE exospace_disk_used_ratio gauge';
-                $lines[] = 'exospace_disk_used_ratio ' . number_format((float) $usedPct, 4);
+                $lines[] = 'exospace_disk_used_ratio '.number_format((float) $usedPct, 4);
             }
         }
 
         $lines[] = '# HELP exospace_php_memory_usage_bytes Current PHP memory usage in bytes';
         $lines[] = '# TYPE exospace_php_memory_usage_bytes gauge';
-        $lines[] = 'exospace_php_memory_usage_bytes ' . (int) ($app['memory_usage_mb'] * 1024 * 1024);
+        $lines[] = 'exospace_php_memory_usage_bytes '.(int) ($app['memory_usage_mb'] * 1024 * 1024);
 
         $lines[] = '# HELP exospace_php_memory_peak_bytes Peak PHP memory usage in bytes';
         $lines[] = '# TYPE exospace_php_memory_peak_bytes gauge';
-        $lines[] = 'exospace_php_memory_peak_bytes ' . (int) ($app['memory_peak_mb'] * 1024 * 1024);
+        $lines[] = 'exospace_php_memory_peak_bytes '.(int) ($app['memory_peak_mb'] * 1024 * 1024);
 
-        $output = implode("\n", $lines) . "\n";
+        $output = implode("\n", $lines)."\n";
 
         return response($output, 200, [
             'Cache-Control' => 'no-cache, no-store, must-revalidate',

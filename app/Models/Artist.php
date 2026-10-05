@@ -15,6 +15,7 @@ class Artist extends Model
 {
     use HasFactory;
     use HasSeoProfile; // SEO OS — admin overrides via seo_profiles
+
     protected $fillable = [
         'name', 'slug', 'bio', 'portrait_path',
         'website', 'instagram', 'twitter', 'email', 'location',
@@ -48,7 +49,7 @@ class Artist extends Model
 
         $attempt = 2;
         while ($this->slugTaken($slug)) {
-            $slug = $base . '-' . $attempt++;
+            $slug = $base.'-'.$attempt++;
         }
 
         return $slug;
@@ -84,18 +85,21 @@ class Artist extends Model
 
     public function scopeSearch(Builder $q, ?string $term): Builder
     {
-        if (!$term) return $q;
+        if (! $term) {
+            return $q;
+        }
+
         return $q->where(function ($q) use ($term) {
             $q->where('name', 'like', "%{$term}%")
-              ->orWhere('bio', 'like', "%{$term}%")
-              ->orWhere('location', 'like', "%{$term}%");
+                ->orWhere('bio', 'like', "%{$term}%")
+                ->orWhere('location', 'like', "%{$term}%");
         });
     }
 
     public function getPortraitUrlAttribute(): ?string
     {
         return $this->portrait_path
-            ? asset('storage/' . $this->portrait_path)
+            ? asset('storage/'.$this->portrait_path)
             : null;
     }
 
@@ -104,7 +108,7 @@ class Artist extends Model
     // clickable links on the artist profile.
     public function getWebsiteUrlAttribute(): ?string
     {
-        if (!$this->website) {
+        if (! $this->website) {
             return null;
         }
 
@@ -116,14 +120,14 @@ class Artist extends Model
     public function getInstagramUrlAttribute(): ?string
     {
         return $this->instagram
-            ? 'https://instagram.com/' . ltrim($this->instagram, '@')
+            ? 'https://instagram.com/'.ltrim($this->instagram, '@')
             : null;
     }
 
     public function getTwitterUrlAttribute(): ?string
     {
         return $this->twitter
-            ? 'https://twitter.com/' . ltrim($this->twitter, '@')
+            ? 'https://twitter.com/'.ltrim($this->twitter, '@')
             : null;
     }
 
@@ -134,6 +138,7 @@ class Artist extends Model
         foreach (array_slice($parts, 0, 2) as $p) {
             $initials .= mb_strtoupper(mb_substr($p, 0, 1));
         }
+
         return $initials ?: '?';
     }
 }

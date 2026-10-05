@@ -20,9 +20,10 @@ class SendWelcomeEmail implements ShouldQueue
 
         if ($user->hasVerifiedEmail()) {
             Log::info('SendWelcomeEmail: skipping for already-verified user (likely invitation-accepted)', [
-                'user_id'         => $user->id,
+                'user_id' => $user->id,
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
             ]);
+
             return;
         }
 

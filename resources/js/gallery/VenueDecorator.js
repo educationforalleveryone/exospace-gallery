@@ -1843,6 +1843,8 @@ function addCrystalCathedralArcade(radius) {
     }
 }
 
+// CRYSTAL CATHEDRAL — composed vertical light architecture
+
 function addCrystalCathedralColonnade(radius) {
     const rng = this._venueRng;
     const vc  = this._venueVisualConfig || {};

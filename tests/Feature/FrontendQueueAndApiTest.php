@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Jobs\ProcessPlanDowngrade;
-use App\Listeners\SendWelcomeEmail;
 use App\Models\User;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schedule;
@@ -82,7 +80,7 @@ class FrontendQueueAndApiTest extends TestCase
         $user = User::factory()->create();
         $token = $user->createToken('test-read', ['read']);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token->plainTextToken)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token->plainTextToken)
             ->postJson('/api/v1/tokens', [
                 'name' => 'should-fail',
                 'abilities' => ['write'],
@@ -97,7 +95,7 @@ class FrontendQueueAndApiTest extends TestCase
         $user = User::factory()->create();
         $token = $user->createToken('test-write', ['read', 'write']);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token->plainTextToken)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token->plainTextToken)
             ->postJson('/api/v1/tokens', [
                 'name' => 'should-succeed',
                 'abilities' => ['read'],
@@ -228,15 +226,15 @@ class FrontendQueueAndApiTest extends TestCase
     {
         $user = User::factory()->create();
         $gallery = \App\Models\Gallery::factory()->create([
-            'user_id'  => $user->id,
+            'user_id' => $user->id,
             'is_active' => true,
-            'pin_hash'  => null,
-            'opens_at'  => null,
+            'pin_hash' => null,
+            'opens_at' => null,
             'closes_at' => null,
         ]);
         \App\Models\GalleryImage::factory()->create([
             'gallery_id' => $gallery->id,
-            'path'       => 'galleries/' . $gallery->id . '/test.jpg',
+            'path' => 'galleries/'.$gallery->id.'/test.jpg',
         ]);
 
         // Hit the API endpoint (no auth needed for publicly-viewable galleries).
@@ -254,7 +252,7 @@ class FrontendQueueAndApiTest extends TestCase
         $this->assertNotNull(
             $firstImage['thumbnail_url'],
             'thumbnail_url should be non-null after the fix. '
-            . 'Either Spatie media conversion resolved, or the original asset URL fallback was used.'
+            .'Either Spatie media conversion resolved, or the original asset URL fallback was used.'
         );
         $this->assertStringStartsWith(
             'http',

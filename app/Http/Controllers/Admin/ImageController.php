@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
+use App\Http\Controllers\Controller;
 use App\Models\AdminAuditLog;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
@@ -11,7 +11,6 @@ use App\Services\ImageProcessingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Intervention\Image\Exceptions\DecoderException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -32,11 +31,11 @@ class ImageController extends Controller
             $planHolder = $gallery->team_id ? $gallery->team->owner : $user;
 
             if ($planHolder->currentImageCount() >= $planHolder->max_images) {
-                $upgradeTarget = match($planHolder->plan) {
-                    'free'    => 'Pro',
-                    'pro'     => 'Studio',
-                    'studio'  => null, // Already on top tier — no upgrade path
-                    default   => 'Pro',
+                $upgradeTarget = match ($planHolder->plan) {
+                    'free' => 'Pro',
+                    'pro' => 'Studio',
+                    'studio' => null, // Already on top tier — no upgrade path
+                    default => 'Pro',
                 };
 
                 $message = $upgradeTarget
@@ -49,16 +48,17 @@ class ImageController extends Controller
                 }
 
                 Log::info("Plan limit reached for plan holder {$planHolder->id} (Plan: {$planHolder->plan})", [
-                    'gallery_id'   => $gallery->id,
-                    'uploaded_by'  => $user->id,
+                    'gallery_id' => $gallery->id,
+                    'uploaded_by' => $user->id,
                 ]);
+
                 return response()->json($response, 422);
             }
 
-            $perGalleryCap = match($planHolder->plan) {
-                'studio'  => 500,
-                'pro'     => 100,
-                default   => 10,
+            $perGalleryCap = match ($planHolder->plan) {
+                'studio' => 500,
+                'pro' => 100,
+                default => 10,
             };
             $currentCount = $gallery->images()->count();
             if ($currentCount >= $perGalleryCap) {
@@ -71,31 +71,31 @@ class ImageController extends Controller
                 'file' => 'required|file|image|mimes:jpeg,png,jpg,webp|max:51200',
             ], [
                 'file.required' => 'No file was uploaded.',
-                'file.image'    => 'The file must be an image.',
-                'file.mimes'    => 'Only JPEG, PNG, JPG, and WEBP images are allowed.',
-                'file.max'      => 'Image size must not exceed 50MB.',
+                'file.image' => 'The file must be an image.',
+                'file.mimes' => 'Only JPEG, PNG, JPG, and WEBP images are allowed.',
+                'file.max' => 'Image size must not exceed 50MB.',
             ]);
 
             $file = $request->file('file');
             $data = $this->imageService->process($file, $gallery->id);
 
-            $ratio       = $data['width'] / $data['height'];
-            $orientation = match(true) {
+            $ratio = $data['width'] / $data['height'];
+            $orientation = match (true) {
                 $ratio > 1.1 => 'landscape',
                 $ratio < 0.9 => 'portrait',
-                default      => 'square',
+                default => 'square',
             };
 
             try {
                 $image = $gallery->images()->create([
-                    'filename'       => $data['filename'],
-                    'original_name'  => $this->safeOriginalName($file),
-                    'path'           => $data['path'],
-                    'mime_type'      => $data['mime_type'],
-                    'size'           => $data['size'],
-                    'width'          => $data['width'],
-                    'height'         => $data['height'],
-                    'orientation'    => $orientation,
+                    'filename' => $data['filename'],
+                    'original_name' => $this->safeOriginalName($file),
+                    'path' => $data['path'],
+                    'mime_type' => $data['mime_type'],
+                    'size' => $data['size'],
+                    'width' => $data['width'],
+                    'height' => $data['height'],
+                    'orientation' => $orientation,
                     'position_order' => ($gallery->images()->max('position_order') ?? 0) + 1,
                 ]);
             } catch (\Throwable $e) {
@@ -118,10 +118,11 @@ class ImageController extends Controller
                 'error' => 'This image could not be processed — the file may be corrupted. Please try a different file.',
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Image Upload Error: ' . $e->getMessage(), [
-                'file'  => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : 'no file',
+            Log::error('Image Upload Error: '.$e->getMessage(), [
+                'file' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : 'no file',
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json(['error' => 'Upload failed. Please try again — if the problem persists, contact support.'], 500);
         }
     }
@@ -143,7 +144,8 @@ class ImageController extends Controller
             $this->imageService->delete($image->path);
             $this->imageService->deleteMedia($image);
         } catch (\Exception $e) {
-            Log::error('Image Delete Error: ' . $e->getMessage());
+            Log::error('Image Delete Error: '.$e->getMessage());
+
             return response()->json(['error' => 'Delete failed.'], 500);
         }
 
@@ -158,11 +160,11 @@ class ImageController extends Controller
     public function bulkDestroy(Request $request)
     {
         $request->validate([
-            'ids'   => 'required|array|min:1|max:500',
+            'ids' => 'required|array|min:1|max:500',
             'ids.*' => 'required|integer|distinct',
         ]);
 
-        $count  = 0;
+        $count = 0;
         $errors = [];
 
         // Load all images in one query with their galleries.
@@ -177,6 +179,7 @@ class ImageController extends Controller
                 foreach ($galleryImages as $image) {
                     $errors[] = "Image {$image->id}: Unauthorized";
                 }
+
                 continue;
             }
 
@@ -186,6 +189,7 @@ class ImageController extends Controller
                 foreach ($galleryImages as $image) {
                     $errors[] = "Image {$image->id}: Unauthorized";
                 }
+
                 continue;
             }
 
@@ -201,10 +205,11 @@ class ImageController extends Controller
                     }
                 });
             } catch (\Throwable $e) {
-                Log::error("Bulk delete error for gallery {$gallery->id}: " . $e->getMessage());
+                Log::error("Bulk delete error for gallery {$gallery->id}: ".$e->getMessage());
                 foreach ($galleryImages as $image) {
                     $errors[] = "Image {$image->id}: Delete failed";
                 }
+
                 continue;
             }
 
@@ -217,11 +222,11 @@ class ImageController extends Controller
         }
 
         AdminAuditLog::record('gallery.images.bulk_deleted', auth()->user(), [
-            'gallery_ids'     => $byGallery->keys()->toArray(),
-            'image_ids'       => $images->keys()->toArray(),
+            'gallery_ids' => $byGallery->keys()->toArray(),
+            'image_ids' => $images->keys()->toArray(),
             'requested_count' => count($request->ids),
-            'deleted_count'   => $count,
-            'error_count'     => count($errors),
+            'deleted_count' => $count,
+            'error_count' => count($errors),
         ]);
 
         return response()->json(['success' => $count > 0, 'deleted' => $count, 'errors' => $errors]);
@@ -240,8 +245,8 @@ class ImageController extends Controller
         }
 
         $extension = strtolower((string) $file->getClientOriginalExtension());
-        $suffix    = $extension !== '' ? '.' . $extension : '';
+        $suffix = $extension !== '' ? '.'.$extension : '';
 
-        return mb_substr($name, 0, 255 - mb_strlen($suffix)) . $suffix;
+        return mb_substr($name, 0, 255 - mb_strlen($suffix)).$suffix;
     }
 }

@@ -13,9 +13,9 @@ return new class extends Migration
         Schema::create('ops_incidents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('ops_application_id')
-                  ->nullable()
-                  ->constrained('ops_applications')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('ops_applications')
+                ->nullOnDelete();
             $table->string('title', 250);
             // Worst severity among member events (can escalate).
             $table->string('severity', 10)->default('error');
@@ -41,10 +41,10 @@ return new class extends Migration
 
         Schema::table('ops_events', function (Blueprint $table) {
             $table->foreignId('ops_incident_id')
-                  ->nullable()
-                  ->after('ops_application_id')
-                  ->constrained('ops_incidents')
-                  ->nullOnDelete();
+                ->nullable()
+                ->after('ops_application_id')
+                ->constrained('ops_incidents')
+                ->nullOnDelete();
             $table->index('ops_incident_id');
         });
     }

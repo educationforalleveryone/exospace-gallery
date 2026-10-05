@@ -6,8 +6,8 @@ use App\Models\GalleryImage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\ImageManager;
 
 class ImageProcessingService
 {
@@ -15,12 +15,12 @@ class ImageProcessingService
 
     public function __construct()
     {
-        $this->manager = new ImageManager(new GdDriver());
+        $this->manager = new ImageManager(new GdDriver);
     }
 
     public function process(UploadedFile $file, int $galleryId): array
     {
-        $filename = \Illuminate\Support\Str::random(40) . '.jpg';
+        $filename = \Illuminate\Support\Str::random(40).'.jpg';
         $path = "galleries/{$galleryId}";
 
         Storage::disk('public')->makeDirectory($path);
@@ -30,7 +30,7 @@ class ImageProcessingService
         $imageInfo = @getimagesize($file->getRealPath());
 
         if ($imageInfo !== false && isset($imageInfo[0], $imageInfo[1])) {
-            $width  = (int) $imageInfo[0];
+            $width = (int) $imageInfo[0];
             $height = (int) $imageInfo[1];
             $pixels = $width * $height;
 
@@ -71,13 +71,13 @@ class ImageProcessingService
         }
 
         return [
-            'filename'      => $filename,
-            'path'          => "storage/{$mainPath}",
-            'thumbnail'     => "storage/{$thumbPath}",
-            'width'         => $image->width(),
-            'height'        => $image->height(),
-            'size'          => strlen($mainData),
-            'mime_type'     => 'image/jpeg',
+            'filename' => $filename,
+            'path' => "storage/{$mainPath}",
+            'thumbnail' => "storage/{$thumbPath}",
+            'width' => $image->width(),
+            'height' => $image->height(),
+            'size' => strlen($mainData),
+            'mime_type' => 'image/jpeg',
         ];
     }
 
@@ -92,13 +92,14 @@ class ImageProcessingService
                     'image_id' => $image->id,
                     'expected' => $mainRelativePath,
                 ]);
+
                 return;
             }
 
             $image->addMedia($mainAbsolutePath)
-                  ->preservingOriginal()
-                  ->usingFileName($image->filename)
-                  ->toMediaCollection('original');
+                ->preservingOriginal()
+                ->usingFileName($image->filename)
+                ->toMediaCollection('original');
 
             Log::info('ImageProcessingService: registered Spatie media for image (EXIF stripped)', [
                 'image_id' => $image->id,
@@ -106,7 +107,7 @@ class ImageProcessingService
         } catch (\Throwable $e) {
             Log::warning('ImageProcessingService: Spatie media registration failed', [
                 'image_id' => $image->id,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -118,7 +119,7 @@ class ImageProcessingService
         } catch (\Throwable $e) {
             Log::warning('ImageProcessingService: media cleanup failed', [
                 'image_id' => $image->id,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -131,14 +132,14 @@ class ImageProcessingService
             if (Storage::disk('public')->exists($relativePath)) {
                 Storage::disk('public')->delete($relativePath);
 
-                $thumbPath = dirname($relativePath) . '/thumbnails/' . basename($relativePath);
+                $thumbPath = dirname($relativePath).'/thumbnails/'.basename($relativePath);
                 if (Storage::disk('public')->exists($thumbPath)) {
                     Storage::disk('public')->delete($thumbPath);
                 }
             }
         } catch (\Throwable $e) {
             Log::warning('ImageProcessingService: file cleanup failed', [
-                'path'  => $relativePath,
+                'path' => $relativePath,
                 'error' => $e->getMessage(),
             ]);
         }

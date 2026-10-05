@@ -27,9 +27,9 @@ class AnalyticsEventTrackingTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'   => $user->id,
-            'title'     => 'Analytics Specimen',
-            'slug'      => 'analytics-specimen-' . uniqid(),
+            'user_id' => $user->id,
+            'title' => 'Analytics Specimen',
+            'slug' => 'analytics-specimen-'.uniqid(),
             'is_active' => true,
         ], $attrs));
     }
@@ -37,7 +37,7 @@ class AnalyticsEventTrackingTest extends TestCase
     private function trackPayload(array $overrides = []): array
     {
         return array_merge([
-            'event'         => 'view',
+            'event' => 'view',
             'session_token' => 'visitor-session-uuid',
         ], $overrides);
     }
@@ -54,7 +54,7 @@ class AnalyticsEventTrackingTest extends TestCase
         $gallery = $this->makeGallery();
 
         $this->post("/gallery/{$gallery->id}/track", $this->trackPayload(), [
-            'Accept'  => 'application/json',
+            'Accept' => 'application/json',
             'Referer' => 'https://www.instagram.com/p/abc123/',
         ])->assertOk();
 
@@ -72,7 +72,7 @@ class AnalyticsEventTrackingTest extends TestCase
         $gallery = $this->makeGallery();
 
         $this->post("/gallery/{$gallery->id}/track", $this->trackPayload(), [
-            'Accept'  => 'application/json',
+            'Accept' => 'application/json',
             'Referer' => 'https://google.com/search?q=private+query+string',
         ])->assertOk();
 
@@ -100,19 +100,19 @@ class AnalyticsEventTrackingTest extends TestCase
         $gallery = $this->makeGallery();
         $other = $this->makeGallery();
         $foreign = GalleryImage::create([
-            'gallery_id'    => $other->id,
-            'filename'      => 'foreign.jpg',
+            'gallery_id' => $other->id,
+            'filename' => 'foreign.jpg',
             'original_name' => 'foreign.jpg',
-            'path'          => 'artworks/foreign.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 100,
-            'height'        => 100,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/foreign.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 100,
+            'height' => 100,
+            'orientation' => 'landscape',
         ]);
 
         $this->postTrack($gallery, $this->trackPayload([
-            'event'    => 'focus',
+            'event' => 'focus',
             'image_id' => $foreign->id,
         ]))->assertOk();
 
@@ -124,21 +124,21 @@ class AnalyticsEventTrackingTest extends TestCase
     {
         $gallery = $this->makeGallery();
         $image = GalleryImage::create([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 100,
-            'height'        => 100,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 100,
+            'height' => 100,
+            'orientation' => 'landscape',
         ]);
 
         $image->delete();
 
         $this->postTrack($gallery, $this->trackPayload([
-            'event'    => 'focus',
+            'event' => 'focus',
             'image_id' => $image->id,
         ]))->assertOk();
 
@@ -151,20 +151,20 @@ class AnalyticsEventTrackingTest extends TestCase
         $token = hash('sha256', 'visitor-session-uuid');
 
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => $token,
-            'created_at'    => now()->subMinutes(10),
+            'created_at' => now()->subMinutes(10),
         ]);
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => $token,
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
 
         $this->postTrack($gallery, $this->trackPayload([
-            'event'         => 'dwell',
+            'event' => 'dwell',
             'dwell_seconds' => 45,
         ]))->assertOk();
 
@@ -179,13 +179,13 @@ class AnalyticsEventTrackingTest extends TestCase
 
         $this->postTrack($gallery, $this->trackPayload([
             'event' => 'perf',
-            'perf'  => [
-                'tier'   => 'high',
-                'fps'    => 58,
+            'perf' => [
+                'tier' => 'high',
+                'fps' => 58,
                 'fps_min' => 31,
-                'heap'   => 210,
+                'heap' => 210,
                 'a_very' => 'long unvalidated string '.str_repeat('x', 2048),
-                'another'=> ['nested' => 'payload'],
+                'another' => ['nested' => 'payload'],
             ],
         ]))->assertOk();
 
@@ -193,10 +193,10 @@ class AnalyticsEventTrackingTest extends TestCase
 
         $this->assertIsArray($stored);
         $this->assertSame([
-            'tier'    => 'high',
-            'fps'     => 58,
+            'tier' => 'high',
+            'fps' => 58,
             'fps_min' => 31,
-            'heap'    => 210,
+            'heap' => 210,
         ], $stored);
     }
 
@@ -278,9 +278,9 @@ class AnalyticsEventTrackingTest extends TestCase
     {
         $owner = User::factory()->create();
         $gallery = Gallery::create([
-            'user_id'   => $owner->id,
-            'title'     => 'Window Specimen',
-            'slug'      => 'window-specimen-' . uniqid(),
+            'user_id' => $owner->id,
+            'title' => 'Window Specimen',
+            'slug' => 'window-specimen-'.uniqid(),
             'is_active' => true,
         ]);
 
@@ -293,22 +293,22 @@ class AnalyticsEventTrackingTest extends TestCase
         foreach ($rollup as [$ago, $views]) {
             DB::table('analytics_daily')->insert([
                 'gallery_id' => $gallery->id,
-                'date'       => now()->subDays($ago)->toDateString(),
-                'views'      => $views,
+                'date' => now()->subDays($ago)->toDateString(),
+                'views' => $views,
             ]);
         }
 
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 's1'),
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 's2'),
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
 
         $response = $this->actingAs($owner)
@@ -325,8 +325,8 @@ class AnalyticsEventTrackingTest extends TestCase
     {
         $owner = User::factory()->create();
         $gallery = Gallery::factory()->create([
-            'user_id'   => $owner->id,
-            'team_id'   => null,
+            'user_id' => $owner->id,
+            'team_id' => null,
             'is_active' => true,
         ]);
 
@@ -339,22 +339,22 @@ class AnalyticsEventTrackingTest extends TestCase
         foreach ($rollup as [$ago, $views]) {
             DB::table('analytics_daily')->insert([
                 'gallery_id' => $gallery->id,
-                'date'       => now()->subDays($ago)->toDateString(),
-                'views'      => $views,
+                'date' => now()->subDays($ago)->toDateString(),
+                'views' => $views,
             ]);
         }
 
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 's1'),
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
         AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 's2'),
-            'created_at'    => now(),
+            'created_at' => now(),
         ]);
 
         $response = $this->actingAs($owner)->get('/admin/dashboard');
@@ -371,16 +371,16 @@ class AnalyticsEventTrackingTest extends TestCase
     {
         $owner = User::factory()->create();
         $gallery = Gallery::factory()->create([
-            'user_id'   => $owner->id,
-            'team_id'   => null,
+            'user_id' => $owner->id,
+            'team_id' => null,
             'is_active' => true,
         ]);
 
         $today = now()->toDateString();
         DB::table('analytics_daily')->insert([
             'gallery_id' => $gallery->id,
-            'date'       => $today,
-            'views'      => 50,
+            'date' => $today,
+            'views' => 50,
         ]);
 
         $response = $this->actingAs($owner)->get(route('admin.galleries.analytics', $gallery));

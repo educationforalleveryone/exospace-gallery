@@ -14,7 +14,7 @@
 | Alerting | Slack webhooks (standard + critical) |
 | Queue / cache / session | Redis (`predis`) |
 | Database | MySQL (`exospace`) |
-| Deploy | Nixpacks build (PHP + nginx template in repo) |
+| Deploy | Nixpacks build (nginx config ships via docker-start.sh runtime patches — the repo's nginx.template.conf is a reference copy, nixpacks uses its own internal template) |
 
 ---
 
@@ -267,7 +267,9 @@ Related sections are **never** arbitrary: everything is publiclyViewable + non-e
 ### Deployment checklist
 1. `php artisan migrate` (seo_redirects table)
 2. **Delete `public/robots.txt` if it reappears from an old branch** — it would shadow the dynamic route
-3. Deploy (nginx template change included — Coolify rebuild picks it up)
+3. Deploy (Coolify rebuild picks the change up — but note nginx header/limit
+   changes must go through docker-start.sh's runtime patches; nixpacks does
+   not consume the repo's nginx.template.conf)
 4. Verify: `curl https://exospace.gallery/robots.txt` (dynamic rules), `curl https://exospace.gallery/sitemap.xml` (grouped index)
 5. In Search Console: the old `/sitemap-1.xml` reference now 301s — resubmit `/sitemap.xml` once
 

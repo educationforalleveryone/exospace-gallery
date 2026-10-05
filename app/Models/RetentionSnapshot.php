@@ -22,11 +22,11 @@ class RetentionSnapshot extends Model
 
     protected $casts = [
         'cohort_week_start' => 'date:Y-m-d',
-        'week_index'        => 'integer',
-        'cohort_size'       => 'integer',
-        'active_count'      => 'integer',
-        'retained_pct'      => 'float',
-        'captured_at'       => 'datetime',
+        'week_index' => 'integer',
+        'cohort_size' => 'integer',
+        'active_count' => 'integer',
+        'retained_pct' => 'float',
+        'captured_at' => 'datetime',
     ];
 
     public function scopeTrend(Builder $q, int $weekIndex, int $limit = 26): Builder

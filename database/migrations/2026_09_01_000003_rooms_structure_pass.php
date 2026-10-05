@@ -6,16 +6,16 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     private const OLD_DESCRIPTIONS = [
-        'zen-gallery'      => 'Minimal architecture with natural wood finishes and calm, warm light. A quiet, focused atmosphere.',
+        'zen-gallery' => 'Minimal architecture with natural wood finishes and calm, warm light. A quiet, focused atmosphere.',
         'luxury-penthouse' => 'A moody, intimate collector space. Dark walls, marble floors, gold accents.',
-        'cyber-gallery'    => 'A dark futuristic exhibition space with neon light accents. For digital and web3 creators.',
+        'cyber-gallery' => 'A dark futuristic exhibition space with neon light accents. For digital and web3 creators.',
     ];
 
     private const NEW_DESCRIPTIONS = [
         // Every sentence verifiable in a 60-second walk of the new render.
-        'zen-gallery'      => 'A quiet, focused space: shoji screens, a tokonoma alcove and warm wood, tuned for close, calm looking.',
+        'zen-gallery' => 'A quiet, focused space: shoji screens, a tokonoma alcove and warm wood, tuned for close, calm looking.',
         'luxury-penthouse' => 'A private collector\'s evening — a glazed wall over the city lights, a lounge by the glass, dark walls and gold frames.',
-        'cyber-gallery'    => 'A dark electric space ringed with neon on every edge, the floor traced in light. For digital and web3 creators.',
+        'cyber-gallery' => 'A dark electric space ringed with neon on every edge, the floor traced in light. For digital and web3 creators.',
     ];
 
     private function identityKeys(): array
@@ -88,16 +88,16 @@ return new class extends Migration
             ],
             'zen-gallery' => [
                 'structure_pass' => 'rooms',
-                'structure'      => $ZEN_STRUCTURE,
+                'structure' => $ZEN_STRUCTURE,
             ],
             'luxury-penthouse' => [
                 'structure_pass' => 'rooms',
-                'glazing_wall'   => true,
-                'structure'      => $PENTHOUSE_STRUCTURE,
+                'glazing_wall' => true,
+                'structure' => $PENTHOUSE_STRUCTURE,
             ],
             'cyber-gallery' => [
                 'structure_pass' => 'rooms',
-                'structure'      => $CYBER_STRUCTURE,
+                'structure' => $CYBER_STRUCTURE,
             ],
             'sculpture-garden' => [
                 'sun_shadows' => true,         // high-tier-only sun shadows (§4.10)
@@ -108,7 +108,7 @@ return new class extends Migration
     private function materialKeys(): array
     {
         return [
-            'white-cube'       => ['floor_tile_meters' => 2.0],
+            'white-cube' => ['floor_tile_meters' => 2.0],
             'sculpture-garden' => ['floor_tile_meters' => 2.0],
         ];
     }
@@ -124,11 +124,11 @@ return new class extends Migration
     {
         foreach ($this->identityKeys() as $slug => $keys) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'visual_config']);
-            if (!$row) {
+            if (! $row) {
                 continue; // venue removed by the operator — respect that
             }
             $existing = json_decode((string) $row->visual_config, true) ?: [];
-            $merged   = $existing + $keys;
+            $merged = $existing + $keys;
             if ($merged !== $existing) {
                 DB::table('venue_templates')
                     ->where('id', $row->id)
@@ -138,11 +138,11 @@ return new class extends Migration
 
         foreach ($this->materialKeys() as $slug => $keys) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'material_config']);
-            if (!$row) {
+            if (! $row) {
                 continue;
             }
             $existing = json_decode((string) $row->material_config, true) ?: [];
-            $merged   = $existing + $keys;
+            $merged = $existing + $keys;
             if ($merged !== $existing) {
                 DB::table('venue_templates')
                     ->where('id', $row->id)
@@ -152,7 +152,7 @@ return new class extends Migration
 
         foreach ($this->defaultSettingKeys() as $slug => $spec) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'default_settings']);
-            if (!$row) {
+            if (! $row) {
                 continue;
             }
             $existing = json_decode((string) $row->default_settings, true) ?: [];
@@ -166,7 +166,7 @@ return new class extends Migration
 
         foreach (self::OLD_DESCRIPTIONS as $slug => $old) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'description']);
-            if (!$row) {
+            if (! $row) {
                 continue;
             }
             if ($row->description === $old) {
@@ -181,7 +181,7 @@ return new class extends Migration
     {
         foreach (self::OLD_DESCRIPTIONS as $slug => $old) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'description']);
-            if (!$row) {
+            if (! $row) {
                 continue;
             }
             if ($row->description === self::NEW_DESCRIPTIONS[$slug]) {
@@ -192,8 +192,13 @@ return new class extends Migration
         }
 
         foreach ($this->defaultSettingKeys() as $slug => $spec) {
-            $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'default_settings']);
-            if (!$row) {
+            $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'default_settings', 'description']);
+            if (! $row) {
+                continue;
+            }
+            // Only revert rows this pass actually upgraded (rooms-era copy);
+            // fresh installs already ship the new default and must keep it.
+            if (! isset(self::NEW_DESCRIPTIONS[$slug]) || $row->description !== self::NEW_DESCRIPTIONS[$slug]) {
                 continue;
             }
             $existing = json_decode((string) $row->default_settings, true) ?: [];
@@ -207,7 +212,7 @@ return new class extends Migration
 
         foreach ($this->materialKeys() as $slug => $keys) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'material_config']);
-            if (!$row) {
+            if (! $row) {
                 continue;
             }
             $existing = json_decode((string) $row->material_config, true) ?: [];
@@ -223,7 +228,7 @@ return new class extends Migration
 
         foreach ($this->identityKeys() as $slug => $keys) {
             $row = DB::table('venue_templates')->where('slug', $slug)->first(['id', 'visual_config']);
-            if (!$row) {
+            if (! $row) {
                 continue;
             }
             $existing = json_decode((string) $row->visual_config, true) ?: [];

@@ -57,8 +57,8 @@ class BillingExportService
     {
         return [
             'headers' => ['ID', 'Date', 'Status', 'Plan', 'Amount', 'Currency',
-                          'Invoice ID', 'Sale ID', 'User ID', 'User Email',
-                          'Customer Name', 'Customer Email'],
+                'Invoice ID', 'Sale ID', 'User ID', 'User Email',
+                'Customer Name', 'Customer Email'],
             'row' => fn (Transaction $t) => [
                 $t->id,
                 $t->created_at?->format('Y-m-d H:i:s'),
@@ -80,7 +80,7 @@ class BillingExportService
     {
         return [
             'headers' => ['ID', 'Message ID', 'Message Type', 'Invoice ID', 'Status',
-                          'Replay Count', 'Last Replayed At', 'Processed At', 'Updated At', 'Payload Stored'],
+                'Replay Count', 'Last Replayed At', 'Processed At', 'Updated At', 'Payload Stored'],
             'row' => fn (ProcessedWebhook $w) => [
                 $w->id,
                 self::safeCell($w->message_id),
@@ -122,7 +122,7 @@ class BillingExportService
     public static function safeCell(mixed $value): mixed
     {
         if (is_string($value) && $value !== '' && str_contains("=+-@\t\r", $value[0])) {
-            return "'" . $value;
+            return "'".$value;
         }
 
         return $value;
@@ -135,13 +135,13 @@ class BillingExportService
             ->count();
 
         return [
-            'completed'      => $count('completed'),
-            'refunded'       => $count('refunded'),
+            'completed' => $count('completed'),
+            'refunded' => $count('refunded'),
             'partial_refund' => $count('partial_refund'),
-            'chargeback'     => $count('chargeback'),
-            'manual'         => $count('manual'),
-            'revenue'        => (float) Transaction::where('status', 'completed')->where('created_at', '>=', $since)->sum('amount'),
-            'failed_webhooks'=> ProcessedWebhook::where('status', 'failed')->count(),
+            'chargeback' => $count('chargeback'),
+            'manual' => $count('manual'),
+            'revenue' => (float) Transaction::where('status', 'completed')->where('created_at', '>=', $since)->sum('amount'),
+            'failed_webhooks' => ProcessedWebhook::where('status', 'failed')->count(),
         ];
     }
 
@@ -157,7 +157,7 @@ class BillingExportService
     {
         $count = (clone $query)->count();
 
-        $out = fopen('php://temp/maxmemory:' . (16 * 1024 * 1024), 'r+');
+        $out = fopen('php://temp/maxmemory:'.(16 * 1024 * 1024), 'r+');
 
         fwrite($out, "\xEF\xBB\xBF");
 
@@ -172,9 +172,9 @@ class BillingExportService
         fclose($out);
 
         return [
-            'filename' => 'exospace-' . $type . '-' . now()->format('Ymd-His') . '.csv',
-            'content'  => $content,
-            'count'    => $count,
+            'filename' => 'exospace-'.$type.'-'.now()->format('Ymd-His').'.csv',
+            'content' => $content,
+            'count' => $count,
         ];
     }
 }

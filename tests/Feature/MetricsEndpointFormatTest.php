@@ -57,12 +57,12 @@ class MetricsEndpointFormatTest extends TestCase
 
         // Insert a failed job so the count is non-zero.
         DB::table('failed_jobs')->insert([
-            'uuid'       => 'test-uuid-prometheus',
+            'uuid' => 'test-uuid-prometheus',
             'connection' => 'redis',
-            'queue'      => 'default',
-            'payload'    => json_encode(['job' => 'test']),
-            'exception'  => 'Test exception',
-            'failed_at'  => now(),
+            'queue' => 'default',
+            'payload' => json_encode(['job' => 'test']),
+            'exception' => 'Test exception',
+            'failed_at' => now(),
         ]);
 
         $response = $this->get('/metrics?token=test-token&format=prometheus');

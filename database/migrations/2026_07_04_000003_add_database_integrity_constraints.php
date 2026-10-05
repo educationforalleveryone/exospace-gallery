@@ -16,13 +16,13 @@ return new class extends Migration
 
         Schema::table('users', function (Blueprint $table) {
             $hasFk = collect(Schema::getForeignKeys('users'))
-                ->contains(fn($fk) => in_array('current_team_id', $fk['columns']));
+                ->contains(fn ($fk) => in_array('current_team_id', $fk['columns']));
 
             if (! $hasFk) {
                 $table->foreign('current_team_id')
-                      ->references('id')
-                      ->on('teams')
-                      ->nullOnDelete();
+                    ->references('id')
+                    ->on('teams')
+                    ->nullOnDelete();
             }
 
             if (! Schema::hasIndex('users', 'users_current_team_id_index')) {
@@ -87,7 +87,7 @@ return new class extends Migration
         // Drop users.current_team_id FK + index
         Schema::table('users', function (Blueprint $table) {
             $hasFk = collect(Schema::getForeignKeys('users'))
-                ->contains(fn($fk) => in_array('current_team_id', $fk['columns']));
+                ->contains(fn ($fk) => in_array('current_team_id', $fk['columns']));
             if ($hasFk) {
                 $table->dropForeign(['current_team_id']);
             }

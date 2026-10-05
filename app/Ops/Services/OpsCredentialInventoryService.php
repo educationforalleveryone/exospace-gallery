@@ -155,7 +155,7 @@ class OpsCredentialInventoryService
             $this->alerts->alert(
                 'Credential rotation recorded: '.$entry['name'],
                 sprintf(
-                    "operator #%d recorded a rotation of `%s` (env: %s).%s",
+                    'operator #%d recorded a rotation of `%s` (env: %s).%s',
                     $actor->id,
                     $key,
                     implode(', ', $entry['env']),

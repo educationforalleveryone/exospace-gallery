@@ -27,21 +27,21 @@ class EmailNotificationLifecycleTest extends TestCase
     {
         $user = User::factory()->create();
         $gallery = Gallery::create([
-            'user_id'     => $user->id,
-            'title'       => 'Event Show',
-            'slug'        => 'event-show-' . uniqid(),
-            'is_active'   => true,
+            'user_id' => $user->id,
+            'title' => 'Event Show',
+            'slug' => 'event-show-'.uniqid(),
+            'is_active' => true,
         ]);
         $event = GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => "Opening\r\nBcc: victim@example.net",
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(3),
-            'is_active'  => true,
+            'title' => "Opening\r\nBcc: victim@example.net",
+            'type' => 'opening',
+            'starts_at' => now()->addDays(3),
+            'is_active' => true,
         ]);
 
         $mail = new EventRsvpNotification($gallery, $event, [
-            'name'  => "Eve\r\nX-Injected: yes",
+            'name' => "Eve\r\nX-Injected: yes",
             'email' => 'visitor@example.com',
         ]);
 
@@ -58,14 +58,14 @@ class EmailNotificationLifecycleTest extends TestCase
     {
         $owner = User::factory()->create();
         $team = Team::create([
-            'owner_id'   => $owner->id,
-            'name'       => "Evil\r\nTeam",
+            'owner_id' => $owner->id,
+            'name' => "Evil\r\nTeam",
         ]);
         $invitation = TeamInvitation::create([
-            'team_id'    => $team->id,
-            'email'      => 'invitee@example.com',
-            'role'       => 'editor',
-            'token'      => 'hash',
+            'team_id' => $team->id,
+            'email' => 'invitee@example.com',
+            'role' => 'editor',
+            'token' => 'hash',
             'expires_at' => now()->addDays(7),
         ]);
 
@@ -80,10 +80,10 @@ class EmailNotificationLifecycleTest extends TestCase
     {
         $user = User::factory()->create();
         $gallery = Gallery::create([
-            'user_id'     => $user->id,
-            'title'       => "My\r\nGallery",
-            'slug'        => 'my-gallery-' . uniqid(),
-            'is_active'   => true,
+            'user_id' => $user->id,
+            'title' => "My\r\nGallery",
+            'slug' => 'my-gallery-'.uniqid(),
+            'is_active' => true,
         ]);
 
         $subject = (new FirstGalleryCreatedEmail($user, $gallery))->envelope()->subject;
@@ -116,7 +116,7 @@ class EmailNotificationLifecycleTest extends TestCase
         $html = $mail->render();
 
         $this->assertStringContainsString('6 days', $html);
-        $this->assertStringContainsString('expires on ' . $user->plan_expires_at->format('M j, Y'), $html);
+        $this->assertStringContainsString('expires on '.$user->plan_expires_at->format('M j, Y'), $html);
     }
 
     public function test_plan_expiring_survives_a_cleared_expiry_date(): void
@@ -137,14 +137,14 @@ class EmailNotificationLifecycleTest extends TestCase
     {
         $owner = User::factory()->create();
         $team = Team::create([
-            'owner_id'    => $owner->id,
-            'name'        => 'Studio Team',
+            'owner_id' => $owner->id,
+            'name' => 'Studio Team',
         ]);
         $invitation = TeamInvitation::create([
-            'team_id'    => $team->id,
-            'email'      => 'invitee@example.com',
-            'role'       => 'viewer',
-            'token'      => 'hash',
+            'team_id' => $team->id,
+            'email' => 'invitee@example.com',
+            'role' => 'viewer',
+            'token' => 'hash',
             'expires_at' => now()->addDays(7),
         ]);
 
@@ -158,14 +158,14 @@ class EmailNotificationLifecycleTest extends TestCase
     {
         $owner = User::factory()->create();
         $team = Team::create([
-            'owner_id'    => $owner->id,
-            'name'        => 'Studio Team',
+            'owner_id' => $owner->id,
+            'name' => 'Studio Team',
         ]);
         $invitation = TeamInvitation::create([
-            'team_id'    => $team->id,
-            'email'      => 'invitee@example.com',
-            'role'       => 'viewer',
-            'token'      => 'hash',
+            'team_id' => $team->id,
+            'email' => 'invitee@example.com',
+            'role' => 'viewer',
+            'token' => 'hash',
             'expires_at' => now()->addDays(7),
         ]);
         $invitation->plaintext_token = 'plaintext';
@@ -174,7 +174,7 @@ class EmailNotificationLifecycleTest extends TestCase
         $link = $mail->invitationLink();
 
         $rendered = view('emails.team-invitation-text', [
-            'invitation'     => $invitation,
+            'invitation' => $invitation,
             'invitationLink' => $link,
         ])->render();
 
@@ -195,7 +195,7 @@ class EmailNotificationLifecycleTest extends TestCase
         try {
             $user = User::factory()->unverified()->create();
 
-            $notification = new \App\Notifications\Auth\VerifyEmail();
+            $notification = new \App\Notifications\Auth\VerifyEmail;
             $mail = $notification->toMail($user);
             $url = $mail->verificationUrl;
 
@@ -220,7 +220,7 @@ class EmailNotificationLifecycleTest extends TestCase
         try {
             $user = User::factory()->unverified()->create();
 
-            $url = (new \App\Notifications\Auth\VerifyEmail())->toMail($user)->verificationUrl;
+            $url = (new \App\Notifications\Auth\VerifyEmail)->toMail($user)->verificationUrl;
 
             $this->assertStringStartsWith('https://exospace.gallery/', $url);
         } finally {

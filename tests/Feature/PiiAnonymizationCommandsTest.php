@@ -37,24 +37,24 @@ class PiiAnonymizationCommandsTest extends TestCase
 
         // Old row — should be anonymized
         $oldFeedbackId = DB::table('user_feedback')->insertGetId([
-            'user_id'    => $user->id,
-            'category'   => 'bug',
-            'message'    => 'The 3D viewer crashes on Safari when I click the tour button.',
-            'page_url'   => 'https://exospace.gallery/admin/galleries/123/edit',
+            'user_id' => $user->id,
+            'category' => 'bug',
+            'message' => 'The 3D viewer crashes on Safari when I click the tour button.',
+            'page_url' => 'https://exospace.gallery/admin/galleries/123/edit',
             'user_agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15',
-            'status'     => 'new',
+            'status' => 'new',
             'created_at' => $oldDate,
             'updated_at' => $oldDate,
         ]);
 
         // Recent row — should NOT be anonymized
         $recentFeedbackId = DB::table('user_feedback')->insertGetId([
-            'user_id'    => $user->id,
-            'category'   => 'praise',
-            'message'    => 'Love the new live preview feature!',
-            'page_url'   => 'https://exospace.gallery/admin/galleries/456/edit',
+            'user_id' => $user->id,
+            'category' => 'praise',
+            'message' => 'Love the new live preview feature!',
+            'page_url' => 'https://exospace.gallery/admin/galleries/456/edit',
             'user_agent' => 'Mozilla/5.0 (X11; Linux x86_64) Firefox/120.0',
-            'status'     => 'new',
+            'status' => 'new',
             'created_at' => $recentDate,
             'updated_at' => $recentDate,
         ]);
@@ -87,12 +87,12 @@ class PiiAnonymizationCommandsTest extends TestCase
         $oldDate = now()->subMonths(20);
 
         $feedbackId = DB::table('user_feedback')->insertGetId([
-            'user_id'    => $user->id,
-            'category'   => 'bug',
-            'message'    => 'Original feedback message',
-            'page_url'   => 'https://example.com/page',
+            'user_id' => $user->id,
+            'category' => 'bug',
+            'message' => 'Original feedback message',
+            'page_url' => 'https://example.com/page',
             'user_agent' => 'TestAgent/1.0',
-            'status'     => 'new',
+            'status' => 'new',
             'created_at' => $oldDate,
             'updated_at' => $oldDate,
         ]);
@@ -111,12 +111,12 @@ class PiiAnonymizationCommandsTest extends TestCase
         $oldDate = now()->subMonths(20);
 
         $feedbackId = DB::table('user_feedback')->insertGetId([
-            'user_id'    => $user->id,
-            'category'   => 'bug',
-            'message'    => 'First run will anonymize this',
-            'page_url'   => 'https://example.com/page',
+            'user_id' => $user->id,
+            'category' => 'bug',
+            'message' => 'First run will anonymize this',
+            'page_url' => 'https://example.com/page',
             'user_agent' => 'TestAgent/1.0',
-            'status'     => 'new',
+            'status' => 'new',
             'created_at' => $oldDate,
             'updated_at' => $oldDate,
         ]);
@@ -138,10 +138,10 @@ class PiiAnonymizationCommandsTest extends TestCase
         $gallery = Gallery::factory()->create();
         $event = GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Opening Night',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(7),
-            'is_active'  => true,
+            'title' => 'Opening Night',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(7),
+            'is_active' => true,
         ]);
 
         $oldDate = now()->subMonths(20);
@@ -150,23 +150,23 @@ class PiiAnonymizationCommandsTest extends TestCase
         // Old RSVP — should be anonymized
         $oldRsvpId = DB::table('event_rsvps')->insertGetId([
             'schedule_event_id' => $event->id,
-            'name'              => 'Jane Visitor',
-            'email'             => 'jane@example.com',
-            'ip_address'        => '203.0.113.42',
-            'confirmed_at'      => $oldDate,
-            'created_at'        => $oldDate,
-            'updated_at'        => $oldDate,
+            'name' => 'Jane Visitor',
+            'email' => 'jane@example.com',
+            'ip_address' => '203.0.113.42',
+            'confirmed_at' => $oldDate,
+            'created_at' => $oldDate,
+            'updated_at' => $oldDate,
         ]);
 
         // Recent RSVP — should NOT be anonymized
         $recentRsvpId = DB::table('event_rsvps')->insertGetId([
             'schedule_event_id' => $event->id,
-            'name'              => 'John Guest',
-            'email'             => 'john@example.com',
-            'ip_address'        => '198.51.100.7',
-            'confirmed_at'      => $recentDate,
-            'created_at'        => $recentDate,
-            'updated_at'        => $recentDate,
+            'name' => 'John Guest',
+            'email' => 'john@example.com',
+            'ip_address' => '198.51.100.7',
+            'confirmed_at' => $recentDate,
+            'created_at' => $recentDate,
+            'updated_at' => $recentDate,
         ]);
 
         $exitCode = Artisan::call('exospace:anonymize-rsvp-pii', ['--retention-months' => 18]);
@@ -193,21 +193,21 @@ class PiiAnonymizationCommandsTest extends TestCase
         $gallery = Gallery::factory()->create();
         $event = GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Test Event',
-            'type'       => 'event',
-            'starts_at'  => now()->addDays(7),
-            'is_active'  => true,
+            'title' => 'Test Event',
+            'type' => 'event',
+            'starts_at' => now()->addDays(7),
+            'is_active' => true,
         ]);
         $oldDate = now()->subMonths(20);
 
         $rsvpId = DB::table('event_rsvps')->insertGetId([
             'schedule_event_id' => $event->id,
-            'name'              => 'Test Person',
-            'email'             => 'test@example.com',
-            'ip_address'        => '192.0.2.1',
-            'confirmed_at'      => $oldDate,
-            'created_at'        => $oldDate,
-            'updated_at'        => $oldDate,
+            'name' => 'Test Person',
+            'email' => 'test@example.com',
+            'ip_address' => '192.0.2.1',
+            'confirmed_at' => $oldDate,
+            'created_at' => $oldDate,
+            'updated_at' => $oldDate,
         ]);
 
         Artisan::call('exospace:anonymize-rsvp-pii', ['--retention-months' => 18, '--dry-run' => true]);
@@ -228,26 +228,26 @@ class PiiAnonymizationCommandsTest extends TestCase
 
         // Old signup — should be anonymized
         $oldSignupId = DB::table('newsletter_signups')->insertGetId([
-            'gallery_id'  => $gallery->id,
-            'email'       => 'subscriber@example.com',
-            'name'        => 'Subscriber Name',
-            'ip_address'  => '203.0.113.99',
-            'referrer'    => 'https://google.com/search?q=art+gallery',
+            'gallery_id' => $gallery->id,
+            'email' => 'subscriber@example.com',
+            'name' => 'Subscriber Name',
+            'ip_address' => '203.0.113.99',
+            'referrer' => 'https://google.com/search?q=art+gallery',
             'signed_up_at' => $oldDate,
-            'created_at'  => $oldDate,
-            'updated_at'  => $oldDate,
+            'created_at' => $oldDate,
+            'updated_at' => $oldDate,
         ]);
 
         // Recent signup — should NOT be anonymized
         $recentSignupId = DB::table('newsletter_signups')->insertGetId([
-            'gallery_id'  => $gallery->id,
-            'email'       => 'recent@example.com',
-            'name'        => 'Recent Subscriber',
-            'ip_address'  => '198.51.100.50',
-            'referrer'    => 'https://twitter.com/post/123',
+            'gallery_id' => $gallery->id,
+            'email' => 'recent@example.com',
+            'name' => 'Recent Subscriber',
+            'ip_address' => '198.51.100.50',
+            'referrer' => 'https://twitter.com/post/123',
             'signed_up_at' => $recentDate,
-            'created_at'  => $recentDate,
-            'updated_at'  => $recentDate,
+            'created_at' => $recentDate,
+            'updated_at' => $recentDate,
         ]);
 
         $exitCode = Artisan::call('exospace:anonymize-newsletter-pii', ['--retention-months' => 18]);
@@ -277,14 +277,14 @@ class PiiAnonymizationCommandsTest extends TestCase
         $oldDate = now()->subMonths(20);
 
         $signupId = DB::table('newsletter_signups')->insertGetId([
-            'gallery_id'  => $gallery->id,
-            'email'       => 'test@example.com',
-            'name'        => 'Test Name',
-            'ip_address'  => '192.0.2.1',
-            'referrer'    => 'https://example.com',
+            'gallery_id' => $gallery->id,
+            'email' => 'test@example.com',
+            'name' => 'Test Name',
+            'ip_address' => '192.0.2.1',
+            'referrer' => 'https://example.com',
             'signed_up_at' => $oldDate,
-            'created_at'  => $oldDate,
-            'updated_at'  => $oldDate,
+            'created_at' => $oldDate,
+            'updated_at' => $oldDate,
         ]);
 
         Artisan::call('exospace:anonymize-newsletter-pii', ['--retention-months' => 18, '--dry-run' => true]);
@@ -307,14 +307,14 @@ class PiiAnonymizationCommandsTest extends TestCase
     private function insertGdprRequest(User $user, string $email, \Carbon\CarbonInterface $createdDate, array $extra = []): int
     {
         return DB::table('gdpr_deletion_requests')->insertGetId(array_merge([
-            'user_id'      => $user->id,
-            'email'        => $email,
-            'status'       => 'completed',
+            'user_id' => $user->id,
+            'email' => $email,
+            'status' => 'completed',
             'requester_ip' => '203.0.113.77',
-            'reason'       => 'Moving to a different platform',
+            'reason' => 'Moving to a different platform',
             'requested_at' => $createdDate,
-            'created_at'   => $createdDate,
-            'updated_at'   => $createdDate,
+            'created_at' => $createdDate,
+            'updated_at' => $createdDate,
         ], $extra));
     }
 

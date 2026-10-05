@@ -50,7 +50,7 @@ class SeoFoundationTest extends TestCase
 
     public function test_seo_data_robots_defaults_to_index_follow(): void
     {
-        $data = new SeoData();
+        $data = new SeoData;
 
         $this->assertSame('index,follow', $data->robotsDirective());
         $this->assertTrue($data->isIndexable());
@@ -172,7 +172,7 @@ class SeoFoundationTest extends TestCase
         $seo = $this->seo->forGallery($gallery);
 
         $this->assertSame('Echoes of the Void — 3D Virtual Exhibition', $seo->title);
-        $this->assertSame('https://exospace.gallery/gallery/' . $gallery->slug, $seo->canonicalUrl);
+        $this->assertSame('https://exospace.gallery/gallery/'.$gallery->slug, $seo->canonicalUrl);
         $this->assertStringContainsString('/og-image', $seo->ogImage);
     }
 

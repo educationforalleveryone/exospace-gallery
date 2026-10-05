@@ -3,17 +3,13 @@
 namespace Tests\Feature;
 
 use App\Mail\AbandonedCartEmail;
+use App\Mail\EventRsvpNotification;
 use App\Mail\FirstGalleryCreatedEmail;
 use App\Mail\InactiveUserNudge;
 use App\Mail\PlanExpiringSoon;
 use App\Mail\SuperAdminActionAlert;
 use App\Mail\TeamInvitationMail;
-use App\Mail\EventRsvpNotification;
-use App\Models\Gallery;
-use App\Models\GalleryScheduleEvent;
 use App\Models\PendingUpgrade;
-use App\Models\Team;
-use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

@@ -13,7 +13,6 @@ use App\Models\VenueTemplate;
 use App\Support\ResilientCache;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Collection;
 
 class SitemapController extends Controller
 {
@@ -45,7 +44,7 @@ class SitemapController extends Controller
 
     public function group(Request $request, string $group, int $page): Response
     {
-        if (!in_array($group, self::GROUPS, true)) {
+        if (! in_array($group, self::GROUPS, true)) {
             abort(404);
         }
         if ($page < 1) {
@@ -119,7 +118,7 @@ class SitemapController extends Controller
         $version = $this->version();
 
         return (int) ResilientCache::flexible(
-            'sitemap:count:' . $group . ':v' . $version,
+            'sitemap:count:'.$group.':v'.$version,
             [now()->addSeconds((int) config('seo.sitemap.cache_ttl', 1800)), now()->addSeconds((int) config('seo.sitemap.cache_ttl_stale', 3600))],
             fn () => match ($group) {
                 'static' => count($this->staticPages()),
@@ -140,7 +139,7 @@ class SitemapController extends Controller
         $version = $this->version();
 
         return ResilientCache::flexible(
-            'sitemap:lastmod:' . $group . ':v' . $version,
+            'sitemap:lastmod:'.$group.':v'.$version,
             [now()->addMinutes(10), now()->addMinutes(20)],
             function () use ($group) {
                 $value = match ($group) {
@@ -223,7 +222,7 @@ class SitemapController extends Controller
             ->get(['id', 'slug', 'updated_at']);
 
         return $venues->map(fn ($venue) => [
-            'loc' => url('/venues/' . $venue->slug),
+            'loc' => url('/venues/'.$venue->slug),
             'lastmod' => $venue->updated_at?->toIso8601String(),
             'changefreq' => 'weekly',
             'priority' => '0.7',
@@ -237,7 +236,7 @@ class SitemapController extends Controller
 
         return Gallery::query()
             ->publiclyViewable()
-            ->where(function ($q) use ($excluded, $includedThin) {
+            ->where(function ($q) use ($includedThin) {
                 $q->has('images', '>=', 1);
                 if ($includedThin !== []) {
                     // Admin-forced inclusion for empty-but-public galleries.
@@ -294,7 +293,7 @@ class SitemapController extends Controller
             ->take($perPage)
             ->get(['id', 'slug', 'updated_at'])
             ->map(fn ($artist) => [
-                'loc' => url('/artist/' . $artist->slug),
+                'loc' => url('/artist/'.$artist->slug),
                 'lastmod' => $artist->updated_at?->toIso8601String(),
                 'changefreq' => 'weekly',
                 'priority' => '0.7',
@@ -382,19 +381,19 @@ class SitemapController extends Controller
 
         return $galleries->map(function ($gallery) {
             return [
-                'loc'        => url("/gallery/{$gallery->slug}/events"),
-                'lastmod'    => $gallery->latest_event_update
+                'loc' => url("/gallery/{$gallery->slug}/events"),
+                'lastmod' => $gallery->latest_event_update
                     ? \Illuminate\Support\Carbon::parse($gallery->latest_event_update)->toIso8601String()
                     : $gallery->updated_at?->toIso8601String(),
                 'changefreq' => 'weekly',
-                'priority'   => '0.6',
+                'priority' => '0.6',
             ];
         })->all();
     }
 
     private function contentSitemapQuery()
     {
-        if (!\Schema::hasTable('seo_pages')) {
+        if (! \Schema::hasTable('seo_pages')) {
             return Gallery::query()->whereRaw('1 = 0'); // empty set, compatible builder
         }
 
@@ -407,7 +406,7 @@ class SitemapController extends Controller
 
     private function contentEntries(int $page, int $perPage): array
     {
-        if (!\Schema::hasTable('seo_pages')) {
+        if (! \Schema::hasTable('seo_pages')) {
             return [];
         }
 
@@ -427,7 +426,7 @@ class SitemapController extends Controller
 
     private function profileExclusions(string $subjectType): array
     {
-        if (!\Schema::hasTable('seo_profiles')) {
+        if (! \Schema::hasTable('seo_profiles')) {
             return [];
         }
 
@@ -440,7 +439,7 @@ class SitemapController extends Controller
 
     private function profileInclusions(string $subjectType): array
     {
-        if (!\Schema::hasTable('seo_profiles')) {
+        if (! \Schema::hasTable('seo_profiles')) {
             return [];
         }
 
@@ -478,7 +477,7 @@ class SitemapController extends Controller
     private function cacheFeedGalleries(int $maxItems)
     {
         return ResilientCache::flexible(
-            'feed:galleries:v' . $this->version(),
+            'feed:galleries:v'.$this->version(),
             [now()->addMinutes(30), now()->addMinutes(60)],
             fn () => Gallery::publiclyViewable()
                 ->with(['coverImage', 'user', 'venueTemplate'])

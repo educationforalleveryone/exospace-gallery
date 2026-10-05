@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\Gallery;
 use App\Models\VenueTemplate;
 use App\Services\VenueConfigExporter;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class VenueEnvironmentAuthorityTest extends TestCase
@@ -18,10 +18,10 @@ class VenueEnvironmentAuthorityTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $expected = [
-            'white-cube'      => 'studio',  // neutral bright museum reflections
-            'infinite-void'   => 'none',    // a void has no sky, ever
+            'white-cube' => 'studio',  // neutral bright museum reflections
+            'infinite-void' => 'none',    // a void has no sky, ever
             'industrial-loft' => 'night',   // dusk-lit interior, no cloud deck
-            'dark-museum'     => 'night',   // THE incident venue — a night institution
+            'dark-museum' => 'night',   // THE incident venue — a night institution
         ];
 
         foreach ($expected as $slug => $environment) {
@@ -70,7 +70,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
         $gallery = Gallery::factory()
             ->forVenue($venue)
             ->create([
-                'lighting_preset'  => 'bright', // the stale column value
+                'lighting_preset' => 'bright', // the stale column value
                 'visual_overrides' => [
                     'visual_config' => [
                         'environment' => 'studio',       // the hostile override
@@ -82,7 +82,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
             ]);
 
         $payload = app(VenueConfigExporter::class)->forGallery($gallery->fresh());
-        $vc      = $payload['visual_config'];
+        $vc = $payload['visual_config'];
 
         $this->assertSame('night', $vc['environment'], 'The venue\'s declared night sky wins the final payload — the studio override is stripped.');
         $this->assertSame(0.14, (float) $vc['env_intensity'], 'The venue\'s declared env_intensity wins — no override-amplified reflections.');
@@ -93,7 +93,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue   = VenueTemplate::where('slug', 'white-cube')->firstOrFail();
+        $venue = VenueTemplate::where('slug', 'white-cube')->firstOrFail();
         $gallery = Gallery::factory()->forVenue($venue)->create();
 
         $payload = app(VenueConfigExporter::class)->forGallery($gallery->fresh());
@@ -120,7 +120,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue   = VenueTemplate::where('slug', 'dark-museum')->firstOrFail();
+        $venue = VenueTemplate::where('slug', 'dark-museum')->firstOrFail();
         $gallery = Gallery::factory()->forVenue($venue)->create([
             'lighting_preset' => 'bright', // a stale gallery-era value
         ]);
@@ -147,7 +147,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue   = VenueTemplate::where('slug', 'dark-museum')->firstOrFail();
+        $venue = VenueTemplate::where('slug', 'dark-museum')->firstOrFail();
         $gallery = Gallery::factory()->forVenue($venue)->create(['room_layout' => 'corridor']);
 
         $this->assertSame(
@@ -183,7 +183,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
 
         // Hand-rewind the declarations (simulate pre-s4 rows).
         foreach (['white-cube', 'infinite-void', 'industrial-loft', 'dark-museum'] as $slug) {
-            $vc  = $this->visualConfig($slug);
+            $vc = $this->visualConfig($slug);
             unset($vc['environment']);
             DB::table('venue_templates')->where('slug', $slug)->update([
                 'visual_config' => json_encode($vc),
@@ -203,7 +203,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         // A super-admin declared a bespoke value through the editor/advanced JSON.
-        $vc  = $this->visualConfig('dark-museum');
+        $vc = $this->visualConfig('dark-museum');
         $vc['environment'] = 'rural_evening';
         DB::table('venue_templates')->where('slug', 'dark-museum')->update([
             'visual_config' => json_encode($vc),
@@ -244,7 +244,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
 
         // Re-add, then prove a FOREIGN value survives down().
         $this->migration()->up();
-        $vc  = $this->visualConfig('dark-museum');
+        $vc = $this->visualConfig('dark-museum');
         $vc['environment'] = 'studio';
         DB::table('venue_templates')->where('slug', 'dark-museum')->update(['visual_config' => json_encode($vc)]);
         $this->migration()->down();
@@ -255,7 +255,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
 
     public function test_venue_template_request_validates_the_environment_vocabulary(): void
     {
-        $rules = (new \App\Http\Requests\SuperAdmin\VenueTemplateRequest())->rules();
+        $rules = (new \App\Http\Requests\SuperAdmin\VenueTemplateRequest)->rules();
 
         $base = [
             'name' => 'Env Probe', 'slug' => 'env-probe', 'category' => 'minimal', // a real VenueTemplate::CATEGORIES key
@@ -289,7 +289,7 @@ class VenueEnvironmentAuthorityTest extends TestCase
     private function jsonCol(string $slug, string $col): array
     {
         $row = $this->venueRow($slug);
-        if (!$row) {
+        if (! $row) {
             return [];
         }
 

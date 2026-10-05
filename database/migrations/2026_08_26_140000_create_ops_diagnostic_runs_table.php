@@ -14,13 +14,13 @@ return new class extends Migration
             $table->id();
             $table->string('diagnostic_id', 64);
             $table->foreignId('ops_application_id')
-                  ->nullable()
-                  ->constrained('ops_applications')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('ops_applications')
+                ->nullOnDelete();
             $table->foreignId('actor_id')
-                  ->nullable()
-                  ->constrained('users')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('users')
+                ->nullOnDelete();
             // manual | event | incident (source_id = the triggering row's id)
             $table->string('source', 20)->default('manual');
             $table->unsignedInteger('source_id')->nullable();

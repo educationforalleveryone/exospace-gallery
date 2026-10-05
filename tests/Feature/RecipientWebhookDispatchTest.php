@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Mail\BillingExportEmail;
 use App\Models\AdminAuditLog;
 use App\Models\BillingDigestRecipient;
 use App\Models\User;
@@ -18,7 +17,8 @@ class RecipientWebhookDispatchTest extends TestCase
     use RefreshDatabase;
 
     private const WEBHOOK = 'https://hooks.example.com/exospace';
-    private const SECRET  = 'super-secret-shared-key';
+
+    private const SECRET = 'super-secret-shared-key';
 
     protected function setUp(): void
     {
@@ -26,7 +26,7 @@ class RecipientWebhookDispatchTest extends TestCase
         $this->withoutVite();
         Mail::fake();
         Http::fake();
-        config(['services.outbound_webhook.url'    => self::WEBHOOK]);
+        config(['services.outbound_webhook.url' => self::WEBHOOK]);
         config(['services.outbound_webhook.secret' => self::SECRET]);
         config(['services.operational_alerts.webhook_url' => null]);
     }
@@ -34,12 +34,12 @@ class RecipientWebhookDispatchTest extends TestCase
     private function actingAsMfaSuperAdmin(): self
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -59,13 +59,18 @@ class RecipientWebhookDispatchTest extends TestCase
 
         // Webhook fired with the expected event name + payload shape.
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
-            if ($request->url() !== self::WEBHOOK) return false;
-            if ($request->header('X-Exospace-Event')[0] !== 'billing.recipient_added') return false;
+            if ($request->url() !== self::WEBHOOK) {
+                return false;
+            }
+            if ($request->header('X-Exospace-Event')[0] !== 'billing.recipient_added') {
+                return false;
+            }
 
             $body = json_decode($request->body(), true);
+
             return $body['event'] === 'billing.recipient_added'
-                && ($body['payload']['recipient_email']   ?? null) === 'finance@example.com'
-                && ($body['payload']['recipients_total']  ?? null) === 1
+                && ($body['payload']['recipient_email'] ?? null) === 'finance@example.com'
+                && ($body['payload']['recipients_total'] ?? null) === 1
                 && isset($body['payload']['actor_admin_email']);
         });
 
@@ -77,14 +82,14 @@ class RecipientWebhookDispatchTest extends TestCase
     public function test_removing_recipient_fires_billing_recipient_removed_webhook_with_remaining_count(): void
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
         $keep = BillingDigestRecipient::create(['email' => 'keep@example.com',   'added_by' => $admin->id]);
         $gone = BillingDigestRecipient::create(['email' => 'gone@example.com',   'added_by' => $admin->id]);
 
         $response = $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ])->delete(route('super.billing.recipients.destroy', $gone));
 
@@ -93,12 +98,17 @@ class RecipientWebhookDispatchTest extends TestCase
 
         // Webhook fired with the post-deletion remaining count.
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
-            if ($request->url() !== self::WEBHOOK) return false;
-            if ($request->header('X-Exospace-Event')[0] !== 'billing.recipient_removed') return false;
+            if ($request->url() !== self::WEBHOOK) {
+                return false;
+            }
+            if ($request->header('X-Exospace-Event')[0] !== 'billing.recipient_removed') {
+                return false;
+            }
 
             $body = json_decode($request->body(), true);
+
             return $body['event'] === 'billing.recipient_removed'
-                && ($body['payload']['recipient_email']     ?? null) === 'gone@example.com'
+                && ($body['payload']['recipient_email'] ?? null) === 'gone@example.com'
                 && ($body['payload']['recipients_remaining'] ?? null) === 1;
         });
 
@@ -114,7 +124,9 @@ class RecipientWebhookDispatchTest extends TestCase
         // The HMAC signature header is attached and matches the body.
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
             $signatureHeader = $request->header('X-Exospace-Signature')[0] ?? null;
-            if (! $signatureHeader) return false;
+            if (! $signatureHeader) {
+                return false;
+            }
 
             $body = $request->body();
             $expected = hash_hmac('sha256', $body, self::SECRET);

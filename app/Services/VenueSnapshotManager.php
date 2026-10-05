@@ -36,9 +36,9 @@ class VenueSnapshotManager
         return DB::transaction(function () use ($venue, $label, $actor) {
             $snapshot = VenueTemplateSnapshot::create([
                 'venue_template_id' => $venue->id,
-                'label'             => $label,
-                'config'            => $this->payloadFor($venue),
-                'created_by'        => $actor?->id,
+                'label' => $label,
+                'config' => $this->payloadFor($venue),
+                'created_by' => $actor?->id,
             ]);
 
             $this->prune($venue->id);
@@ -63,7 +63,7 @@ class VenueSnapshotManager
 
             return [
                 'before' => $before,
-                'after'  => $this->payloadFor($venue->fresh()),
+                'after' => $this->payloadFor($venue->fresh()),
                 'safety' => $safety,
             ];
         });

@@ -16,7 +16,7 @@ class FeedbackSubmissionTest extends TestCase
     {
         $this->post('/feedback', [
             'category' => 'bug',
-            'message'  => 'Something broke',
+            'message' => 'Something broke',
         ])->assertRedirect(route('login'));
 
         $this->assertSame(0, UserFeedback::count());
@@ -30,7 +30,7 @@ class FeedbackSubmissionTest extends TestCase
         $response = $this->actingAs($user)
             ->post('/feedback', [
                 'category' => 'bug',
-                'message'  => 'The upload screen froze on me.',
+                'message' => 'The upload screen froze on me.',
             ], ['Referer' => 'https://exospace.gallery/dashboard']);
 
         $response->assertRedirect()->assertSessionHas('status');
@@ -49,7 +49,7 @@ class FeedbackSubmissionTest extends TestCase
 
         $this->actingAs($user)->post('/feedback', [
             'category' => 'not-a-category',
-            'message'  => 'Hello',
+            'message' => 'Hello',
         ])->assertSessionHasErrors('category');
 
         $this->assertSame(0, UserFeedback::count());
@@ -77,9 +77,9 @@ class FeedbackSubmissionTest extends TestCase
         $response = $this->actingAs($user)
             ->post('/feedback', [
                 'category' => 'feature_request',
-                'message'  => 'Loved the new viewer.',
+                'message' => 'Loved the new viewer.',
             ], [
-                'Referer'    => 'https://exospace.gallery/gallery/' . str_repeat('long-segment-', 100),
+                'Referer' => 'https://exospace.gallery/gallery/'.str_repeat('long-segment-', 100),
                 'User-Agent' => str_repeat('Mozilla/5.0 compatible; ', 100),
             ]);
 
@@ -101,7 +101,7 @@ class FeedbackSubmissionTest extends TestCase
         $this->actingAs($user)
             ->postJson('/feedback', [
                 'category' => 'praise',
-                'message'  => 'Great tool!',
+                'message' => 'Great tool!',
             ])
             ->assertOk()
             ->assertJsonPath('success', true)

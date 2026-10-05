@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\User;
 use App\Ops\Diagnostics\DiagnosticEngine;
 use App\Ops\Models\OpsApplication;
 use App\Ops\Models\OpsDiagnosticRun;

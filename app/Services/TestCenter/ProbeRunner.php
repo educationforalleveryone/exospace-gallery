@@ -24,10 +24,10 @@ class ProbeRunner
         $verdict = $this->safety->evaluate($profileKey, $profile, $targetEnv);
         if (! $verdict['allowed']) {
             $run = $this->recorder->record([
-                'profile'        => $profileKey,
-                'environment'    => $targetEnv,
-                'safety'         => $profile['safety'] ?? 'prod-safe-read',
-                'trigger'        => 'api',
+                'profile' => $profileKey,
+                'environment' => $targetEnv,
+                'safety' => $profile['safety'] ?? 'prod-safe-read',
+                'trigger' => 'api',
                 'blocked_reason' => $verdict['reason'],
             ], null, ['status' => QaTestRun::STATUS_BLOCKED]);
 
@@ -35,9 +35,9 @@ class ProbeRunner
         }
 
         [$command, $params] = match ($profile['strategy'] ?? '') {
-            'http-smoke'        => ['qa:smoke', ['--target-env' => $targetEnv]],
+            'http-smoke' => ['qa:smoke', ['--target-env' => $targetEnv]],
             'in-process-checks' => ['qa:health', []],
-            default             => throw new \LogicException("Profile [{$profileKey}] has no executable strategy."),
+            default => throw new \LogicException("Profile [{$profileKey}] has no executable strategy."),
         };
 
         $started = microtime(true);
@@ -50,10 +50,10 @@ class ProbeRunner
 
         if (! is_array($payload) || ! isset($payload['totals'])) {
             $run = $this->recorder->record([
-                'profile'        => $profileKey,
-                'environment'    => $targetEnv,
-                'safety'         => $profile['safety'] ?? 'prod-safe-read',
-                'trigger'        => 'manual',
+                'profile' => $profileKey,
+                'environment' => $targetEnv,
+                'safety' => $profile['safety'] ?? 'prod-safe-read',
+                'trigger' => 'manual',
                 'blocked_reason' => "{$command} did not honour the junit-json contract.",
             ], null, ['status' => QaTestRun::STATUS_NOT_EXECUTED]);
 
@@ -64,29 +64,29 @@ class ProbeRunner
         @mkdir(dirname($artifactPath), 0775, true);
         file_put_contents($artifactPath, $this->buildJunitXml($profileKey, $payload));
 
-        $totals   = $this->parser->parseFile($artifactPath)['totals'];
+        $totals = $this->parser->parseFile($artifactPath)['totals'];
         $problems = $totals['failures'] + $totals['errors'];
-        $status   = match (true) {
-            $totals['tests'] === 0   => QaTestRun::STATUS_NOT_EXECUTED,
-            $problems === 0          => QaTestRun::STATUS_PASSED,
-            default                  => QaTestRun::STATUS_FAILED,
+        $status = match (true) {
+            $totals['tests'] === 0 => QaTestRun::STATUS_NOT_EXECUTED,
+            $problems === 0 => QaTestRun::STATUS_PASSED,
+            default => QaTestRun::STATUS_FAILED,
         };
 
         $durationMs = (int) round((microtime(true) - $started) * 1000);
 
         $run = $this->recorder->record([
-            'profile'     => $profileKey,
+            'profile' => $profileKey,
             'environment' => $targetEnv,
-            'safety'      => $profile['safety'] ?? 'prod-safe-read',
-            'trigger'     => 'manual',
-            'runner'      => PHP_SAPI,
-            'meta'        => [
+            'safety' => $profile['safety'] ?? 'prod-safe-read',
+            'trigger' => 'manual',
+            'runner' => PHP_SAPI,
+            'meta' => [
                 'probe_command' => $command,
-                'target_url'    => config("test-center.environments.{$targetEnv}.base_url") ?? config('app.url'),
+                'target_url' => config("test-center.environments.{$targetEnv}.base_url") ?? config('app.url'),
             ],
         ], $artifactPath, [
-            'status'      => $status,
-            'started_at'  => now()->subMilliseconds($durationMs),
+            'status' => $status,
+            'started_at' => now()->subMilliseconds($durationMs),
             'finished_at' => now(),
             'duration_ms' => $durationMs,
         ]);
@@ -96,17 +96,17 @@ class ProbeRunner
 
     private function buildJunitXml(string $suiteName, array $payload): string
     {
-        $t        = $payload['totals'];
+        $t = $payload['totals'];
         $casesXml = '';
 
         foreach (($payload['cases'] ?? []) as $case) {
             $inner = '';
-            $msg   = htmlspecialchars((string) ($case['message'] ?? ''), ENT_XML1);
+            $msg = htmlspecialchars((string) ($case['message'] ?? ''), ENT_XML1);
 
             $inner = match ($case['status']) {
-                'skipped'              => "<skipped>{$msg}</skipped>",
-                'passed', null, ''     => '',
-                default                => "<failure type=\"AssertionFailed\">{$msg}</failure>",
+                'skipped' => "<skipped>{$msg}</skipped>",
+                'passed', null, '' => '',
+                default => "<failure type=\"AssertionFailed\">{$msg}</failure>",
             };
 
             $casesXml .= sprintf(

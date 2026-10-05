@@ -25,7 +25,7 @@ class SeoRedirects
                     // Relative destinations keep the current host.
                     $target = $destination;
                     if ($target !== '' && $target[0] === '/') {
-                        $target = $request->getSchemeAndHttpHost() . $target;
+                        $target = $request->getSchemeAndHttpHost().$target;
                     }
 
                     // Usage analytics for the SEO admin table. Fire-and-forget:

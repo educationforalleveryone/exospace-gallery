@@ -41,7 +41,7 @@ class PublicVenueController extends Controller
 
         $seo = $this->seo->forHub(
             templateKey: 'venues_hub',
-            description: 'Explore 3D venue templates for virtual exhibitions — museums, warehouses, lofts, and galleries. See live exhibitions built with each venue on ' . config('seo.site_name', 'Exospace') . '.',
+            description: 'Explore 3D venue templates for virtual exhibitions — museums, warehouses, lofts, and galleries. See live exhibitions built with each venue on '.config('seo.site_name', 'Exospace').'.',
             canonicalPath: '/venues',
         )->with(['jsonLd' => [
             $this->schema->hubCollectionPage(
@@ -78,26 +78,26 @@ class PublicVenueController extends Controller
             ->orderByDesc('view_count')
             ->paginate(self::PER_PAGE);
 
-        $baseUrl = CanonicalUrl::path('/venues/' . $venue->slug);
+        $baseUrl = CanonicalUrl::path('/venues/'.$venue->slug);
         $page = max(1, (int) $request->input('page', 1));
         $pagination = CanonicalUrl::paginationLinks($baseUrl, $page, $galleries->hasMorePages());
 
         // Quality rule: a venue with no live exhibitions is a thin page.
         $robots = $galleries->total() === 0 ? 'noindex,follow' : null;
 
-        $title = ($venue->name ?: 'Venue') . ' — 3D Exhibitions';
+        $title = ($venue->name ?: 'Venue').' — 3D Exhibitions';
         $description = $venue->description
             ? \Illuminate\Support\Str::limit($venue->description, 155)
-            : 'Walk through 3D virtual exhibitions built with the ' . $venue->name . ' venue template on ' . config('seo.site_name', 'Exospace') . '.';
+            : 'Walk through 3D virtual exhibitions built with the '.$venue->name.' venue template on '.config('seo.site_name', 'Exospace').'.';
 
         $seo = (new SeoData(
             title: $title,
             description: $description,
-            canonicalUrl: $page > 1 ? $baseUrl . '?page=' . $page : $baseUrl,
+            canonicalUrl: $page > 1 ? $baseUrl.'?page='.$page : $baseUrl,
             robots: $robots,
             ogTitle: $title,
             ogDescription: $description,
-            ogImage: $venue->thumbnail_path ? asset('storage/' . $venue->thumbnail_path) : asset((string) config('seo.og.default_image', 'img/og-default.png')),
+            ogImage: $venue->thumbnail_path ? asset('storage/'.$venue->thumbnail_path) : asset((string) config('seo.og.default_image', 'img/og-default.png')),
             prevUrl: $pagination['prev'],
             nextUrl: $pagination['next'],
         ));
@@ -106,7 +106,7 @@ class PublicVenueController extends Controller
         if ($galleries->isNotEmpty()) {
             $seo = $seo->with(['jsonLd' => [
                 $this->schema->hubCollectionPage(
-                    ($venue->name ?: 'Venue') . ' — Live 3D Exhibitions',
+                    ($venue->name ?: 'Venue').' — Live 3D Exhibitions',
                     $baseUrl,
                     $galleries->getCollection(),
                 ),

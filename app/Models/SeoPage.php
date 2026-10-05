@@ -22,8 +22,8 @@ class SeoPage extends Model
     ];
 
     protected $casts = [
-        'blocks'       => 'array',
-        'noindex'      => 'boolean',
+        'blocks' => 'array',
+        'noindex' => 'boolean',
         'published_at' => 'datetime',
     ];
 
@@ -62,7 +62,7 @@ class SeoPage extends Model
             return url("{$prefix}/{$this->slug}");
         }
 
-        return url('/' . $this->slug);
+        return url('/'.$this->slug);
     }
 
     public function effectiveTitle(): string
@@ -77,12 +77,12 @@ class SeoPage extends Model
 
     public function isIndexable(): bool
     {
-        return $this->status === 'published' && !$this->noindex && !$this->isScheduled();
+        return $this->status === 'published' && ! $this->noindex && ! $this->isScheduled();
     }
 
     public function previewToken(): string
     {
-        return hash_hmac('sha256', 'seo-page-preview:' . $this->id, (string) config('app.key'));
+        return hash_hmac('sha256', 'seo-page-preview:'.$this->id, (string) config('app.key'));
     }
 
     public function isValidPreviewToken(?string $token): bool
@@ -148,7 +148,7 @@ class SeoPage extends Model
         if ($type === 'editorial') {
             $prefix = (string) config('seo.pages.editorial_prefix', 'resources');
 
-            return $prefix . '/' . $slug;
+            return $prefix.'/'.$slug;
         }
 
         return $slug;

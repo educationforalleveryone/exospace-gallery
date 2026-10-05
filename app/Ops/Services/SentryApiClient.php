@@ -18,8 +18,8 @@ class SentryApiClient
     private string $org;
 
     /**
- * @var array<int, string>
- */
+     * @var array<int, string>
+     */
     private array $projects;
 
     private int $timeout;

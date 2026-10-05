@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\AdminAuditLog;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
 use App\Models\User;
@@ -21,11 +20,10 @@ class VenueAuthoringTest extends TestCase
     private function superAdmin(): User
     {
         return User::factory()->withMfa()->create([
-            'is_super_admin'     => true,
-            'email_verified_at'  => now(),
+            'is_super_admin' => true,
+            'email_verified_at' => now(),
         ]);
     }
-
 
     private function mfaSession(): array
     {
@@ -35,7 +33,7 @@ class VenueAuthoringTest extends TestCase
     private function regularUser(): User
     {
         return User::factory()->create([
-            'is_super_admin'    => false,
+            'is_super_admin' => false,
             'email_verified_at' => now(),
         ]);
     }
@@ -43,12 +41,12 @@ class VenueAuthoringTest extends TestCase
     private function venue(array $overrides = []): VenueTemplate
     {
         return VenueTemplate::factory()->create(array_merge([
-            'name'            => 'Test Venue',
-            'description'     => 'A venue born in tests.',
-            'visual_config'   => ['wall_height' => 4, 'fog_near' => 1, 'fog_far' => 18],
+            'name' => 'Test Venue',
+            'description' => 'A venue born in tests.',
+            'visual_config' => ['wall_height' => 4, 'fog_near' => 1, 'fog_far' => 18],
             'material_config' => ['wall_roughness' => 0.9],
-            'is_draft'        => false,
-            'is_active'       => true,
+            'is_draft' => false,
+            'is_active' => true,
         ], $overrides));
     }
 
@@ -81,9 +79,9 @@ class VenueAuthoringTest extends TestCase
 
         // Audit trail.
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'      => 'venue_template.cloned',
+            'action' => 'venue_template.cloned',
             'target_type' => VenueTemplate::class,
-            'target_id'   => $copy->id,
+            'target_id' => $copy->id,
         ]);
     }
 
@@ -109,9 +107,9 @@ class VenueAuthoringTest extends TestCase
         for ($i = 1; $i <= 7; $i++) {
             $this->actingAs($admin)->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
                 ->put(route('super.venues.update', $venue), [
-                    'name'        => "Test Venue v{$i}",
+                    'name' => "Test Venue v{$i}",
                     'description' => $venue->description,
-                    'category'    => $venue->category,
+                    'category' => $venue->category,
                     'plan_required' => 'free',
                     'capacity_min' => 10,
                     'visual_config' => ['wall_height' => (string) (4 + $i)],
@@ -132,8 +130,8 @@ class VenueAuthoringTest extends TestCase
 
         // Audit log captured the updates.
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'      => 'venue_template.updated',
-            'target_id'   => $venue->id,
+            'action' => 'venue_template.updated',
+            'target_id' => $venue->id,
         ]);
     }
 
@@ -173,7 +171,7 @@ class VenueAuthoringTest extends TestCase
 
         // Restore is audit-logged with before/after.
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'    => 'venue_template.snapshot_restored',
+            'action' => 'venue_template.snapshot_restored',
             'target_id' => $venue->id,
         ]);
     }
@@ -202,7 +200,7 @@ class VenueAuthoringTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $admin->id,
+            'user_id' => $admin->id,
             'venue_template_id' => $venue->id,
         ]);
 
@@ -220,7 +218,7 @@ class VenueAuthoringTest extends TestCase
         $this->assertNotNull(app(VenueConfigExporter::class)->forGallery($gallery));
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'    => 'venue_template.archived',
+            'action' => 'venue_template.archived',
             'target_id' => $venue->id,
         ]);
     }
@@ -295,7 +293,7 @@ class VenueAuthoringTest extends TestCase
         $this->get(route('venues.preview', 'unarchive-me'))->assertOk();
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'    => 'venue_template.unarchived',
+            'action' => 'venue_template.unarchived',
             'target_id' => $venue->id,
         ]);
     }
@@ -315,7 +313,7 @@ class VenueAuthoringTest extends TestCase
         $this->assertNotNull($venue->published_at);
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'    => 'venue_template.published',
+            'action' => 'venue_template.published',
             'target_id' => $venue->id,
         ]);
     }
@@ -341,7 +339,7 @@ class VenueAuthoringTest extends TestCase
         $this->assertTrue($venue->is_active);
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'    => 'venue_template.toggled',
+            'action' => 'venue_template.toggled',
             'target_id' => $venue->id,
         ]);
     }
@@ -366,7 +364,7 @@ class VenueAuthoringTest extends TestCase
         $this->assertFalse($venue->is_featured);
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'    => 'venue_template.featured_toggled',
+            'action' => 'venue_template.featured_toggled',
             'target_id' => $venue->id,
         ]);
     }
@@ -387,7 +385,7 @@ class VenueAuthoringTest extends TestCase
         $this->assertSame(0, VenueTemplate::forUser($admin)->where('id', $venue->id)->count());
 
         $this->assertDatabaseHas('admin_audit_logs', [
-            'action'    => 'venue_template.unpublished',
+            'action' => 'venue_template.unpublished',
             'target_id' => $venue->id,
         ]);
     }
@@ -397,7 +395,7 @@ class VenueAuthoringTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $admin->id,
+            'user_id' => $admin->id,
             'venue_template_id' => $venue->id,
         ]);
 
@@ -433,8 +431,8 @@ class VenueAuthoringTest extends TestCase
         $admin = $this->superAdmin();
         $venue = $this->venue([
             'visual_config' => [
-                'wall_height'    => 4,
-                'structure'      => [['id' => 'bench', 'primitive' => 'box', 'at' => [1, 0.4, 1.5], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm']],
+                'wall_height' => 4,
+                'structure' => [['id' => 'bench', 'primitive' => 'box', 'at' => [1, 0.4, 1.5], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm']],
                 'structure_pass' => 'rooms',
             ],
         ]);
@@ -445,7 +443,7 @@ class VenueAuthoringTest extends TestCase
                 'category' => $venue->category, 'plan_required' => 'free', 'capacity_min' => 10,
                 'visual_config' => ['wall_height' => '5'],  // structured input changes one key
                 'visual_config_advanced' => json_encode([
-                    'structure'      => [['id' => 'bench', 'primitive' => 'box', 'at' => [1, 0.4, 1.5], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm']],
+                    'structure' => [['id' => 'bench', 'primitive' => 'box', 'at' => [1, 0.4, 1.5], 'size' => [1.5, 0.09, 0.42], 'material' => 'wood_warm']],
                     'structure_pass' => 'rooms',
                 ]),
             ])

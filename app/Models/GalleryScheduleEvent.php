@@ -20,19 +20,19 @@ class GalleryScheduleEvent extends Model
     ];
 
     protected $casts = [
-        'starts_at'  => 'datetime',
-        'ends_at'    => 'datetime',
-        'is_active'  => 'boolean',
-        'capacity'   => 'integer',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+        'is_active' => 'boolean',
+        'capacity' => 'integer',
     ];
 
     public const TYPES = [
-        'opening'     => 'Opening reception',
+        'opening' => 'Opening reception',
         'artist_talk' => 'Artist talk',
         'walkthrough' => 'Walkthrough',
-        'workshop'    => 'Workshop',
-        'closing'     => 'Closing event',
-        'event'       => 'General event',
+        'workshop' => 'Workshop',
+        'closing' => 'Closing event',
+        'event' => 'General event',
     ];
 
     public function gallery(): BelongsTo
@@ -134,10 +134,10 @@ class GalleryScheduleEvent extends Model
         }
 
         if ($end->isSameDay($start)) {
-            return $startLabel . ' – ' . $end->format('g:i A T');
+            return $startLabel.' – '.$end->format('g:i A T');
         }
 
-        return $startLabel . ' – ' . $end->format('l, F j, Y \a\t g:i A T');
+        return $startLabel.' – '.$end->format('l, F j, Y \a\t g:i A T');
     }
 
     /**
@@ -167,7 +167,9 @@ class GalleryScheduleEvent extends Model
 
     public function isAtCapacity(): bool
     {
-        if (!$this->capacity) return false;
+        if (! $this->capacity) {
+            return false;
+        }
 
         if (array_key_exists('rsvps_count', $this->attributesToArray())) {
             return $this->rsvps_count >= $this->capacity;
@@ -178,7 +180,9 @@ class GalleryScheduleEvent extends Model
 
     public function spotsRemaining(): ?int
     {
-        if (!$this->capacity) return null;
+        if (! $this->capacity) {
+            return null;
+        }
 
         if (array_key_exists('rsvps_count', $this->attributesToArray())) {
             return max(0, $this->capacity - $this->rsvps_count);

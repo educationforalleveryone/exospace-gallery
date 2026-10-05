@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Log;
 
 class AbandonedCartEmail extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
     use HasMarketingUnsubscribe;
+    use Queueable, SerializesModels;
 
     public function __construct(
         public User $user,
@@ -33,7 +33,7 @@ class AbandonedCartEmail extends Mailable implements ShouldQueue
     {
         if (! $this->pendingUpgrade->isRecoverable()) {
             Log::info('AbandonedCart: dropped at delivery — no longer eligible', [
-                'user_id'            => $this->user->id,
+                'user_id' => $this->user->id,
                 'pending_upgrade_id' => $this->pendingUpgrade->id,
             ]);
 
@@ -46,6 +46,7 @@ class AbandonedCartEmail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         $planName = ucfirst($this->pendingUpgrade->plan);
+
         return new Envelope(
             subject: "Your Exospace {$planName} upgrade is waiting — pick up where you left off",
         );

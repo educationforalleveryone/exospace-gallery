@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Gallery;
+use App\Ops\Support\LogRedactor;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -12,10 +13,17 @@ use Illuminate\Support\Str;
 class PreflightCheck extends Command
 {
     protected $signature = 'exospace:preflight';
+
     protected $description = 'Verify production configuration, extensions, and integrations.';
 
     private int $failures = 0;
+
     private int $warnings = 0;
+
+    public function __construct(private readonly LogRedactor $redactor)
+    {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -24,6 +32,7 @@ class PreflightCheck extends Command
         $this->newLine();
 
         $this->checkEnvConfig();
+        $this->checkSessionSecurity();
         $this->checkPhpExtensions();
         $this->checkDatabase();
         $this->checkFilesystem();
@@ -32,7 +41,6 @@ class PreflightCheck extends Command
         $this->checkPayments();
         $this->checkCoolifyIntegration();
         $this->checkVenueTemplates();
-        $this->checkStorageLink();
         $this->checkRobotsAndSitemap();
         $this->checkBackupConfiguration();
 
@@ -42,6 +50,7 @@ class PreflightCheck extends Command
 
         if ($this->failures > 0) {
             $this->error('❌  Preflight FAILED — fix critical issues before going live.');
+
             return 1;
         }
 
@@ -50,6 +59,7 @@ class PreflightCheck extends Command
         } else {
             $this->info('✅  All clear — ready for production traffic.');
         }
+
         return 0;
     }
 
@@ -62,18 +72,18 @@ class PreflightCheck extends Command
         $isProduction = $appEnv === 'production';
 
         if ($isProduction) {
-            $this->ok("APP_ENV=production");
+            $this->ok('APP_ENV=production');
         } else {
             $this->info("APP_ENV={$appEnv} (non-production — env-config checks skipped)");
         }
 
         $appDebug = config('app.debug');
         if (! $appDebug) {
-            $this->ok("APP_DEBUG=false");
+            $this->ok('APP_DEBUG=false');
         } elseif ($isProduction) {
-            $this->critical("APP_DEBUG=true in production — leaks stack traces to visitors.");
+            $this->critical('APP_DEBUG=true in production — leaks stack traces to visitors.');
         } else {
-            $this->info("APP_DEBUG=true (non-production — OK)");
+            $this->info('APP_DEBUG=true (non-production — OK)');
         }
 
         $appUrl = config('app.url');
@@ -86,17 +96,17 @@ class PreflightCheck extends Command
         }
 
         $appKey = config('app.key');
-        if (!empty($appKey) && Str::startsWith($appKey, 'base64:')) {
-            $this->ok("APP_KEY is set (base64-encoded)");
+        if (! empty($appKey) && Str::startsWith($appKey, 'base64:')) {
+            $this->ok('APP_KEY is set (base64-encoded)');
         } else {
-            $this->critical("APP_KEY is missing or invalid — run `php artisan key:generate`.");
+            $this->critical('APP_KEY is missing or invalid — run `php artisan key:generate`.');
         }
 
         // Default '' (fail-closed) so an UNSET variable falls into the
         // production-critical branch below, matching the boot-time guard in
         // AppServiceProvider::assertTrustedProxiesConfigured().
         $trustedProxies = env('TRUSTED_PROXIES', '');
-        if ($trustedProxies === '*' || !empty($trustedProxies)) {
+        if ($trustedProxies === '*' || ! empty($trustedProxies)) {
             if ($trustedProxies === '*') {
                 $this->advisory("TRUSTED_PROXIES=* — works but is overly permissive. For production, restrict to Coolify's Traefik subnet. Find it via: docker network inspect coolify-network | grep Subnet");
             } else {
@@ -105,7 +115,50 @@ class PreflightCheck extends Command
         } elseif ($isProduction) {
             $this->critical("TRUSTED_PROXIES is empty — Laravel will reject X-Forwarded-* headers from Coolify's Traefik. Custom domains and HTTPS detection will break.");
         } else {
-            $this->info("TRUSTED_PROXIES is empty (non-production — OK)");
+            $this->info('TRUSTED_PROXIES is empty (non-production — OK)');
+        }
+
+        if ($isProduction && config('queue.default') === 'sync') {
+            $this->advisory('QUEUE_CONNECTION=sync — emails and payment webhooks execute inside the HTTP request, blocking checkout and gallery pages. Configure a redis queue worker.');
+        }
+    }
+
+    /**
+     * The session cookie IS the login credential. These are launch gates, not
+     * style advice: any of the critical states below means an attacker can
+     * steal or replay visitor sessions (interception, XSS, CSRF). Values are
+     * read from config so env overrides are honoured exactly like the app.
+     */
+    private function checkSessionSecurity(): void
+    {
+        $this->section('Session & cookie security');
+
+        if (config('app.env') !== 'production') {
+            $this->info('  (non-production — session hardening checks skipped)');
+
+            return;
+        }
+
+        if (config('session.secure')) {
+            $this->ok('Session cookie is HTTPS-only (secure).');
+        } else {
+            $this->critical('SESSION_SECURE_COOKIE=false — the session cookie would be sent over plaintext HTTP and can be intercepted. Keep it enabled.');
+        }
+
+        if (config('session.http_only')) {
+            $this->ok('Session cookie is HttpOnly (not readable by JavaScript).');
+        } else {
+            $this->critical('SESSION_HTTP_ONLY=false — JavaScript can read the session cookie, so a single XSS leaks every session. Keep it enabled.');
+        }
+
+        if (config('session.same_site') === 'none') {
+            $this->critical("SESSION_SAME_SITE=none — the session cookie is sent on every cross-site request, defeating CSRF protection. Use 'lax' or 'strict'.");
+        } else {
+            $this->ok('Session cookie SameSite policy: '.config('session.same_site').'.');
+        }
+
+        if (config('session.driver') === 'file') {
+            $this->advisory('SESSION_DRIVER=file — session data is per-container. If Coolify scales to multiple containers (or redeploys), users are logged out. Use redis (or database) for sessions.');
         }
     }
 
@@ -116,9 +169,9 @@ class PreflightCheck extends Command
         $required = ['pdo', 'mbstring', 'ctype', 'json', 'xml', 'tokenizer', 'curl', 'fileinfo', 'bcmath', 'gd', 'exif'];
         $optional = ['redis', 'imagick', 'zip', 'intl'];
 
-        $pdoDrivers = array_filter(['pdo_mysql', 'pdo_sqlite'], fn($ext) => extension_loaded($ext));
+        $pdoDrivers = array_filter(['pdo_mysql', 'pdo_sqlite'], fn ($ext) => extension_loaded($ext));
         if (empty($pdoDrivers)) {
-            $this->critical("ext-pdo_mysql AND ext-pdo_sqlite BOTH MISSING — at least one PDO driver is required.");
+            $this->critical('ext-pdo_mysql AND ext-pdo_sqlite BOTH MISSING — at least one PDO driver is required.');
         } else {
             foreach ($pdoDrivers as $ext) {
                 $this->ok("ext-{$ext} loaded");
@@ -129,7 +182,7 @@ class PreflightCheck extends Command
             if (extension_loaded($ext)) {
                 $this->ok("ext-{$ext} loaded");
             } else {
-                $this->critical("ext-{$ext} MISSING — required. For Nixpacks, add: NIXPACKS_PHP_EXTENSIONS=" . implode(',', $required));
+                $this->critical("ext-{$ext} MISSING — required. For Nixpacks, add: NIXPACKS_PHP_EXTENSIONS=".implode(',', $required));
             }
         }
 
@@ -158,7 +211,8 @@ class PreflightCheck extends Command
             DB::select('SELECT 1');
             $this->ok('DB connection works');
         } catch (\Throwable $e) {
-            $this->critical('DB connection failed: ' . $e->getMessage());
+            $this->critical('DB connection failed: '.$this->redactor->redactString($e->getMessage()));
+
             return;
         }
 
@@ -166,7 +220,7 @@ class PreflightCheck extends Command
             $pending = DB::table('migrations')->count();
             $this->ok("Migrations table accessible ({$pending} migrations recorded)");
         } catch (\Throwable $e) {
-            $this->critical('Cannot read migrations table: ' . $e->getMessage());
+            $this->critical('Cannot read migrations table: '.$this->redactor->redactString($e->getMessage()));
         }
 
         foreach (['users', 'galleries', 'venue_templates'] as $table) {
@@ -186,7 +240,7 @@ class PreflightCheck extends Command
                 $this->critical('galleries.custom_domain column missing — run `php artisan migrate`.');
             }
         } catch (\Throwable $e) {
-            $this->advisory('Could not introspect galleries schema: ' . $e->getMessage());
+            $this->advisory('Could not introspect galleries schema: '.$this->redactor->redactString($e->getMessage()));
         }
 
         try {
@@ -197,7 +251,7 @@ class PreflightCheck extends Command
                 $this->critical('venue_templates.visual_config column missing — run the Round 1 migration.');
             }
         } catch (\Throwable $e) {
-            $this->advisory('Could not introspect venue_templates schema: ' . $e->getMessage());
+            $this->advisory('Could not introspect venue_templates schema: '.$this->redactor->redactString($e->getMessage()));
         }
     }
 
@@ -228,7 +282,7 @@ class PreflightCheck extends Command
         // Upload destination directories. Per-gallery folders
         // (galleries/{id}) are created by ImageProcessingService on demand.
         foreach (['audio', 'branding', 'galleries', 'artist-portraits', 'venue-thumbnails', 'venue-models', 'venue-hdri', 'venue-audio'] as $sub) {
-            $path = storage_path('app/public/' . $sub);
+            $path = storage_path('app/public/'.$sub);
             if (is_dir($path)) {
                 $this->ok("storage/app/public/{$sub}/ exists");
             } else {
@@ -259,7 +313,7 @@ class PreflightCheck extends Command
                 $this->critical("Cache store ({$store}) write succeeded but read failed — cache is unreliable.");
             }
         } catch (\Throwable $e) {
-            $this->critical("Cache store ({$store}) failed: " . $e->getMessage());
+            $this->critical("Cache store ({$store}) failed: ".$this->redactor->redactString($e->getMessage()));
         }
 
         if ($store === 'file') {
@@ -280,24 +334,26 @@ class PreflightCheck extends Command
 
         if (config('app.env') !== 'production') {
             $this->info('  (non-production — mail-config critical checks skipped)');
+
             return;
         }
 
         if ($mailer === 'log') {
             $this->critical('MAIL_MAILER=log — emails are written to laravel.log instead of being sent. Production must use resend (or smtp).');
+
             return;
         }
 
         if ($mailer === 'resend') {
             $key = config('services.resend.key');
-            if (!empty($key) && Str::startsWith($key, 're_')) {
+            if (! empty($key) && Str::startsWith($key, 're_')) {
                 $this->ok('Resend API key is configured (looks valid).');
             } else {
                 $this->critical('MAIL_MAILER=resend but RESEND_API_KEY is missing or does not start with "re_".');
             }
 
             $from = config('mail.from.address');
-            if (!empty($from) && !Str::contains($from, 'example.com')) {
+            if (! empty($from) && ! Str::contains($from, 'example.com')) {
                 $this->ok("MAIL_FROM_ADDRESS = {$from}");
             } else {
                 $this->critical("MAIL_FROM_ADDRESS is '{$from}' — set to a real address on your verified domain.");
@@ -311,6 +367,7 @@ class PreflightCheck extends Command
 
         if (config('app.env') !== 'production') {
             $this->info('  (non-production — payment-config critical checks skipped)');
+
             return;
         }
 
@@ -348,7 +405,7 @@ class PreflightCheck extends Command
     {
         $this->section('Coolify integration (custom domain automation)');
 
-        $token   = config('services.coolify.api_token');
+        $token = config('services.coolify.api_token');
         $baseUrl = config('services.coolify.api_base_url');
         $appUuid = config('services.coolify.application_uuid');
 
@@ -370,14 +427,14 @@ class PreflightCheck extends Command
             $this->ok("COOLIFY_APPLICATION_UUID = {$appUuid}");
         }
 
-        if (!empty($token) && !empty($baseUrl) && !empty($appUuid)) {
+        if (! empty($token) && ! empty($baseUrl) && ! empty($appUuid)) {
             $this->info('  Pinging Coolify API to verify credentials…');
             $ping = $this->pingCoolifyApi($token, $baseUrl, $appUuid);
             if ($ping['ok']) {
                 $domainCount = $ping['domain_count'] ?? 0;
                 $this->ok("Coolify API reachable — application found, {$domainCount} domain(s) currently routed.");
             } else {
-                $this->critical("Coolify API verification failed: {$ping['error']}");
+                $this->critical('Coolify API verification failed: '.$this->redactor->redactString($ping['error']));
             }
         }
 
@@ -392,7 +449,7 @@ class PreflightCheck extends Command
     private function pingCoolifyApi(string $token, string $baseUrl, string $appUuid): array
     {
         try {
-            $url = rtrim($baseUrl, '/') . "/api/v1/applications/{$appUuid}";
+            $url = rtrim($baseUrl, '/')."/api/v1/applications/{$appUuid}";
             $resp = \Illuminate\Support\Facades\Http::withToken($token)
                 ->timeout(10)
                 ->get($url);
@@ -403,20 +460,21 @@ class PreflightCheck extends Command
             if ($resp->status() === 404) {
                 return ['ok' => false, 'error' => 'HTTP 404 — COOLIFY_APPLICATION_UUID does not match any application in Coolify.'];
             }
-            if (!$resp->successful()) {
+            if (! $resp->successful()) {
                 return ['ok' => false, 'error' => "HTTP {$resp->status()} — {$resp->body()}"];
             }
 
             $data = $resp->json();
             $domains = $data['domains'] ?? '';
             $list = array_filter(array_map('trim', explode(',', $domains)));
+
             return [
-                'ok'           => true,
-                'error'        => null,
+                'ok' => true,
+                'error' => null,
                 'domain_count' => count($list),
             ];
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            return ['ok' => false, 'error' => 'Connection error — COOLIFY_API_BASE_URL may be wrong or Coolify is unreachable. ' . $e->getMessage()];
+            return ['ok' => false, 'error' => 'Connection error — COOLIFY_API_BASE_URL may be wrong or Coolify is unreachable. '.$e->getMessage()];
         } catch (\Throwable $e) {
             return ['ok' => false, 'error' => $e->getMessage()];
         }
@@ -447,13 +505,8 @@ class PreflightCheck extends Command
                 $this->advisory('No venue templates have visual_config JSON — re-run the VenueTemplateSeeder to populate data-driven venue configs.');
             }
         } catch (\Throwable $e) {
-            $this->critical('Could not query venue_templates: ' . $e->getMessage());
+            $this->critical('Could not query venue_templates: '.$this->redactor->redactString($e->getMessage()));
         }
-    }
-
-    private function checkStorageLink(): void
-    {
-        // Already checked in checkFilesystem
     }
 
     private function checkRobotsAndSitemap(): void
@@ -513,18 +566,18 @@ class PreflightCheck extends Command
             return;
         }
 
-        $this->ok('Backup destination disks: ' . implode(', ', $diskNames));
+        $this->ok('Backup destination disks: '.implode(', ', $diskNames));
 
         if (in_array('r2', $diskNames, true)) {
             $missingR2Keys = array_filter([
-                'R2_ENDPOINT'          => ! config('filesystems.disks.r2.endpoint'),
-                'R2_BUCKET'            => ! config('filesystems.disks.r2.bucket'),
-                'R2_ACCESS_KEY_ID'     => ! config('filesystems.disks.r2.key'),
+                'R2_ENDPOINT' => ! config('filesystems.disks.r2.endpoint'),
+                'R2_BUCKET' => ! config('filesystems.disks.r2.bucket'),
+                'R2_ACCESS_KEY_ID' => ! config('filesystems.disks.r2.key'),
                 'R2_SECRET_ACCESS_KEY' => ! config('filesystems.disks.r2.secret'),
             ], fn (bool $missing) => $missing);
 
             if ($missingR2Keys !== []) {
-                $this->critical('R2 disk is in BACKUP_DISKS but ' . implode(', ', array_keys($missingR2Keys)) . ' is missing — every backup run will fail.');
+                $this->critical('R2 disk is in BACKUP_DISKS but '.implode(', ', array_keys($missingR2Keys)).' is missing — every backup run will fail.');
             } else {
                 $this->ok('R2 off-site destination configured.');
             }
@@ -557,7 +610,7 @@ class PreflightCheck extends Command
 
     private function resolveBinary(string $name): ?string
     {
-        $output = @shell_exec('command -v ' . escapeshellarg($name) . ' 2>/dev/null');
+        $output = @shell_exec('command -v '.escapeshellarg($name).' 2>/dev/null');
 
         return is_string($output) && trim($output) !== '' ? trim($output) : null;
     }
@@ -589,6 +642,7 @@ class PreflightCheck extends Command
             case 'm': $num *= 1024;
             case 'k': $num *= 1024;
         }
+
         return $num;
     }
 }

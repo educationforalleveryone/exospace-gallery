@@ -17,14 +17,14 @@ class UnsubscribeController extends Controller
         // If already unsubscribed, show a friendly "already unsubscribed" page.
         if (! $user->marketing_consent) {
             return view('unsubscribe', [
-                'user'     => $user,
-                'already'  => true,
+                'user' => $user,
+                'already' => true,
             ]);
         }
 
         return view('unsubscribe', [
-            'user'     => $user,
-            'already'  => false,
+            'user' => $user,
+            'already' => false,
         ]);
     }
 
@@ -33,7 +33,7 @@ class UnsubscribeController extends Controller
         $user->forceFill(['marketing_consent' => false])->save();
 
         return redirect()->route('unsubscribe.done')
-                         ->with('status', 'unsubscribed');
+            ->with('status', 'unsubscribed');
     }
 
     public function oneClickShow(Request $request, User $user): View

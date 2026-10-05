@@ -12,23 +12,30 @@ class QaTestRun extends Model
 {
     use HasFactory;
 
-    public const STATUS_QUEUED       = 'queued';
-    public const STATUS_RUNNING      = 'running';
-    public const STATUS_PASSED       = 'passed';
-    public const STATUS_FAILED       = 'failed';
-    public const STATUS_CANCELLED    = 'cancelled';
-    public const STATUS_TIMED_OUT    = 'timed_out';
-    public const STATUS_BLOCKED      = 'blocked';
+    public const STATUS_QUEUED = 'queued';
+
+    public const STATUS_RUNNING = 'running';
+
+    public const STATUS_PASSED = 'passed';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUS_TIMED_OUT = 'timed_out';
+
+    public const STATUS_BLOCKED = 'blocked';
+
     public const STATUS_NOT_EXECUTED = 'not_executed';
 
     protected $guarded = ['id'];
 
     protected $casts = [
-        'started_at'      => 'datetime',
-        'finished_at'     => 'datetime',
-        'meta'            => 'array',
+        'started_at' => 'datetime',
+        'finished_at' => 'datetime',
+        'meta' => 'array',
         'flaky_suspected' => 'boolean',
-        'coverage_pct'    => 'float',
+        'coverage_pct' => 'float',
     ];
 
     public function cases(): HasMany
@@ -63,12 +70,12 @@ class QaTestRun extends Model
     public function badgeColor(): string
     {
         return match ($this->status) {
-            self::STATUS_PASSED                      => 'green',
-            self::STATUS_FAILED                      => 'red',
-            self::STATUS_TIMED_OUT                   => 'orange',
+            self::STATUS_PASSED => 'green',
+            self::STATUS_FAILED => 'red',
+            self::STATUS_TIMED_OUT => 'orange',
             self::STATUS_BLOCKED, self::STATUS_NOT_EXECUTED => 'gray',
-            self::STATUS_RUNNING                     => 'blue',
-            default                                  => 'slate',
+            self::STATUS_RUNNING => 'blue',
+            default => 'slate',
         };
     }
 }

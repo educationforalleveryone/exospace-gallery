@@ -33,7 +33,7 @@ class GalleryViewController extends Controller
                 ->with(['images.artist', 'images.media', 'user', 'venueTemplate', 'seoProfile'])
                 ->firstOrFail();
 
-        if ($gallery->slug !== $slug && !$request->attributes->has('resolved_gallery')) {
+        if ($gallery->slug !== $slug && ! $request->attributes->has('resolved_gallery')) {
             abort(404);
         }
 
@@ -48,11 +48,11 @@ class GalleryViewController extends Controller
         }
 
         $isEmbed = $request->boolean('embed');
-        if ($gallery->hasPinProtection() && !session("pin_verified_{$gallery->id}")) {
+        if ($gallery->hasPinProtection() && ! session("pin_verified_{$gallery->id}")) {
             return redirect()->route('gallery.pin', $gallery->slug);
         }
 
-        if (!$isEmbed && $this->shouldCountView($request, $gallery)) {
+        if (! $isEmbed && $this->shouldCountView($request, $gallery)) {
             \App\Jobs\IncrementGalleryViews::dispatch(
                 $gallery->id,
                 $gallery->venueTemplate?->id,
@@ -66,65 +66,65 @@ class GalleryViewController extends Controller
         $hasUpcomingEvents = $gallery->scheduleEvents()->active()->upcoming()->exists();
 
         $galleryData = [
-            'id'          => $gallery->id,
-            'title'       => $gallery->title,
+            'id' => $gallery->id,
+            'title' => $gallery->title,
             'description' => $gallery->description,
-            'wall_texture'    => $gallery->wall_texture,
-            'floor_material'  => $gallery->floor_material,
-            'frame_style'     => $gallery->frame_style,
+            'wall_texture' => $gallery->wall_texture,
+            'floor_material' => $gallery->floor_material,
+            'frame_style' => $gallery->frame_style,
             'lighting_preset' => $this->venueExporter->presetForGallery($gallery),
-            'room_layout'     => $this->venueExporter->layoutForGallery($gallery),
-            'venue_slug'      => $gallery->venueTemplate?->slug,
-            'venueConfig'     => $venueConfig,
-            'images' => $gallery->images->map(fn($img) => array_filter([
-                'id'             => $img->id,
-                'url'            => asset($img->path),
-                'textures'       => [
-                    'thumb'  => $img->conversionUrl('thumb'),
-                    'small'  => $img->conversionUrl('small'),
+            'room_layout' => $this->venueExporter->layoutForGallery($gallery),
+            'venue_slug' => $gallery->venueTemplate?->slug,
+            'venueConfig' => $venueConfig,
+            'images' => $gallery->images->map(fn ($img) => array_filter([
+                'id' => $img->id,
+                'url' => asset($img->path),
+                'textures' => [
+                    'thumb' => $img->conversionUrl('thumb'),
+                    'small' => $img->conversionUrl('small'),
                     'medium' => $img->conversionUrl('medium'),
-                    'large'  => $img->conversionUrl('large'),
+                    'large' => $img->conversionUrl('large'),
                 ],
-                'width'          => $img->width,
-                'height'         => $img->height,
-                'aspectRatio'    => $img->width / max($img->height, 1),
-                'orientation'    => $img->orientation,
-                'title'          => $img->title ?? $img->original_name,
-                'description'    => $img->description,
+                'width' => $img->width,
+                'height' => $img->height,
+                'aspectRatio' => $img->width / max($img->height, 1),
+                'orientation' => $img->orientation,
+                'title' => $img->title ?? $img->original_name,
+                'description' => $img->description,
                 // NEW (Round 4) — per-artwork metadata for focus mode
-                'artist'         => $img->artist ? [
-                    'id'     => $img->artist->id,
-                    'name'   => $img->artist->name,
-                    'slug'   => $img->artist->slug,
-                    'url'    => route('artist.profile', $img->artist->slug),
+                'artist' => $img->artist ? [
+                    'id' => $img->artist->id,
+                    'name' => $img->artist->name,
+                    'slug' => $img->artist->slug,
+                    'url' => route('artist.profile', $img->artist->slug),
                 ] : null,
-                'price'          => $img->price ? (float) $img->price : null,
-                'currency'       => $img->currency,
+                'price' => $img->price ? (float) $img->price : null,
+                'currency' => $img->currency,
                 'formattedPrice' => $img->formattedPrice(),
-                'forSale'        => (bool) $img->for_sale,
-                'medium'         => $img->medium,
-                'year'           => $img->year,
-                'dimensions'     => $img->dimensions,
-                'edition'        => $img->formattedEdition(),
-                'externalUrl'    => $img->external_url,
+                'forSale' => (bool) $img->for_sale,
+                'medium' => $img->medium,
+                'year' => $img->year,
+                'dimensions' => $img->dimensions,
+                'edition' => $img->formattedEdition(),
+                'externalUrl' => $img->external_url,
             ], fn ($v) => $v !== null))->values(),
-            'imageCount'     => $gallery->images->count(),
-            'audioUrl'       => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
-            'userPlan'       => $gallery->user->plan ?? 'free',
-            'customLogoUrl'  => ($gallery->custom_logo_path && $gallery->user->plan === 'studio')
-                                    ? asset('storage/' . $gallery->custom_logo_path)
+            'imageCount' => $gallery->images->count(),
+            'audioUrl' => $gallery->audio_path ? asset('storage/'.$gallery->audio_path) : null,
+            'userPlan' => $gallery->user->plan ?? 'free',
+            'customLogoUrl' => ($gallery->custom_logo_path && $gallery->user->plan === 'studio')
+                                    ? asset('storage/'.$gallery->custom_logo_path)
                                     : null,
             // NEW (Round 4) — branded curtain (Studio only)
             'curtainLogoUrl' => ($gallery->curtain_logo_path && $gallery->user->plan === 'studio')
-                                    ? asset('storage/' . $gallery->curtain_logo_path)
+                                    ? asset('storage/'.$gallery->curtain_logo_path)
                                     : null,
             'curtainBgColor' => ($gallery->curtain_bg_color && $gallery->user->plan === 'studio')
                                     ? $gallery->curtain_bg_color
                                     : null,
             // NEW (Round 4) — newsletter signup endpoint
-            'newsletterUrl'  => route('gallery.newsletter', $gallery->slug),
+            'newsletterUrl' => route('gallery.newsletter', $gallery->slug),
             // NEW (Round 4) — events page link
-            'eventsUrl'      => route('gallery.events.index', $gallery->slug),
+            'eventsUrl' => route('gallery.events.index', $gallery->slug),
             'hasUpcomingEvents' => $hasUpcomingEvents,
 
             'deepLinkArtworkId' => $request->integer('artwork'),
@@ -142,7 +142,7 @@ class GalleryViewController extends Controller
         $gallerySeo = $gallerySeo->with(['robots' => $robots]);
 
         $artworkParam = $request->integer('artwork');
-        if ($artworkParam && !$isEmbed) {
+        if ($artworkParam && ! $isEmbed) {
             $linked = $gallery->images->firstWhere('id', $artworkParam);
             if ($linked && \App\Http\Controllers\ArtworkController::passesQualityGate($linked)) {
                 $gallerySeo = $gallerySeo->with([
@@ -152,7 +152,7 @@ class GalleryViewController extends Controller
         }
 
         $graphs = [];
-        if (!$isEmbed) {
+        if (! $isEmbed) {
             $graphs[] = ($gallery->opens_at || $gallery->closes_at)
                 ? $this->schema->exhibitionEvent($gallery)
                 : $this->schema->collectionPage($gallery);
@@ -168,7 +168,7 @@ class GalleryViewController extends Controller
         }
 
         // ── SEO OS: related exhibitions (internal linking).
-        $relatedGalleries = (!$isEmbed && $gallery->images->isNotEmpty())
+        $relatedGalleries = (! $isEmbed && $gallery->images->isNotEmpty())
             ? $this->linking->relatedGalleries($gallery)
             : collect();
 

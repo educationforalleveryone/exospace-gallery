@@ -15,8 +15,8 @@ class QaDoctor extends Command
     protected $description = 'Check whether THIS machine is ready to execute test suites (before wasting a run)';
 
     /**
- * @var list<array{id:string,label:string,level:string,detail:?string,fix:?string}>
- */
+     * @var list<array{id:string,label:string,level:string,detail:?string,fix:?string}>
+     */
     private array $findings = [];
 
     public function handle(): int
@@ -25,13 +25,13 @@ class QaDoctor extends Command
 
         $blocking = array_filter($this->findings, fn ($f) => $f['level'] === 'critical');
         $warnings = array_filter($this->findings, fn ($f) => $f['level'] === 'warning');
-        $passing  = array_filter($this->findings, fn ($f) => $f['level'] === 'ok');
+        $passing = array_filter($this->findings, fn ($f) => $f['level'] === 'ok');
 
         if ($this->option('format') === 'json') {
             $this->line(json_encode([
-                'ready'     => $blocking === [],
-                'summary'   => ['pass' => count($passing), 'warnings' => count($warnings), 'blocking' => count($blocking)],
-                'checks'    => array_values($this->findings),
+                'ready' => $blocking === [],
+                'summary' => ['pass' => count($passing), 'warnings' => count($warnings), 'blocking' => count($blocking)],
+                'checks' => array_values($this->findings),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
             return $blocking === [] ? self::SUCCESS : self::FAILURE;
@@ -42,9 +42,9 @@ class QaDoctor extends Command
 
         foreach ($this->findings as $finding) {
             match ($finding['level']) {
-                'ok'       => $this->components->twoColumnDetail('✔ '.$finding['label'], (string) $finding['detail']),
-                'warning'  => $this->renderProblem('⚠', $finding),
-                default    => $this->renderProblem('✖', $finding),
+                'ok' => $this->components->twoColumnDetail('✔ '.$finding['label'], (string) $finding['detail']),
+                'warning' => $this->renderProblem('⚠', $finding),
+                default => $this->renderProblem('✖', $finding),
             };
         }
 
@@ -88,15 +88,15 @@ class QaDoctor extends Command
     private function runAllChecks(): void
     {
         $composerJson = json_decode((string) file_get_contents(base_path('composer.json')), true);
-        $requiredPhp  = $composerJson['require']['php'] ?? '^8.2';
-        $phpOk        = version_compare(PHP_VERSION, '8.2.0', '>=');
+        $requiredPhp = $composerJson['require']['php'] ?? '^8.2';
+        $phpOk = version_compare(PHP_VERSION, '8.2.0', '>=');
 
         $this->finding('php_version', 'PHP version', $phpOk ? 'ok' : 'critical', PHP_VERSION,
             $phpOk ? null : "Composer requires {$requiredPhp}; upgrade PHP.");
 
         $declaredExtensions = array_map(
             fn ($ext) => str_starts_with($ext, 'ext-') ? substr($ext, 4) : $ext,
-            array_keys(array_filter($composerJson['require'] ?? [], fn ($_,$k) => str_starts_with($k, 'ext-'), ARRAY_FILTER_USE_BOTH))
+            array_keys(array_filter($composerJson['require'] ?? [], fn ($_, $k) => str_starts_with($k, 'ext-'), ARRAY_FILTER_USE_BOTH))
         );
         $testNeeded = ['pdo_sqlite', 'sqlite3', 'mbstring', 'dom', 'tokenizer', 'xml'];
         foreach (array_unique(array_merge($declaredExtensions, $testNeeded)) as $ext) {

@@ -4,7 +4,6 @@ namespace App\Listeners;
 
 use App\Events\AdminAuditLogged;
 use App\Mail\SuperAdminActionAlert;
-use App\Models\AdminAuditLog;
 use App\Models\User;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
@@ -46,7 +45,7 @@ class SendSuperAdminActionAlert implements ShouldQueue
             } catch (\Throwable $e) {
                 Log::warning('SendSuperAdminActionAlert: email send failed', [
                     'admin_id' => $admin->id,
-                    'error'    => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }

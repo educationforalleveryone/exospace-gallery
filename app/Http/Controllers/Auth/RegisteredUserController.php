@@ -73,18 +73,18 @@ class RegisteredUserController extends Controller
         }
 
         $request->validate([
-            'name'              => ['required', 'string', 'max:255'],
-            'email'             => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
-            'password'          => ['required', 'confirmed', Rules\Password::defaults()],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'marketing_consent' => ['nullable', 'boolean'],
         ]);
 
         try {
             $user = DB::transaction(function () use ($request, $invitation) {
                 $user = User::create([
-                    'name'              => $request->name,
-                    'email'             => $request->email,
-                    'password'          => Hash::make($request->password),
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
                     'marketing_consent' => $request->boolean('marketing_consent'),
                 ]);
 
@@ -114,7 +114,7 @@ class RegisteredUserController extends Controller
             Auth::login($user);
 
             return redirect()->route('admin.teams.show', $team)
-                             ->with('status', "Welcome to {$team->name}! Your account is ready.");
+                ->with('status', "Welcome to {$team->name}! Your account is ready.");
         }
 
         // Normal registration — send verification email
@@ -133,8 +133,8 @@ class RegisteredUserController extends Controller
         }
 
         $invitation = TeamInvitation::with('team')
-                        ->where('token', TeamInvitation::hashToken($token))
-                        ->first();
+            ->where('token', TeamInvitation::hashToken($token))
+            ->first();
 
         return ($invitation && ! $invitation->isExpired()) ? $invitation : null;
     }

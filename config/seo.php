@@ -4,65 +4,65 @@ declare(strict_types=1);
 
 return [
 
-    'site_name'        => env('APP_NAME', 'Exospace'),
-    'title_separator'  => ' | ',
+    'site_name' => env('APP_NAME', 'Exospace'),
+    'title_separator' => ' | ',
 
-    'templates'        => [
-        'home'          => '{site} — Immersive 3D Art Galleries',
-        'gallery'       => '{title} — 3D Virtual Exhibition',
-        'artist'        => '{title} — Artist Profile & 3D Exhibitions',
-        'artwork'       => '{title} by {artist}',
-        'venue'         => '{title} — 3D Venue Templates',
-        'artists_hub'   => 'Browse Artists — 3D Exhibition Artists',
-        'venues_hub'    => 'Venue Templates for 3D Exhibitions',
-        'discover'      => 'Discover 3D Art Exhibitions',
-        'default'       => '{title}',
+    'templates' => [
+        'home' => '{site} — Immersive 3D Art Galleries',
+        'gallery' => '{title} — 3D Virtual Exhibition',
+        'artist' => '{title} — Artist Profile & 3D Exhibitions',
+        'artwork' => '{title} by {artist}',
+        'venue' => '{title} — 3D Venue Templates',
+        'artists_hub' => 'Browse Artists — 3D Exhibition Artists',
+        'venues_hub' => 'Venue Templates for 3D Exhibitions',
+        'discover' => 'Discover 3D Art Exhibitions',
+        'default' => '{title}',
     ],
 
     'default_description' => 'Create museum-quality 3D art exhibitions in minutes. Upload your images, pick a venue, share a link. Free to start.',
 
-    'limits'           => [
-        'title'            => 60,   // px-truncated ~580px; 60 chars is the safe ceiling
-        'description'      => 155,  // 160 hard cap, 155 with ellipsis safety
-        'og_title'         => 70,
-        'og_description'   => 150,
+    'limits' => [
+        'title' => 60,   // px-truncated ~580px; 60 chars is the safe ceiling
+        'description' => 155,  // 160 hard cap, 155 with ellipsis safety
+        'og_title' => 70,
+        'og_description' => 150,
     ],
 
-    'artwork_gate'     => [
+    'artwork_gate' => [
         'min_description_chars' => 80,
-        'max_related'           => 6,
+        'max_related' => 6,
     ],
 
-    'related'          => [
+    'related' => [
         'galleries_max' => 6,   // related exhibitions on a gallery page
-        'artists_max'   => 6,   // related artists on an artist page
-        'artworks_max'  => 6,   // related works on an artwork page
+        'artists_max' => 6,   // related artists on an artist page
+        'artworks_max' => 6,   // related works on an artwork page
     ],
 
-    'sitemap'          => [
-        'per_page'      => 2000,
+    'sitemap' => [
+        'per_page' => 2000,
 
-        'cache_ttl'     => 1800,   // 30 minutes
+        'cache_ttl' => 1800,   // 30 minutes
         'cache_ttl_stale' => 3600, // flexible-cache stale window
 
         // Gallery image sitemap entries (image:image extension).
         'include_images' => true,
     ],
 
-    'feed'             => [
+    'feed' => [
         'max_items' => 50,
     ],
 
-    'og'               => [
-        'default_image'        => 'img/og-default.png',
-        'default_image_width'  => 1200,
+    'og' => [
+        'default_image' => 'img/og-default.png',
+        'default_image_width' => 1200,
         'default_image_height' => 630,
-        'image_type'           => 'image/png',
-        'locale'               => 'en_US',
-        'twitter_card'         => 'summary_large_image',
+        'image_type' => 'image/png',
+        'locale' => 'en_US',
+        'twitter_card' => 'summary_large_image',
     ],
 
-    'canonical'        => [
+    'canonical' => [
         'stripped_params' => [
             // Universal tracking
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
@@ -78,7 +78,7 @@ return [
         'pagination_param' => 'page',
     ],
 
-    'robots'           => [
+    'robots' => [
         'disallow' => [
             '/admin',
             '/master-control',
@@ -115,15 +115,15 @@ return [
         ],
     ],
 
-    'pages'            => [
-        'editorial_prefix'  => 'resources',
+    'pages' => [
+        'editorial_prefix' => 'resources',
 
         'landing_cache_ttl' => 3600,
-        'list_cache_ttl'    => 600,
+        'list_cache_ttl' => 600,
     ],
 
-    'audit'            => [
-        'schedule'        => 'daily',
+    'audit' => [
+        'schedule' => 'daily',
         'slack_on_issues' => true,
     ],
 ];

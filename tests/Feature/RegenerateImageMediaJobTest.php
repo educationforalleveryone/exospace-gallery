@@ -29,7 +29,7 @@ class RegenerateImageMediaJobTest extends TestCase
     {
         return GalleryImage::factory()->create(array_merge([
             'filename' => 'art-'.uniqid().'.jpg',
-            'path'     => 'storage/galleries/1/art-'.uniqid().'.jpg',
+            'path' => 'storage/galleries/1/art-'.uniqid().'.jpg',
         ], $overrides));
     }
 

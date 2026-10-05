@@ -167,7 +167,7 @@ class CustomDomainVerificationTest extends TestCase
         $gallery = $this->studioGallery();
 
         $this->assertNull($gallery->custom_domain_verified_at);
-        $this->assertSame(url('/gallery/' . $gallery->slug), $gallery->public_url);
+        $this->assertSame(url('/gallery/'.$gallery->slug), $gallery->public_url);
         $this->assertStringNotContainsString('gallery.example.com', $gallery->public_url);
     }
 

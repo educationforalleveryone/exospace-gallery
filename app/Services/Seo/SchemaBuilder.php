@@ -28,7 +28,7 @@ class SchemaBuilder
             '@type' => 'Organization',
             'name' => $this->siteName(),
             'url' => $this->appUrl(),
-            'logo' => $this->appUrl() . '/android-chrome-192x192.png',
+            'logo' => $this->appUrl().'/android-chrome-192x192.png',
             'description' => (string) config('seo.default_description'),
         ];
 
@@ -59,7 +59,7 @@ class SchemaBuilder
             '@context' => 'https://schema.org',
             '@type' => 'Person',
             'name' => $artist->name,
-            'url' => $profileUrl ?: url('/artist/' . $artist->slug),
+            'url' => $profileUrl ?: url('/artist/'.$artist->slug),
         ];
 
         if ($artist->bio) {
@@ -153,7 +153,7 @@ class SchemaBuilder
         return [
             '@context' => 'https://schema.org',
             '@type' => 'ItemList',
-            'name' => ($gallery->title ?: 'Untitled Exhibition') . ' — Artworks',
+            'name' => ($gallery->title ?: 'Untitled Exhibition').' — Artworks',
             'url' => $gallery->public_url,
             'numberOfItems' => $totalCount > 0 ? $totalCount : $position,
             'itemListElement' => $items,
@@ -167,7 +167,7 @@ class SchemaBuilder
             'name' => $image->title ?: $image->original_name ?: 'Untitled',
         ];
 
-        if (!$minimal) {
+        if (! $minimal) {
             $schema['@context'] = 'https://schema.org';
             if ($image->description) {
                 $schema['description'] = Str::limit($image->description, 500);
@@ -180,7 +180,7 @@ class SchemaBuilder
             $schema['creator'] = [
                 '@type' => 'Person',
                 'name' => $image->artist->name,
-                'url' => url('/artist/' . $image->artist->slug),
+                'url' => url('/artist/'.$image->artist->slug),
             ];
         }
 
@@ -203,7 +203,7 @@ class SchemaBuilder
             ];
         }
 
-        if ($gallery && !$minimal) {
+        if ($gallery && ! $minimal) {
             $schema['isPartOf'] = [
                 '@type' => 'CollectionPage',
                 'name' => $gallery->title ?: 'Untitled Exhibition',
@@ -256,7 +256,7 @@ class SchemaBuilder
             return $item->public_url;
         }
 
-        return url('/artist/' . $item->slug);
+        return url('/artist/'.$item->slug);
     }
 
     private function exhibitionStatus(Gallery $gallery): string

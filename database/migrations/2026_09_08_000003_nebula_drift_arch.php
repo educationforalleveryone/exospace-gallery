@@ -8,17 +8,19 @@ return new class extends Migration
     private const SLUG = 'nebula-drift';
 
     private const OLD_VERSION = '2.0.0';
+
     private const NEW_VERSION = '2.1.0';
 
     private const OLD_DESCRIPTION =
         'A deep-field nebula surrounds the exhibition — layered cosmic masses drifting along a tilted galactic band, a slow stardrift current, and a lone meridian ring overhead. Artworks float above pools of light on a dark starlit floor.';
+
     private const NEW_DESCRIPTION =
         'A deep-field nebula arches over the exhibition — immense cosmic masses wheeling slowly overhead along a galactic band, a stardrift current, and a meridian ring of travelling light. Artworks float above pools of light on a floor that dissolves into the void.';
 
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
@@ -33,7 +35,7 @@ return new class extends Migration
 
         // Added keys — union (absent key only).
         foreach ($this->addedVisualKeys() as $key => $value) {
-            if (!array_key_exists($key, $visual)) {
+            if (! array_key_exists($key, $visual)) {
                 $visual[$key] = $value;
             }
         }
@@ -55,7 +57,7 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
@@ -90,10 +92,10 @@ return new class extends Migration
     private function changedVisualKeys(): array
     {
         return [
-            'background_color'   => ['from' => '0x050015', 'to' => '0x000000'],
-            'fog_color'          => ['from' => '0x050015', 'to' => '0x000000'],
-            'ambient_intensity'  => ['from' => 0.55, 'to' => 0.62],
-            'spot_intensity'     => ['from' => 1.2, 'to' => 1.35],
+            'background_color' => ['from' => '0x050015', 'to' => '0x000000'],
+            'fog_color' => ['from' => '0x050015', 'to' => '0x000000'],
+            'ambient_intensity' => ['from' => 0.55, 'to' => 0.62],
+            'spot_intensity' => ['from' => 1.2, 'to' => 1.35],
             'artwork_light_base' => ['from' => 0.5, 'to' => 0.62],
         ];
     }

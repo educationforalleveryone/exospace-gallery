@@ -21,7 +21,7 @@ class OAuthController extends Controller
     public function redirect(Request $request, string $provider): RedirectResponse
     {
         if (! $this->isProviderConfigured($provider)) {
-            return redirect()->route('login')->with('error', ucfirst($provider) . ' login is not available.');
+            return redirect()->route('login')->with('error', ucfirst($provider).' login is not available.');
         }
 
         // Store the intended action: 'login' (default) or 'link'
@@ -33,7 +33,7 @@ class OAuthController extends Controller
     public function callback(Request $request, string $provider): RedirectResponse
     {
         if (! $this->isProviderConfigured($provider)) {
-            return redirect()->route('login')->with('error', ucfirst($provider) . ' login is not available.');
+            return redirect()->route('login')->with('error', ucfirst($provider).' login is not available.');
         }
 
         try {
@@ -41,9 +41,10 @@ class OAuthController extends Controller
         } catch (\Throwable $e) {
             Log::warning('OAuth: provider callback failed', [
                 'provider' => $provider,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
-            return redirect()->route('login')->with('error', 'Unable to authenticate with ' . ucfirst($provider) . '. Please try again.');
+
+            return redirect()->route('login')->with('error', 'Unable to authenticate with '.ucfirst($provider).'. Please try again.');
         }
 
         $action = session('oauth_action', 'login');
@@ -64,7 +65,7 @@ class OAuthController extends Controller
         if (blank($socialUser->getId())) {
             Log::warning('OAuth: provider returned no user ID', ['provider' => $provider]);
 
-            return redirect()->route('login')->with('error', 'Unable to authenticate with ' . ucfirst($provider) . '. Please try again.');
+            return redirect()->route('login')->with('error', 'Unable to authenticate with '.ucfirst($provider).'. Please try again.');
         }
 
         // 1. Find by provider ID (returning user — already linked)
@@ -76,7 +77,7 @@ class OAuthController extends Controller
             Auth::login($user, true);
 
             Log::info('OAuth: returning user logged in', [
-                'user_id'  => $user->id,
+                'user_id' => $user->id,
                 'provider' => $provider,
             ]);
 
@@ -101,9 +102,9 @@ class OAuthController extends Controller
 
         if ($existingByEmail) {
             Log::warning('OAuth: login attempted with provider whose email matches existing account — refusing to merge', [
-                'provider'          => $provider,
-                'existing_user_id'  => $existingByEmail->id,
-                'provider_user_id'  => $socialUser->getId(),
+                'provider' => $provider,
+                'existing_user_id' => $existingByEmail->id,
+                'provider_user_id' => $socialUser->getId(),
             ]);
 
             return redirect()->route('login')
@@ -117,22 +118,22 @@ class OAuthController extends Controller
         $emailVerified = $this->isEmailVerifiedByProvider($provider, $socialUser);
 
         $user = User::create([
-            'name'         => $socialUser->getName() ?? $socialUser->getNickname() ?? 'User',
-            'email'        => $email,
-            'password'     => Hash::make(Str::random(32)), // random — OAuth-only user
+            'name' => $socialUser->getName() ?? $socialUser->getNickname() ?? 'User',
+            'email' => $email,
+            'password' => Hash::make(Str::random(32)), // random — OAuth-only user
             // Track that this user does NOT have a real password.
             'has_password' => false,
         ]);
         $user->forceFill([
-            $providerColumn     => $socialUser->getId(),
-            'avatar_url'        => $socialUser->getAvatar(),
+            $providerColumn => $socialUser->getId(),
+            'avatar_url' => $socialUser->getAvatar(),
             'email_verified_at' => $emailVerified ? now() : null,
         ])->save();
 
         Log::info('OAuth: new user registered', [
-            'user_id'           => $user->id,
-            'provider'          => $provider,
-            'email_verified'    => $emailVerified,
+            'user_id' => $user->id,
+            'provider' => $provider,
+            'email_verified' => $emailVerified,
         ]);
 
         if (! $emailVerified) {
@@ -163,7 +164,7 @@ class OAuthController extends Controller
         // The link intent lives in the session and survives logout/expiry.
         if (! $user) {
             return redirect()->route('login')
-                ->with('error', 'Please log in before linking a ' . ucfirst($provider) . ' account.');
+                ->with('error', 'Please log in before linking a '.ucfirst($provider).' account.');
         }
 
         $providerColumn = "{$provider}_id";
@@ -172,17 +173,17 @@ class OAuthController extends Controller
         $existing = User::where($providerColumn, $socialUser->getId())->first();
         if ($existing && $existing->id !== $user->id) {
             return redirect()->route('profile.edit')
-                ->with('error', 'This ' . ucfirst($provider) . ' account is already linked to another Exospace user.');
+                ->with('error', 'This '.ucfirst($provider).' account is already linked to another Exospace user.');
         }
 
         $oauthEmail = strtolower($socialUser->getEmail() ?? '');
         $userEmail = strtolower($user->email ?? '');
         if ($oauthEmail && $userEmail && $oauthEmail !== $userEmail) {
             Log::warning('OAuth: link refused — provider email does not match account email', [
-                'user_id'       => $user->id,
-                'provider'      => $provider,
+                'user_id' => $user->id,
+                'provider' => $provider,
                 'account_email' => $userEmail,
-                'oauth_email'   => $oauthEmail,
+                'oauth_email' => $oauthEmail,
             ]);
 
             return redirect()->route('profile.edit')
@@ -197,16 +198,16 @@ class OAuthController extends Controller
 
         $user->forceFill([
             $providerColumn => $socialUser->getId(),
-            'avatar_url'    => $socialUser->getAvatar(),
+            'avatar_url' => $socialUser->getAvatar(),
         ])->save();
 
         Log::info('OAuth: provider linked', [
-            'user_id'  => $user->id,
+            'user_id' => $user->id,
             'provider' => $provider,
         ]);
 
         return redirect()->route('profile.edit')
-            ->with('status', ucfirst($provider) . ' account linked successfully. You can now log in with ' . ucfirst($provider) . '.');
+            ->with('status', ucfirst($provider).' account linked successfully. You can now log in with '.ucfirst($provider).'.');
     }
 
     public function unlink(Request $request, string $provider): RedirectResponse
@@ -219,7 +220,7 @@ class OAuthController extends Controller
         $providerColumn = "{$provider}_id";
 
         if (! $user->$providerColumn) {
-            return redirect()->route('profile.edit')->with('error', ucfirst($provider) . ' is not linked to your account.');
+            return redirect()->route('profile.edit')->with('error', ucfirst($provider).' is not linked to your account.');
         }
 
         $hasPassword = (bool) $user->has_password;
@@ -231,25 +232,25 @@ class OAuthController extends Controller
 
         if (! $hasPassword && empty($otherProviders)) {
             return redirect()->route('profile.edit')
-                ->with('error', 'Cannot unlink ' . ucfirst($provider) . ' — it\'s your only login method. Set a password first.');
+                ->with('error', 'Cannot unlink '.ucfirst($provider).' — it\'s your only login method. Set a password first.');
         }
 
         $user->forceFill([$providerColumn => null])->save();
 
         AdminAuditLog::record('oauth.unlinked', $user, [
-            'provider'           => $provider,
-            'has_password'       => $hasPassword,
+            'provider' => $provider,
+            'has_password' => $hasPassword,
             'had_other_provider' => ! empty($otherProviders),
         ]);
 
         Log::info('OAuth: provider unlinked', [
-            'user_id'    => $user->id,
-            'provider'   => $provider,
+            'user_id' => $user->id,
+            'provider' => $provider,
             'has_password' => $hasPassword,
         ]);
 
         return redirect()->route('profile.edit')
-            ->with('status', ucfirst($provider) . ' account unlinked.');
+            ->with('status', ucfirst($provider).' account unlinked.');
     }
 
     private function isProviderConfigured(string $provider): bool
@@ -268,7 +269,7 @@ class OAuthController extends Controller
         return match ($provider) {
             'google' => (bool) ($userRaw['email_verified'] ?? $userRaw['verified_email'] ?? false),
             'github' => (bool) ($userRaw['verified'] ?? false),
-            default  => false, // unknown provider — require email verification
+            default => false, // unknown provider — require email verification
         };
     }
 }

@@ -12,6 +12,7 @@ class ProrationService
         if (! is_numeric($price)) {
             return 0.00;
         }
+
         return (float) $price;
     }
 
@@ -24,17 +25,17 @@ class ProrationService
         // No credit if upgrading from free (free has no payment to prorate)
         if ($currentPlan === 'free' || $currentPrice === 0) {
             return [
-                'credit_amount'     => 0.00,
-                'credit_description'=> 'No credit (upgrading from Free plan)',
-                'new_price'         => $newPrice,
+                'credit_amount' => 0.00,
+                'credit_description' => 'No credit (upgrading from Free plan)',
+                'new_price' => $newPrice,
             ];
         }
 
         if (! $user->plan_expires_at) {
             return [
-                'credit_amount'     => 0.00,
-                'credit_description'=> 'No credit (lifetime plan — full price for new tier)',
-                'new_price'         => $newPrice,
+                'credit_amount' => 0.00,
+                'credit_description' => 'No credit (lifetime plan — full price for new tier)',
+                'new_price' => $newPrice,
             ];
         }
 
@@ -45,9 +46,9 @@ class ProrationService
         // Already expired — no credit
         if ($expiresAt->isPast()) {
             return [
-                'credit_amount'     => 0.00,
-                'credit_description'=> 'No credit (current plan expired)',
-                'new_price'         => $newPrice,
+                'credit_amount' => 0.00,
+                'credit_description' => 'No credit (current plan expired)',
+                'new_price' => $newPrice,
             ];
         }
 
@@ -58,9 +59,9 @@ class ProrationService
 
         if ($totalDays <= 0 || $remainingDays <= 0) {
             return [
-                'credit_amount'     => 0.00,
-                'credit_description'=> 'No credit (billing period ended)',
-                'new_price'         => $newPrice,
+                'credit_amount' => 0.00,
+                'credit_description' => 'No credit (billing period ended)',
+                'new_price' => $newPrice,
             ];
         }
 
@@ -69,15 +70,15 @@ class ProrationService
         $adjustedPrice = max(0, $newPrice - $creditAmount);
 
         return [
-            'credit_amount'     => $creditAmount,
-            'credit_description'=> sprintf(
+            'credit_amount' => $creditAmount,
+            'credit_description' => sprintf(
                 'Credit for %d remaining days of %s ($%.2f → $%.2f adjusted price)',
                 (int) ceil($remainingDays),
                 ucfirst($currentPlan),
                 $creditAmount,
                 $adjustedPrice
             ),
-            'new_price'         => $adjustedPrice,
+            'new_price' => $adjustedPrice,
         ];
     }
 }

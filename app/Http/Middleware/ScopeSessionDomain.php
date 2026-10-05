@@ -24,7 +24,7 @@ class ScopeSessionDomain
         $appHost = preg_replace('/^www\./', '', $appHost);
 
         // Skip on primary domain, localhost, or IP addresses
-        if (!$host
+        if (! $host
             || $host === $appHost
             || $host === 'localhost'
             || $host === '127.0.0.1'
@@ -43,17 +43,17 @@ class ScopeSessionDomain
         if (! $galleryId) {
             \Illuminate\Support\Facades\Log::info('ScopeSessionDomain: rejected unverified host', [
                 'host' => $host,
-                'ip'   => $request->ip(),
+                'ip' => $request->ip(),
             ]);
 
             return response()->make('', 404);
         }
 
-        config(['session.domain' => '.' . $host]);
+        config(['session.domain' => '.'.$host]);
 
         $sanctumStateful = config('sanctum.stateful');
         if (is_array($sanctumStateful)) {
-            if (!in_array($host, $sanctumStateful, true)) {
+            if (! in_array($host, $sanctumStateful, true)) {
                 $sanctumStateful[] = $host;
                 config(['sanctum.stateful' => $sanctumStateful]);
             }

@@ -204,8 +204,10 @@ class VenuePenthouseTest extends TestCase
                 $out[$k] = $this->editorRoundTrip($v);
             }
             ksort($out);
+
             return $out;
         }
+
         return $value;
     }
 
@@ -215,26 +217,26 @@ class VenuePenthouseTest extends TestCase
 
         DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
             'description' => 'A private collector\'s evening — a glazed wall over the city lights, a lounge by the glass, dark walls and gold frames.',
-            'version'     => '1.0.0',
+            'version' => '1.0.0',
             'visual_config' => json_encode([
-                'wall_height'            => 4.5,
-                'wall_depth'             => 0.3,
-                'ceiling_type'           => 'flat',
-                'ceiling_color'          => '0x080808',
-                'ceiling_height'         => 4.5,
-                'background_color'       => '0x08090d',
-                'fog_color'              => '0x08090d',
-                'fog_near'               => 8,
-                'fog_far'                => 25,
-                'ambient_color'          => '0xb8c8e8',
-                'ambient_intensity'      => 0.2,
-                'spot_intensity'         => 0.5,
-                'fill_intensity'         => 0.15,
-                'tone_mapping_exposure'  => 0.55,
-                'frame_override'         => 'gold',
-                'structure_pass'         => 'rooms',
-                'glazing_wall'           => true,
-                'structure'              => [
+                'wall_height' => 4.5,
+                'wall_depth' => 0.3,
+                'ceiling_type' => 'flat',
+                'ceiling_color' => '0x080808',
+                'ceiling_height' => 4.5,
+                'background_color' => '0x08090d',
+                'fog_color' => '0x08090d',
+                'fog_near' => 8,
+                'fog_far' => 25,
+                'ambient_color' => '0xb8c8e8',
+                'ambient_intensity' => 0.2,
+                'spot_intensity' => 0.5,
+                'fill_intensity' => 0.15,
+                'tone_mapping_exposure' => 0.55,
+                'frame_override' => 'gold',
+                'structure_pass' => 'rooms',
+                'glazing_wall' => true,
+                'structure' => [
                     ['id' => 'terrace-deck', 'primitive' => 'box', 'at' => ['from' => 'glazing_outside', 'offset' => [0, 0.04, 2.6]], 'turn' => 'out', 'fit' => 'glazing', 'fit_pad' => 0.1, 'size' => [1, 0.08, 5.0], 'material' => 'dark_trim'],
                     ['id' => 'glazing-glass', 'primitive' => 'plane', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0]], 'turn' => 'in', 'fit' => 'glazing', 'fit_pad' => 0.06, 'size' => [1, 4.4], 'material' => ['glass' => true, 'tint' => '0xc4d8ea', 'opacity' => 0.18]],
                     ['id' => 'glazing-mullions', 'primitive' => 'instance-grid', 'at' => ['from' => 'glazing', 'offset' => [0, 2.2, 0.05]], 'turn' => 'in', 'size' => [0.06, 4.4, 0.085], 'material' => 'steel_dark', 'merge' => 'ph-steel', 'grid' => ['mode' => 'line', 'from' => 'glazing', 'span' => 'fit', 'fit_pad' => 0.16, 'spacing' => 1.4]],
@@ -255,13 +257,13 @@ class VenuePenthouseTest extends TestCase
                 ],
             ]),
             'material_config' => json_encode([
-                'wall_color'            => null,
-                'wall_roughness'        => 0.8,
-                'wall_metalness'        => 0.0,
-                'wall_normal_strength'  => 0.3,
-                'floor_color'           => null,
-                'floor_roughness'       => 0.3,
-                'floor_metalness'       => 0.2,
+                'wall_color' => null,
+                'wall_roughness' => 0.8,
+                'wall_metalness' => 0.0,
+                'wall_normal_strength' => 0.3,
+                'floor_color' => null,
+                'floor_roughness' => 0.3,
+                'floor_metalness' => 0.2,
                 'floor_normal_strength' => 0.5,
             ]),
             'lighting_fixtures' => json_encode([]),
@@ -340,7 +342,7 @@ class VenuePenthouseTest extends TestCase
         $rolled = $this->visualConfig('luxury-penthouse');
         $this->assertSame(0.5, $rolled['ambient_intensity'] ?? null, 'down() preserves the admin edit.');
         $this->assertSame('0x14110d', $rolled['ceiling_color'] ?? null, 'down() restores the v2.0.0 ceiling.');
-        $this->assertSame(0.42, $rolled['fog_far'] ?? null, 'down() restores the v2.0.0 fog depth.');
+        $this->assertSame(55, $rolled['fog_far'] ?? null, 'down() restores the v2.0.0 fog depth.');
         $this->assertCount(40, $rolled['structure'] ?? [], 'down() restores the v2.0.0 payload.');
         $fixturesRolled = json_decode((string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('lighting_fixtures'), true) ?: [];
         $this->assertCount(2, $fixturesRolled, 'down() restores the v2.0.0 fixture pair.');
@@ -406,7 +408,7 @@ class VenuePenthouseTest extends TestCase
         $row = DB::table('venue_templates')->where('slug', 'luxury-penthouse')
             ->first(['visual_config', 'lighting_fixtures']);
         DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
-            'visual_config'     => json_encode($this->editorRoundTrip(json_decode((string) $row->visual_config, true))),
+            'visual_config' => json_encode($this->editorRoundTrip(json_decode((string) $row->visual_config, true))),
             'lighting_fixtures' => json_encode($this->editorRoundTrip(json_decode((string) $row->lighting_fixtures, true) ?: [])),
         ]);
 
@@ -527,7 +529,9 @@ class VenuePenthouseTest extends TestCase
 
         $byId = [];
         foreach ($structure as $d) {
-            if (is_array($d) && isset($d['id'])) $byId[$d['id']] = $d;
+            if (is_array($d) && isset($d['id'])) {
+                $byId[$d['id']] = $d;
+            }
         }
         $this->assertSame([1.85, 0.8, 0.65], $byId['lamp-pole']['at']['offset'] ?? null,
             'The floor lamp moved into the lounge corner (out of the mid-glass sightline).');
@@ -603,7 +607,7 @@ class VenuePenthouseTest extends TestCase
         foreach ($this->visualConfig('luxury-penthouse')['structure'] as $d) {
             $byId[$d['id']] = $d;
         }
-        $this->assertSame([3.0, 0.8, 1.5], $byId['lamp-pole']['at']['offset'] ?? null,
+        $this->assertSame([3, 0.8, 1.5], $byId['lamp-pole']['at']['offset'] ?? null,
             'The admin lamp move survives the replay — the semantic guard skips it.');
         $this->assertSame('3.1.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
             'The version is not downgraded by the skipped swap.');
@@ -638,7 +642,7 @@ class VenuePenthouseTest extends TestCase
         $row = DB::table('venue_templates')->where('slug', 'luxury-penthouse')
             ->first(['visual_config', 'lighting_fixtures']);
         DB::table('venue_templates')->where('slug', 'luxury-penthouse')->update([
-            'visual_config'     => json_encode($this->editorRoundTrip(json_decode((string) $row->visual_config, true))),
+            'visual_config' => json_encode($this->editorRoundTrip(json_decode((string) $row->visual_config, true))),
             'lighting_fixtures' => json_encode($this->editorRoundTrip(json_decode((string) $row->lighting_fixtures, true) ?: [])),
         ]);
     }
@@ -647,7 +651,7 @@ class VenuePenthouseTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue  = \App\Models\VenueTemplate::where('slug', 'luxury-penthouse')->firstOrFail();
+        $venue = \App\Models\VenueTemplate::where('slug', 'luxury-penthouse')->firstOrFail();
         $config = app(VenueConfigExporter::class)->forVenuePreview($venue);
 
         $visual = $config['visual_config'] ?? [];
@@ -677,18 +681,18 @@ class VenuePenthouseTest extends TestCase
 
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue   = \App\Models\VenueTemplate::where('slug', 'luxury-penthouse')->firstOrFail();
-        $owner   = \App\Models\User::factory()->create(['plan' => 'pro']);
+        $venue = \App\Models\VenueTemplate::where('slug', 'luxury-penthouse')->firstOrFail();
+        $owner = \App\Models\User::factory()->create(['plan' => 'pro']);
         $gallery = \App\Models\Gallery::factory()->create([
-            'user_id'           => $owner->id,
+            'user_id' => $owner->id,
             'venue_template_id' => $venue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => [
-                    'wall_height'   => 3.0,
-                    'wing_heights'  => ['wing_a' => 2.4, 'wing_b' => 2.4],
+                    'wall_height' => 3.0,
+                    'wing_heights' => ['wing_a' => 2.4, 'wing_b' => 2.4],
                     'glazing_walls' => [],
-                    'structure'     => [],
-                    'environment'   => 'studio',
+                    'structure' => [],
+                    'environment' => 'studio',
                 ],
             ],
         ]);

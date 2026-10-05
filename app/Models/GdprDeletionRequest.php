@@ -27,9 +27,9 @@ class GdprDeletionRequest extends Model
     ];
 
     protected $casts = [
-        'requested_at'           => 'datetime',
-        'scheduled_deletion_at'  => 'datetime',
-        'completed_at'           => 'datetime',
+        'requested_at' => 'datetime',
+        'scheduled_deletion_at' => 'datetime',
+        'completed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -62,13 +62,13 @@ class GdprDeletionRequest extends Model
     public static function createForUser(User $user, ?string $reason = null, ?string $ip = null): self
     {
         return static::create([
-            'user_id'                => $user->id,
-            'email'                  => $user->email,
-            'status'                 => 'pending',
-            'requester_ip'           => $ip,
-            'requested_at'           => now(),
-            'scheduled_deletion_at'  => now()->addDays(30),
-            'reason'                 => $reason,
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'status' => 'pending',
+            'requester_ip' => $ip,
+            'requested_at' => now(),
+            'scheduled_deletion_at' => now()->addDays(30),
+            'reason' => $reason,
         ]);
     }
 }

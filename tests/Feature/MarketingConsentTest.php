@@ -16,11 +16,11 @@ class MarketingConsentTest extends TestCase
     public function test_registration_captures_marketing_consent_true_when_checked(): void
     {
         $response = $this->post('/register', [
-            'name'                  => 'Test User',
-            'email'                 => 'test@example.com',
-            'password'              => 'password',
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => 'password',
             'password_confirmation' => 'password',
-            'marketing_consent'     => '1',
+            'marketing_consent' => '1',
         ]);
 
         $response->assertRedirect();
@@ -32,9 +32,9 @@ class MarketingConsentTest extends TestCase
     public function test_registration_defaults_marketing_consent_false_when_unchecked(): void
     {
         $response = $this->post('/register', [
-            'name'                  => 'Test User',
-            'email'                 => 'test2@example.com',
-            'password'              => 'password',
+            'name' => 'Test User',
+            'email' => 'test2@example.com',
+            'password' => 'password',
             'password_confirmation' => 'password',
             // marketing_consent not sent
         ]);
@@ -50,8 +50,8 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         $user = User::factory()->create([
-            'email_verified_at'  => now(),
-            'marketing_consent'  => false, // no consent
+            'email_verified_at' => now(),
+            'marketing_consent' => false, // no consent
         ]);
         $pending = PendingUpgrade::createForUser($user, 'pro', 'PRO-001');
         // Simulate 25 hours ago
@@ -82,8 +82,8 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         $user = User::factory()->create([
-            'email_verified_at'  => now(),
-            'marketing_consent'  => true,
+            'email_verified_at' => now(),
+            'marketing_consent' => true,
         ]);
         $pending = PendingUpgrade::createForUser($user, 'pro', 'PRO-001');
         $pending->forceFill(['created_at' => now()->subHours(25)])->save();
@@ -100,8 +100,8 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         $user = User::factory()->create([
-            'email_verified_at'  => now(),
-            'marketing_consent'  => true,
+            'email_verified_at' => now(),
+            'marketing_consent' => true,
         ]);
 
         $pending1 = PendingUpgrade::createForUser($user, 'pro', 'PRO-001');
@@ -109,7 +109,7 @@ class MarketingConsentTest extends TestCase
 
         $pending2 = PendingUpgrade::createForUser($user, 'studio', 'STUDIO-001');
         $pending2->forceFill([
-            'created_at'  => now()->subDays(3),
+            'created_at' => now()->subDays(3),
             'notified_at' => now()->subDays(3),
         ])->save();
 
@@ -123,8 +123,8 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         $user = User::factory()->create([
-            'email_verified_at'  => now(),
-            'marketing_consent'  => true,
+            'email_verified_at' => now(),
+            'marketing_consent' => true,
         ]);
 
         // Three pending upgrades for the same user, all > 24h old
@@ -144,10 +144,10 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         User::factory()->create([
-            'created_at'          => now()->subDays(10),
-            'email_verified_at'   => now(),
-            'marketing_consent'   => false,
-            'inactive_nudged_at'  => null,
+            'created_at' => now()->subDays(10),
+            'email_verified_at' => now(),
+            'marketing_consent' => false,
+            'inactive_nudged_at' => null,
         ]);
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();
@@ -160,10 +160,10 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         $user = User::factory()->create([
-            'created_at'          => now()->subDays(10),
-            'email_verified_at'   => now(),
-            'marketing_consent'   => true,
-            'inactive_nudged_at'  => null,
+            'created_at' => now()->subDays(10),
+            'email_verified_at' => now(),
+            'marketing_consent' => true,
+            'inactive_nudged_at' => null,
         ]);
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();
@@ -180,10 +180,10 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         $user = User::factory()->pro()->create([
-            'email_verified_at'         => now(),
-            'marketing_consent'         => false, // no consent — but plan-expiry is transactional
-            'plan_expires_at'           => now()->addDays(5),
-            'plan_expiry_reminded_at'   => null,
+            'email_verified_at' => now(),
+            'marketing_consent' => false, // no consent — but plan-expiry is transactional
+            'plan_expires_at' => now()->addDays(5),
+            'plan_expiry_reminded_at' => null,
         ]);
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();
@@ -198,10 +198,10 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         User::factory()->pro()->create([
-            'email_verified_at'         => null, // unverified
-            'marketing_consent'         => false,
-            'plan_expires_at'           => now()->addDays(5),
-            'plan_expiry_reminded_at'   => null,
+            'email_verified_at' => null, // unverified
+            'marketing_consent' => false,
+            'plan_expires_at' => now()->addDays(5),
+            'plan_expiry_reminded_at' => null,
         ]);
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();
@@ -216,12 +216,12 @@ class MarketingConsentTest extends TestCase
         Mail::fake();
 
         $user = User::factory()->pro()->create([
-            'created_at'                => now()->subDays(10),
-            'email_verified_at'         => now(),
-            'marketing_consent'         => true,
-            'plan_expires_at'           => now()->addDays(5), // expires in 5 days
-            'inactive_nudged_at'        => now()->subDays(2), // was inactive-nudged 2 days ago
-            'plan_expiry_reminded_at'   => null,              // NOT yet reminded about expiry
+            'created_at' => now()->subDays(10),
+            'email_verified_at' => now(),
+            'marketing_consent' => true,
+            'plan_expires_at' => now()->addDays(5), // expires in 5 days
+            'inactive_nudged_at' => now()->subDays(2), // was inactive-nudged 2 days ago
+            'plan_expiry_reminded_at' => null,              // NOT yet reminded about expiry
         ]);
 
         $this->artisan('exospace:send-lifecycle-emails')->assertSuccessful();

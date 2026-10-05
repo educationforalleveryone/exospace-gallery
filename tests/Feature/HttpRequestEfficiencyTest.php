@@ -131,7 +131,7 @@ class HttpRequestEfficiencyTest extends TestCase
         $gallery = Gallery::factory()->create();
         $images = GalleryImage::factory()->count($count)->create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Artwork',
+            'title' => 'Artwork',
         ]);
 
         $this->startLog();
@@ -149,7 +149,7 @@ class HttpRequestEfficiencyTest extends TestCase
         $gallery = Gallery::factory()->create();
         $images = GalleryImage::factory()->count(15)->create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Artwork',
+            'title' => 'Artwork',
         ]);
 
         $response = $this->get("/gallery/{$gallery->slug}/artwork/{$images->first()->id}");
@@ -197,7 +197,7 @@ class HttpRequestEfficiencyTest extends TestCase
         $gallery = Gallery::factory()->create();
         GalleryImage::factory()->count(6)->create([
             'gallery_id' => $gallery->id,
-            'artist_id'  => $artist->id,
+            'artist_id' => $artist->id,
         ]);
 
         $this->startLog();
@@ -261,17 +261,17 @@ class HttpRequestEfficiencyTest extends TestCase
         foreach ([1, 2, 3] as $i) {
             $event = GalleryScheduleEvent::create([
                 'gallery_id' => $gallery->id,
-                'title'      => "Opening {$i}",
-                'type'       => 'opening',
-                'starts_at'  => now()->addDays($i),
-                'timezone'   => 'UTC',
-                'is_active'  => true,
+                'title' => "Opening {$i}",
+                'type' => 'opening',
+                'starts_at' => now()->addDays($i),
+                'timezone' => 'UTC',
+                'is_active' => true,
             ]);
             EventRsvp::create([
                 'schedule_event_id' => $event->id,
-                'name'              => 'Visitor',
-                'email'             => "visitor{$i}@example.com",
-                'confirmed_at'      => now(),
+                'name' => 'Visitor',
+                'email' => "visitor{$i}@example.com",
+                'confirmed_at' => now(),
             ]);
         }
 
@@ -299,19 +299,19 @@ class HttpRequestEfficiencyTest extends TestCase
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
         $event = GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Opening',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDay(),
-            'timezone'   => 'UTC',
-            'is_active'  => true,
+            'title' => 'Opening',
+            'type' => 'opening',
+            'starts_at' => now()->addDay(),
+            'timezone' => 'UTC',
+            'is_active' => true,
         ]);
 
         for ($i = 0; $i < 130; $i++) {
             EventRsvp::create([
                 'schedule_event_id' => $event->id,
-                'name'              => 'Visitor',
-                'email'             => "visitor{$i}@example.com",
-                'confirmed_at'      => now(),
+                'name' => 'Visitor',
+                'email' => "visitor{$i}@example.com",
+                'confirmed_at' => now(),
             ]);
         }
 

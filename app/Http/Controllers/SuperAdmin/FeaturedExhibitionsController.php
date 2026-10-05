@@ -4,9 +4,9 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Gallery;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class FeaturedExhibitionsController extends Controller
 {
@@ -20,7 +20,7 @@ class FeaturedExhibitionsController extends Controller
         if ($search = trim((string) $request->query('q', ''))) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"));
+                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -33,13 +33,14 @@ class FeaturedExhibitionsController extends Controller
 
     public function toggle(Gallery $gallery): RedirectResponse
     {
-        $gallery->update(['is_featured' => !$gallery->is_featured]);
+        $gallery->update(['is_featured' => ! $gallery->is_featured]);
 
         \App\Models\AdminAuditLog::record('gallery.feature_toggled', $gallery, [
             'is_featured' => $gallery->is_featured,
         ]);
 
         $state = $gallery->is_featured ? 'featured' : 'unfeatured';
+
         return back()->with('status', "\"{$gallery->title}\" is now {$state}.");
     }
 }

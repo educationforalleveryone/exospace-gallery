@@ -31,8 +31,13 @@ class SurveyResponse extends Model
 
     public function npsCategory(): string
     {
-        if ($this->score <= 6) return 'detractor';
-        if ($this->score <= 8) return 'passive';
+        if ($this->score <= 6) {
+            return 'detractor';
+        }
+        if ($this->score <= 8) {
+            return 'passive';
+        }
+
         return 'promoter';
     }
 }

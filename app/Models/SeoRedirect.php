@@ -16,8 +16,8 @@ class SeoRedirect extends Model
 
     protected $casts = [
         'status_code' => 'integer',
-        'is_active'   => 'boolean',
-        'hits'        => 'integer',
+        'is_active' => 'boolean',
+        'hits' => 'integer',
         'last_hit_at' => 'datetime',
     ];
 
@@ -59,6 +59,7 @@ class SeoRedirect extends Model
             \Illuminate\Support\Facades\Log::warning('SeoRedirects: redirect map unavailable — serving without redirects', [
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }

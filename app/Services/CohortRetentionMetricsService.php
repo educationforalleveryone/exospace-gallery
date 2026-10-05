@@ -48,17 +48,17 @@ class CohortRetentionMetricsService
                 $active = $this->countActive($weekStart, $weekEnd, $periodStart, $periodEnd);
 
                 $cells[$w] = [
-                    'pct'      => $size > 0 ? round(($active / $size) * 100, 1) : 0.0,
-                    'active'   => $active,
+                    'pct' => $size > 0 ? round(($active / $size) * 100, 1) : 0.0,
+                    'active' => $active,
                     'complete' => $now >= $periodEnd,
                 ];
             }
 
             $cohorts[] = [
                 'week_start' => $weekStart->toDateString(),
-                'label'      => $weekStart->format('M j'),
-                'size'       => $size,
-                'cells'      => $cells,
+                'label' => $weekStart->format('M j'),
+                'size' => $size,
+                'cells' => $cells,
             ];
         }
 
@@ -82,11 +82,11 @@ class CohortRetentionMetricsService
                 RetentionSnapshot::updateOrCreate(
                     [
                         'cohort_week_start' => $cohort['week_start'],
-                        'week_index'        => $weekIndex,
-                        'captured_at'       => $capturedAt,
+                        'week_index' => $weekIndex,
+                        'captured_at' => $capturedAt,
                     ],
                     [
-                        'cohort_size'  => $cohort['size'],
+                        'cohort_size' => $cohort['size'],
                         'active_count' => $cell['active'],
                         'retained_pct' => $cell['pct'],
                     ],
@@ -103,7 +103,7 @@ class CohortRetentionMetricsService
         $weekIndex = max(0, min(10, $weekIndex));
 
         $captures = DB::table('retention_snapshots')
-            ->select('captured_at', DB::raw('MAX(' . $this->quoteDateColumn('cohort_week_start') . ') as latest_cohort'))
+            ->select('captured_at', DB::raw('MAX('.$this->quoteDateColumn('cohort_week_start').') as latest_cohort'))
             ->where('week_index', $weekIndex)
             ->groupBy('captured_at')
             ->orderByDesc('captured_at')
@@ -118,20 +118,20 @@ class CohortRetentionMetricsService
             ->where('week_index', $weekIndex)
             ->whereIn('captured_at', $captures->pluck('captured_at')->all())
             ->get()
-            ->keyBy(fn ($r) => $r->captured_at . '|' . $r->cohort_week_start);
+            ->keyBy(fn ($r) => $r->captured_at.'|'.$r->cohort_week_start);
 
         $out = [];
         foreach ($captures as $capture) {
-            $row = $rows->get($capture->captured_at . '|' . $capture->latest_cohort);
+            $row = $rows->get($capture->captured_at.'|'.$capture->latest_cohort);
             if ($row === null) {
                 continue;
             }
 
             $out[] = [
-                'captured_at'   => \Carbon\Carbon::parse($capture->captured_at)->format('M j'),
-                'captured_on'   => \Carbon\Carbon::parse($capture->captured_at)->toDateString(),
-                'cohort'        => \Carbon\Carbon::parse($capture->latest_cohort)->format('M j'),
-                'retained_pct'  => $row->retained_pct !== null ? (float) $row->retained_pct : null,
+                'captured_at' => \Carbon\Carbon::parse($capture->captured_at)->format('M j'),
+                'captured_on' => \Carbon\Carbon::parse($capture->captured_at)->toDateString(),
+                'cohort' => \Carbon\Carbon::parse($capture->latest_cohort)->format('M j'),
+                'retained_pct' => $row->retained_pct !== null ? (float) $row->retained_pct : null,
             ];
         }
 
@@ -177,9 +177,9 @@ class CohortRetentionMetricsService
             ->orderBy('created_at')
             ->selectRaw(
                 'users.*, CASE WHEN (users.last_login_at >= ? AND users.last_login_at < ?) '
-                . 'OR EXISTS (SELECT 1 FROM galleries WHERE galleries.user_id = users.id '
-                . 'AND galleries.updated_at >= ? AND galleries.updated_at < ?) '
-                . 'THEN 1 ELSE 0 END AS active_in_period',
+                .'OR EXISTS (SELECT 1 FROM galleries WHERE galleries.user_id = users.id '
+                .'AND galleries.updated_at >= ? AND galleries.updated_at < ?) '
+                .'THEN 1 ELSE 0 END AS active_in_period',
                 [
                     $periodStart, $periodEnd,
                     $periodStart, $periodEnd,
@@ -189,12 +189,12 @@ class CohortRetentionMetricsService
         $activeCount = $this->countActive($start, $cohortEnd, $periodStart, $periodEnd);
 
         return [
-            'week_start'    => $start,
-            'week_index'     => $weekIndex,
-            'period'         => ['start' => $periodStart, 'end' => $periodEnd],
-            'size'           => $size,
-            'active_count'   => $activeCount,
-            'members'         => $members,
+            'week_start' => $start,
+            'week_index' => $weekIndex,
+            'period' => ['start' => $periodStart, 'end' => $periodEnd],
+            'size' => $size,
+            'active_count' => $activeCount,
+            'members' => $members,
         ];
     }
 
@@ -234,11 +234,11 @@ class CohortRetentionMetricsService
             $complete = $now >= $periodEnd;
             $row = $rows->get($w);
             $out[] = [
-                'week_index'    => $w,
-                'retained_pct'  => $row?->retained_pct !== null ? (float) $row->retained_pct : null,
-                'cohort_size'   => $row?->cohort_size ?? 0,
-                'active_count'  => $row?->active_count ?? 0,
-                'complete'      => $complete,
+                'week_index' => $w,
+                'retained_pct' => $row?->retained_pct !== null ? (float) $row->retained_pct : null,
+                'cohort_size' => $row?->cohort_size ?? 0,
+                'active_count' => $row?->active_count ?? 0,
+                'complete' => $complete,
             ];
         }
 

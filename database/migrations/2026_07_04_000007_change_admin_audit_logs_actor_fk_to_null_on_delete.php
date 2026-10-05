@@ -16,14 +16,14 @@ return new class extends Migration
         Schema::table('admin_audit_logs', function (Blueprint $table) {
             // Make actor_id nullable (was NOT NULL for the FK constraint)
             $table->foreignId('actor_id')
-                  ->nullable()
-                  ->change();
+                ->nullable()
+                ->change();
 
             // Re-add with nullOnDelete
             $table->foreign('actor_id')
-                  ->references('id')
-                  ->on('users')
-                  ->nullOnDelete();
+                ->references('id')
+                ->on('users')
+                ->nullOnDelete();
         });
     }
 
@@ -38,13 +38,13 @@ return new class extends Migration
 
         Schema::table('admin_audit_logs', function (Blueprint $table) {
             $table->foreignId('actor_id')
-                  ->nullable(false)
-                  ->change();
+                ->nullable(false)
+                ->change();
 
             $table->foreign('actor_id')
-                  ->references('id')
-                  ->on('users')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('users')
+                ->onDelete('cascade');
         });
     }
 };

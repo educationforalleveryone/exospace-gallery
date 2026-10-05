@@ -17,6 +17,7 @@ class VerifyCustomDomain implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1; // no retry — next hourly cron will redispatch
+
     public int $timeout = 15; // kill the job if dns_get_record blocks >15s
 
     public function __construct(
@@ -31,6 +32,7 @@ class VerifyCustomDomain implements ShouldQueue
             Log::info('VerifyCustomDomain: gallery not found (deleted?)', [
                 'gallery_id' => $this->galleryId,
             ]);
+
             return;
         }
 
@@ -53,8 +55,9 @@ class VerifyCustomDomain implements ShouldQueue
         if (! $this->checkDnsTxtRecord($host, $expected)) {
             Log::debug('VerifyCustomDomain: TXT record not yet visible', [
                 'gallery_id' => $gallery->id,
-                'domain'     => $gallery->custom_domain,
+                'domain' => $gallery->custom_domain,
             ]);
+
             return;
         }
 
@@ -71,13 +74,13 @@ class VerifyCustomDomain implements ShouldQueue
             Cache::forget("custom_domain:{$gallery->custom_domain}");
             Log::warning('VerifyCustomDomain: Coolify addDomain failed for verified domain', [
                 'gallery_id' => $gallery->id,
-                'domain'     => $gallery->custom_domain,
-                'message'    => $result['message'],
+                'domain' => $gallery->custom_domain,
+                'message' => $result['message'],
             ]);
         } else {
             Log::info('VerifyCustomDomain: verified + registered', [
                 'gallery_id' => $gallery->id,
-                'domain'     => $gallery->custom_domain,
+                'domain' => $gallery->custom_domain,
             ]);
         }
     }

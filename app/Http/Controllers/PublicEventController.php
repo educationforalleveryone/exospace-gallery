@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Gallery;
 use App\Models\GalleryScheduleEvent;
+use App\Services\TurnstileService;
 use App\Support\Seo\Breadcrumb;
 use App\Support\Seo\SeoManager;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use App\Services\TurnstileService;
-use Illuminate\Http\RedirectResponse;
 
 class PublicEventController extends Controller
 {
@@ -50,7 +50,7 @@ class PublicEventController extends Controller
             $robots = 'noindex,nofollow';
         }
 
-        $title = ($gallery->title ?: 'Exhibition') . ' — Events & Openings';
+        $title = ($gallery->title ?: 'Exhibition').' — Events & Openings';
         $description = $upcoming->isNotEmpty()
             ? sprintf('Upcoming events for "%s": %s. RSVP online.', $gallery->title, $upcoming->take(3)->map(fn ($e) => $e->title)->implode(', '))
             : sprintf('Events, openings, and artist talks for the 3D exhibition "%s" on %s.', $gallery->title, config('seo.site_name', 'Exospace'));
@@ -58,7 +58,7 @@ class PublicEventController extends Controller
         $seo = new \App\Support\Seo\SeoData(
             title: \Illuminate\Support\Str::limit($title, 60),
             description: \Illuminate\Support\Str::limit($description, 155),
-            canonicalUrl: url('/gallery/' . $gallery->slug . '/events'),
+            canonicalUrl: url('/gallery/'.$gallery->slug.'/events'),
             robots: $robots,
             ogTitle: $title,
             ogDescription: \Illuminate\Support\Str::limit($description, 155),
@@ -86,7 +86,9 @@ class PublicEventController extends Controller
     public function rsvp(Request $request, string $slug, GalleryScheduleEvent $event): RedirectResponse
     {
         $gallery = Gallery::publiclyAccessible()->where('slug', $slug)->firstOrFail();
-        if ($event->gallery_id !== $gallery->id) abort(404);
+        if ($event->gallery_id !== $gallery->id) {
+            abort(404);
+        }
 
         if ($gallery->hasClosed()) {
             return redirect()->route('gallery.view', $gallery->slug);
@@ -96,12 +98,12 @@ class PublicEventController extends Controller
             return redirect()->route('gallery.pin', $gallery->slug);
         }
 
-        if (!$event->is_active || $event->isPast()) {
+        if (! $event->is_active || $event->isPast()) {
             return back()->with('error', 'This event is no longer accepting RSVPs.');
         }
 
         $validated = $request->validate([
-            'name'  => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'max:255', 'email'],
         ]);
 
@@ -123,6 +125,7 @@ class PublicEventController extends Controller
 
             if ($event->isAtCapacity()) {
                 $atCapacity = true;
+
                 return null;
             }
 
@@ -130,11 +133,11 @@ class PublicEventController extends Controller
                 $rsvp = \App\Models\EventRsvp::firstOrCreate(
                     [
                         'schedule_event_id' => $event->id,
-                        'email'             => $validated['email'],
+                        'email' => $validated['email'],
                     ],
                     [
-                        'name'        => $validated['name'],
-                        'ip_address'  => $request->ip(),
+                        'name' => $validated['name'],
+                        'ip_address' => $request->ip(),
                         'confirmed_at' => now(),
                     ]
                 );
@@ -156,7 +159,7 @@ class PublicEventController extends Controller
                 \Illuminate\Support\Facades\Mail::to($gallery->user->email)
                     ->send(new \App\Mail\EventRsvpNotification($gallery, $event, $validated));
             } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Failed to send RSVP notification: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::warning('Failed to send RSVP notification: '.$e->getMessage());
             }
         }
 

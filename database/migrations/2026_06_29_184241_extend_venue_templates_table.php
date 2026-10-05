@@ -10,52 +10,52 @@ return new class extends Migration
     {
         Schema::table('venue_templates', function (Blueprint $table) {
             $table->string('category', 32)->default('gallery')
-                  ->after('plan_required')->index();
+                ->after('plan_required')->index();
 
             $table->json('tags')->nullable()->after('category');
 
             $table->string('thumbnail_path', 500)->nullable()
-                  ->after('thumbnail');
+                ->after('thumbnail');
 
             $table->string('preview_model_path', 500)->nullable()
-                  ->after('thumbnail_path');
+                ->after('thumbnail_path');
 
             $table->string('hdri_path', 500)->nullable()
-                  ->after('preview_model_path');
+                ->after('preview_model_path');
 
             $table->string('default_audio_path', 500)->nullable()
-                  ->after('hdri_path');
+                ->after('hdri_path');
 
             // ── Visual configuration (replaces JS switch) ────────────────
             $table->json('visual_config')->nullable()
-                  ->after('default_audio_path');
+                ->after('default_audio_path');
 
             $table->json('material_config')->nullable()
-                  ->after('visual_config');
+                ->after('visual_config');
 
             $table->json('decorations')->nullable()
-                  ->after('material_config');
+                ->after('material_config');
 
             $table->json('lighting_fixtures')->nullable()
-                  ->after('decorations');
+                ->after('decorations');
 
             $table->json('supported_layouts')->nullable()
-                  ->after('lighting_fixtures');
+                ->after('lighting_fixtures');
 
             $table->boolean('is_featured')->default(false)
-                  ->after('is_active')->index();
+                ->after('is_active')->index();
             $table->boolean('is_draft')->default(false)
-                  ->after('is_featured');
+                ->after('is_featured');
             $table->unsignedInteger('view_count')->default(0)
-                  ->after('is_draft');
+                ->after('is_draft');
 
             $table->foreignId('author_id')->nullable()
-                  ->after('view_count')
-                  ->constrained('users')->nullOnDelete();
+                ->after('view_count')
+                ->constrained('users')->nullOnDelete();
             $table->string('version', 16)->default('1.0.0')
-                  ->after('author_id');
+                ->after('author_id');
             $table->timestamp('published_at')->nullable()
-                  ->after('version');
+                ->after('version');
         });
 
         \DB::table('venue_templates')

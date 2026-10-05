@@ -21,9 +21,9 @@ class ProcessedWebhook extends Model
     ];
 
     protected $casts = [
-        'payload'         => 'array',
-        'processed_at'    => 'datetime',
-        'last_replayed_at'=> 'datetime',
-        'updated_at'      => 'datetime',
+        'payload' => 'array',
+        'processed_at' => 'datetime',
+        'last_replayed_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 }

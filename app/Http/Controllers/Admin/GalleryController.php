@@ -2,20 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
+use App\Http\Controllers\Controller;
 use App\Models\AdminAuditLog;
 use App\Models\Gallery;
 use App\Models\Team;
 use App\Models\VenueTemplate;
 use App\Services\CoolifyDomainManager;
 use App\Services\VenueConfigExporter;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class GalleryController extends Controller
 {
@@ -30,8 +30,8 @@ class GalleryController extends Controller
 
     public function index(Request $request): View
     {
-        $user   = Auth::user();
-        $team   = $this->resolveTeamContext($user, $request->query('team'));
+        $user = Auth::user();
+        $team = $this->resolveTeamContext($user, $request->query('team'));
         $search = trim((string) $request->query('q', ''));
 
         if ($search !== '') {
@@ -64,6 +64,7 @@ class GalleryController extends Controller
             ->published()
             ->orderBy('sort_order')
             ->get();
+
         return view('admin.galleries.create', compact('team', 'venueTemplates'));
     }
 
@@ -89,7 +90,7 @@ class GalleryController extends Controller
             unset($validated['opens_at'], $validated['closes_at']);
         }
 
-        if (!empty($validated['venue_template_id'])
+        if (! empty($validated['venue_template_id'])
             && ($redirect = $this->assertVenueAccessibleForPlan($validated['venue_template_id'], $planHolder))) {
             return $redirect;
         }
@@ -104,11 +105,11 @@ class GalleryController extends Controller
             $logoPath = $request->file('custom_logo')->store('branding', 'public');
         }
 
-        $venueTemplateId = !empty($validated['venue_template_id']) ? $validated['venue_template_id'] : null;
+        $venueTemplateId = ! empty($validated['venue_template_id']) ? $validated['venue_template_id'] : null;
 
         // Custom domain is Studio-plan only
         $customDomain = null;
-        if (!empty($validated['custom_domain']) && $planHolder->plan === 'studio') {
+        if (! empty($validated['custom_domain']) && $planHolder->plan === 'studio') {
             $customDomain = $this->normaliseCustomDomain($validated['custom_domain']);
             // Uniqueness check
             if (Gallery::where('custom_domain', $customDomain)->exists()) {
@@ -118,24 +119,24 @@ class GalleryController extends Controller
 
         try {
             $gallery = Gallery::create([
-                'user_id'          => $user->id,
-                'team_id'          => $team?->id,
-                'title'            => $validated['title'],
-                'is_active'        => false,
-                'description'      => $validated['description'] ?? null,
-                'wall_texture'     => $validated['wall_texture'],
-                'frame_style'      => $validated['frame_style'],
-                'lighting_preset'  => $validated['lighting_preset'],
-                'floor_material'   => $validated['floor_material'],
-                'room_layout'      => $validated['room_layout'],
-                'pin_hash'         => !empty($validated['gallery_pin']) ? Hash::make($validated['gallery_pin']) : null,
-                'opens_at'         => $validated['opens_at'] ?? null,
-                'closes_at'        => $validated['closes_at'] ?? null,
+                'user_id' => $user->id,
+                'team_id' => $team?->id,
+                'title' => $validated['title'],
+                'is_active' => false,
+                'description' => $validated['description'] ?? null,
+                'wall_texture' => $validated['wall_texture'],
+                'frame_style' => $validated['frame_style'],
+                'lighting_preset' => $validated['lighting_preset'],
+                'floor_material' => $validated['floor_material'],
+                'room_layout' => $validated['room_layout'],
+                'pin_hash' => ! empty($validated['gallery_pin']) ? Hash::make($validated['gallery_pin']) : null,
+                'opens_at' => $validated['opens_at'] ?? null,
+                'closes_at' => $validated['closes_at'] ?? null,
                 'venue_template_id' => $venueTemplateId,
-                'audio_path'        => $audioPath,
-                'custom_logo_path'  => $logoPath,
-                'custom_domain'     => $customDomain,
-                'visual_overrides'  => $this->normalizeVisualOverrides(
+                'audio_path' => $audioPath,
+                'custom_logo_path' => $logoPath,
+                'custom_domain' => $customDomain,
+                'visual_overrides' => $this->normalizeVisualOverrides(
                     $this->parseVisualOverrides($validated['visual_overrides_json'] ?? null),
                     $venueTemplateId ? VenueTemplate::find($venueTemplateId) : null
                 ),
@@ -152,12 +153,13 @@ class GalleryController extends Controller
             $this->deleteFilesQuietly(array_filter([$audioPath, $logoPath]));
 
             \Log::error('Gallery::create failed', [
-                'message'  => $e->getMessage(),
-                'title'    => $validated['title'] ?? null,
-                'user_id'  => $user->id,
+                'message' => $e->getMessage(),
+                'title' => $validated['title'] ?? null,
+                'user_id' => $user->id,
                 'venue_id' => $venueTemplateId,
-                'layout'   => $validated['room_layout'] ?? null,
+                'layout' => $validated['room_layout'] ?? null,
             ]);
+
             return back()
                 ->withInput()
                 ->with('error', 'We couldn\'t create your gallery — nothing was lost. Please try again; if it keeps failing, contact support and mention what you were doing.');
@@ -165,12 +167,13 @@ class GalleryController extends Controller
 
         if ($customDomain) {
             $result = $this->coolify->addDomain($customDomain);
-            if (!$result['success']) {
+            if (! $result['success']) {
                 \Log::warning('Coolify domain registration deferred.', [
                     'gallery_id' => $gallery->id,
-                    'domain'     => $customDomain,
-                    'reason'     => $result['message'],
+                    'domain' => $customDomain,
+                    'reason' => $result['message'],
                 ]);
+
                 // Surface a soft warning to the user via session flash
                 return redirect()->route('admin.galleries.edit', $gallery)
                     ->with('status', 'Gallery created as a draft — upload your artworks, then publish.')
@@ -187,15 +190,15 @@ class GalleryController extends Controller
                     ->send(new \App\Mail\FirstGalleryCreatedEmail($user, $gallery));
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('FirstGalleryCreatedEmail send failed', [
-                    'user_id'    => $user->id,
+                    'user_id' => $user->id,
                     'gallery_id' => $gallery->id,
-                    'error'      => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
 
         return redirect()->route('admin.galleries.edit', $gallery)
-                         ->with('status', 'Gallery created as a draft — upload your artworks, then publish.');
+            ->with('status', 'Gallery created as a draft — upload your artworks, then publish.');
     }
 
     // ── Publish / Unpublish ─────────────────────────────────────────────
@@ -209,6 +212,7 @@ class GalleryController extends Controller
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json(['success' => false, 'message' => $message], 422);
             }
+
             return back()->with('error', $message);
         }
 
@@ -225,6 +229,7 @@ class GalleryController extends Controller
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['success' => true, 'message' => $message, 'is_active' => true]);
         }
+
         return back()->with('status', $message);
     }
 
@@ -242,6 +247,7 @@ class GalleryController extends Controller
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['success' => true, 'message' => $message, 'is_active' => false]);
         }
+
         return back()->with('status', $message);
     }
 
@@ -265,28 +271,34 @@ class GalleryController extends Controller
             'published_at',
         ]);
 
-        $clone->title       = $gallery->title . ' (Copy)';
-        $clone->slug        = null; // boot() will generate a new one
-        $clone->view_count  = 0;
-        $clone->is_active   = $gallery->is_active;
+        $clone->title = $gallery->title.' (Copy)';
+        $clone->slug = null; // boot() will generate a new one
+        $clone->view_count = 0;
+        $clone->is_active = $gallery->is_active;
         $clone->published_at = $gallery->is_active ? now() : null;
         $clone->is_featured = false;
         $clone->custom_domain_verification_token = null;
-        $clone->custom_domain_verified_at        = null;
+        $clone->custom_domain_verified_at = null;
 
         // Copy audio + logo files on disk so the clone is independent
         if ($gallery->audio_path) {
             $newPath = $this->copyFile($gallery->audio_path, 'audio');
-            if ($newPath) $clone->audio_path = $newPath;
+            if ($newPath) {
+                $clone->audio_path = $newPath;
+            }
         }
         if ($gallery->custom_logo_path) {
             $newPath = $this->copyFile($gallery->custom_logo_path, 'branding');
-            if ($newPath) $clone->custom_logo_path = $newPath;
+            if ($newPath) {
+                $clone->custom_logo_path = $newPath;
+            }
         }
         // Also copy the curtain logo
         if ($gallery->curtain_logo_path) {
             $newPath = $this->copyFile($gallery->curtain_logo_path, 'branding');
-            if ($newPath) $clone->curtain_logo_path = $newPath;
+            if ($newPath) {
+                $clone->curtain_logo_path = $newPath;
+            }
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($gallery, $clone) {
@@ -295,39 +307,41 @@ class GalleryController extends Controller
             // Copy all images — duplicate files on disk + create new GalleryImage rows
             foreach ($gallery->images()->orderBy('position_order')->get() as $image) {
                 $newImagePath = $this->copyFile($image->path, 'gallery-images');
-                if (!$newImagePath) {
+                if (! $newImagePath) {
                     \Log::warning("Duplicate: failed to copy image {$image->path}");
+
                     continue;
                 }
                 \App\Models\GalleryImage::create([
-                'gallery_id'     => $clone->id,
-                'filename'       => $image->filename,
-                'original_name'  => $image->original_name,
-                'path'           => $newImagePath,
-                'mime_type'      => $image->mime_type,
-                'size'           => $image->size,
-                'width'          => $image->width,
-                'height'         => $image->height,
-                'orientation'    => $image->orientation,
-                'position_order' => $image->position_order,
-                'wall_position'  => $image->wall_position,
-                'title'          => $image->title,
-                'description'    => $image->description,
-                'artist_id'      => $image->artist_id,
-                'price'          => $image->price,
-                'currency'       => $image->currency,
-                'for_sale'       => $image->for_sale,
-                'medium'         => $image->medium,
-                'year'           => $image->year,
-                'dimensions'     => $image->dimensions,
-                'edition_size'   => $image->edition_size,
-                'edition_number' => $image->edition_number,
-                'external_url'   => $image->external_url,
+                    'gallery_id' => $clone->id,
+                    'filename' => $image->filename,
+                    'original_name' => $image->original_name,
+                    'path' => $newImagePath,
+                    'mime_type' => $image->mime_type,
+                    'size' => $image->size,
+                    'width' => $image->width,
+                    'height' => $image->height,
+                    'orientation' => $image->orientation,
+                    'position_order' => $image->position_order,
+                    'wall_position' => $image->wall_position,
+                    'title' => $image->title,
+                    'description' => $image->description,
+                    'artist_id' => $image->artist_id,
+                    'price' => $image->price,
+                    'currency' => $image->currency,
+                    'for_sale' => $image->for_sale,
+                    'medium' => $image->medium,
+                    'year' => $image->year,
+                    'dimensions' => $image->dimensions,
+                    'edition_size' => $image->edition_size,
+                    'edition_number' => $image->edition_number,
+                    'external_url' => $image->external_url,
                 ]);
             }
         });
 
         $redirectParams = $team ? ['team' => $team->id] : [];
+
         return redirect()
             ->route('admin.galleries.index', $redirectParams)
             ->with('status', "Gallery duplicated as \"{$clone->title}\".");
@@ -336,6 +350,7 @@ class GalleryController extends Controller
     public function show(Gallery $gallery)
     {
         $this->authorizeGalleryAccess($gallery);
+
         return redirect()->route('admin.galleries.edit', $gallery);
     }
 
@@ -397,7 +412,7 @@ class GalleryController extends Controller
 
         $planHolder = $this->galleryPlanHolder($gallery);
 
-        if (!empty($validated['venue_template_id'])
+        if (! empty($validated['venue_template_id'])
             && ($redirect = $this->assertVenueAccessibleForPlan($validated['venue_template_id'], $planHolder))) {
             return $redirect;
         }
@@ -408,7 +423,7 @@ class GalleryController extends Controller
         $this->handleVenueTemplate($validated);
 
         $submittedVenueId = $validated['venue_template_id'] ?? null;
-        if (!empty($submittedVenueId)
+        if (! empty($submittedVenueId)
             && (int) $submittedVenueId !== (int) $gallery->venue_template_id) {
             $validated['visual_overrides'] = null;
             unset($validated['visual_overrides_json']);
@@ -417,7 +432,7 @@ class GalleryController extends Controller
             if ($newVenue) {
                 $venueDefaults = $newVenue->default_settings ?? [];
                 foreach (['wall_texture', 'floor_material', 'frame_style', 'lighting_preset', 'room_layout'] as $exhibitionKey) {
-                    if (!empty($venueDefaults[$exhibitionKey])) {
+                    if (! empty($venueDefaults[$exhibitionKey])) {
                         $validated[$exhibitionKey] = $venueDefaults[$exhibitionKey];
                     }
                 }
@@ -442,17 +457,17 @@ class GalleryController extends Controller
         if (array_key_exists('seo_title', $validated) || array_key_exists('seo_description', $validated)) {
             $profile = $gallery->seoProfileOrCreate();
             $profile->fill([
-                'title_override'       => $validated['seo_title'] ?? null,
+                'title_override' => $validated['seo_title'] ?? null,
                 'description_override' => $validated['seo_description'] ?? null,
-                'updated_by'           => $request->user()->id,
+                'updated_by' => $request->user()->id,
             ])->save();
             unset($validated['seo_title'], $validated['seo_description']);
         }
 
         // Remove non-fillable keys before update
         unset($validated['gallery_pin'], $validated['clear_pin'], $validated['audio'], $validated['custom_logo'],
-              $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
-              $validated['curtain_bg_color_text'], $validated['visual_overrides_json']);
+            $validated['curtain_logo'], $validated['clear_curtain_logo'], $validated['clear_curtain_bg'],
+            $validated['curtain_bg_color_text'], $validated['visual_overrides_json']);
 
         try {
             $gallery->update($validated);
@@ -483,6 +498,7 @@ class GalleryController extends Controller
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json(['success' => true, 'message' => 'Gallery settings updated!']);
         }
+
         return back()->with('status', 'Gallery settings updated!');
     }
 
@@ -493,20 +509,26 @@ class GalleryController extends Controller
 
         // Audio (Pro+)
         if ($request->hasFile('audio') && $planHolder->isPro()) {
-            if ($gallery->audio_path) $staleFiles[] = $gallery->audio_path;
+            if ($gallery->audio_path) {
+                $staleFiles[] = $gallery->audio_path;
+            }
             $uploadedFiles[] = $validated['audio_path'] = $request->file('audio')->store('audio', 'public');
         }
 
         // Custom logo (Studio only)
         if ($request->hasFile('custom_logo') && $planHolder->plan === 'studio') {
-            if ($gallery->custom_logo_path) $staleFiles[] = $gallery->custom_logo_path;
+            if ($gallery->custom_logo_path) {
+                $staleFiles[] = $gallery->custom_logo_path;
+            }
             $uploadedFiles[] = $validated['custom_logo_path'] = $request->file('custom_logo')->store('branding', 'public');
         }
 
         // Curtain logo (Studio only) — upload or clear
         if ($planHolder->plan === 'studio') {
             if ($request->hasFile('curtain_logo')) {
-                if ($gallery->curtain_logo_path) $staleFiles[] = $gallery->curtain_logo_path;
+                if ($gallery->curtain_logo_path) {
+                    $staleFiles[] = $gallery->curtain_logo_path;
+                }
                 $uploadedFiles[] = $validated['curtain_logo_path'] = $request->file('curtain_logo')->store('branding', 'public');
             } elseif ($request->boolean('clear_curtain_logo') && $gallery->curtain_logo_path) {
                 $staleFiles[] = $gallery->curtain_logo_path;
@@ -516,8 +538,8 @@ class GalleryController extends Controller
             // Curtain background color — clear or validate hex
             if ($request->boolean('clear_curtain_bg')) {
                 $validated['curtain_bg_color'] = null;
-            } elseif (!empty($validated['curtain_bg_color'])) {
-                if (!preg_match('/^#[0-9a-fA-F]{6}$/', $validated['curtain_bg_color'])) {
+            } elseif (! empty($validated['curtain_bg_color'])) {
+                if (! preg_match('/^#[0-9a-fA-F]{6}$/', $validated['curtain_bg_color'])) {
                     $validated['curtain_bg_color'] = null;
                 }
             }
@@ -543,7 +565,7 @@ class GalleryController extends Controller
                 \Storage::disk('public')->delete($path);
             } catch (\Throwable $e) {
                 \Log::warning('GalleryController: file cleanup failed', [
-                    'path'  => $path,
+                    'path' => $path,
                     'error' => $e->getMessage(),
                 ]);
             }
@@ -559,7 +581,7 @@ class GalleryController extends Controller
         }
 
         if ($planHolder->isPro()) {
-            $validated['opens_at']  = $validated['opens_at']  ?? null;
+            $validated['opens_at'] = $validated['opens_at'] ?? null;
             $validated['closes_at'] = $validated['closes_at'] ?? null;
         } else {
             unset($validated['opens_at'], $validated['closes_at']);
@@ -569,7 +591,7 @@ class GalleryController extends Controller
     private function handleVenueTemplate(array &$validated): void
     {
         if (array_key_exists('venue_template_id', $validated)) {
-            $validated['venue_template_id'] = !empty($validated['venue_template_id'])
+            $validated['venue_template_id'] = ! empty($validated['venue_template_id'])
                 ? $validated['venue_template_id']
                 : null;
         }
@@ -583,7 +605,7 @@ class GalleryController extends Controller
 
         $cd = $validated['custom_domain'];
 
-        if (!empty($cd) && $planHolder->plan === 'studio') {
+        if (! empty($cd) && $planHolder->plan === 'studio') {
             // Studio user setting a new domain
             $cd = $this->normaliseCustomDomain($cd);
             $exists = Gallery::where('custom_domain', $cd)
@@ -635,14 +657,14 @@ class GalleryController extends Controller
         if ($request->attributes->has('_pending_domain_token')) {
             $gallery->forceFill([
                 'custom_domain_verification_token' => $request->attributes->get('_pending_domain_token'),
-                'custom_domain_verified_at'        => null,
+                'custom_domain_verified_at' => null,
             ])->save();
 
             session()->flash('info', 'Custom domain saved. Add the TXT record shown below to your DNS, then click "Verify domain".');
         } elseif ($request->attributes->get('_clear_domain_verification')) {
             $gallery->forceFill([
                 'custom_domain_verification_token' => null,
-                'custom_domain_verified_at'        => null,
+                'custom_domain_verified_at' => null,
             ])->save();
         }
     }
@@ -686,9 +708,10 @@ class GalleryController extends Controller
             \Illuminate\Support\Facades\Cache::forget("custom_domain:{$gallery->custom_domain}");
             \Log::warning('Coolify domain registration failed after DNS verification.', [
                 'gallery_id' => $gallery->id,
-                'domain'     => $gallery->custom_domain,
-                'reason'     => $coolifyResult['message'],
+                'domain' => $gallery->custom_domain,
+                'reason' => $coolifyResult['message'],
             ]);
+
             return back()->with('warning', "DNS record confirmed, but Coolify could not register the domain: {$coolifyResult['message']} We retry automatically every hour, or click \"Verify domain now\" again.");
         }
 
@@ -707,6 +730,7 @@ class GalleryController extends Controller
             \Log::info('Custom domain DNS lookup failed (no array returned)', [
                 'host' => $host,
             ]);
+
             return false;
         }
 
@@ -750,23 +774,23 @@ class GalleryController extends Controller
 
         // Log gallery deletion. 'name' is PII — auto-scrubbed.
         AdminAuditLog::record('gallery.deleted', $gallery, [
-            'title'                 => $gallery->title,
-            'slug'                  => $gallery->slug,
-            'team_id'               => $teamId,
-            'had_custom_domain'     => $hadCustomDomain,
+            'title' => $gallery->title,
+            'slug' => $gallery->slug,
+            'team_id' => $teamId,
+            'had_custom_domain' => $hadCustomDomain,
             'custom_domain_verified' => $wasDomainVerified,
         ]);
 
         return redirect()->route('admin.galleries.index', $teamId ? ['team' => $teamId] : [])
-                         ->with('status', 'Gallery deleted.');
+            ->with('status', 'Gallery deleted.');
     }
 
     public function reorderImages(Request $request, Gallery $gallery)
     {
         $this->authorizeGalleryAccess($gallery, requireEdit: true);
         $request->validate([
-            'order'      => 'required|array|max:500',
-            'order.*'    => 'integer|distinct',
+            'order' => 'required|array|max:500',
+            'order.*' => 'integer|distinct',
         ]);
 
         // Reindex first: a JSON object body yields string keys, and the
@@ -806,10 +830,14 @@ class GalleryController extends Controller
                 }
                 throw $e;
             }
-            if ($oldPath) \Storage::disk('public')->delete($oldPath);
-            return response()->json(['success' => true, 'message' => 'Background music uploaded successfully!', 'audio_url' => asset('storage/' . $audioPath), 'filename' => basename($audioPath)]);
+            if ($oldPath) {
+                \Storage::disk('public')->delete($oldPath);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Background music uploaded successfully!', 'audio_url' => asset('storage/'.$audioPath), 'filename' => basename($audioPath)]);
         } catch (\Exception $e) {
-            \Log::error('Audio upload failed: ' . $e->getMessage());
+            \Log::error('Audio upload failed: '.$e->getMessage());
+
             return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
         }
     }
@@ -836,10 +864,14 @@ class GalleryController extends Controller
                 }
                 throw $e;
             }
-            if ($oldPath) \Storage::disk('public')->delete($oldPath);
-            return response()->json(['success' => true, 'message' => 'Custom logo uploaded successfully!', 'logo_url' => asset('storage/' . $logoPath), 'filename' => basename($logoPath)]);
+            if ($oldPath) {
+                \Storage::disk('public')->delete($oldPath);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Custom logo uploaded successfully!', 'logo_url' => asset('storage/'.$logoPath), 'filename' => basename($logoPath)]);
         } catch (\Exception $e) {
-            \Log::error('Logo upload failed: ' . $e->getMessage());
+            \Log::error('Logo upload failed: '.$e->getMessage());
+
             return response()->json(['success' => false, 'message' => 'Upload failed. Please try again.'], 500);
         }
     }
@@ -849,9 +881,12 @@ class GalleryController extends Controller
         if (! $teamId) {
             $teamId = $user->current_team_id;
         }
-        if (! $teamId) return null;
+        if (! $teamId) {
+            return null;
+        }
 
         $team = Team::find($teamId);
+
         return ($team && $user->belongsToTeam($team)) ? $team : null;
     }
 
@@ -860,9 +895,12 @@ class GalleryController extends Controller
         if (! $teamId) {
             $teamId = $user->current_team_id;
         }
-        if (! $teamId) return null;
+        if (! $teamId) {
+            return null;
+        }
 
         $team = Team::find($teamId);
+
         return ($team && $team->canEdit($user)) ? $team : null;
     }
 
@@ -872,6 +910,7 @@ class GalleryController extends Controller
             if (! $user->canCreateGallery()) {
                 return redirect()->route('admin.galleries.index')->with('upgrade', true);
             }
+
             return null;
         }
 
@@ -889,48 +928,60 @@ class GalleryController extends Controller
         $domain = preg_replace('#^https?://#', '', $domain);
         $domain = explode('/', $domain)[0];
         $domain = explode(':', $domain)[0];
+
         return $domain;
     }
 
     private function copyFile(?string $path, string $folder): ?string
     {
-        if (!$path) return null;
+        if (! $path) {
+            return null;
+        }
         try {
             $disk = Storage::disk('public');
-            if (!$disk->exists($path)) return null;
+            if (! $disk->exists($path)) {
+                return null;
+            }
             $ext = pathinfo($path, PATHINFO_EXTENSION);
-            $newName = $folder . '/' . \Str::random(40) . ($ext ? '.' . $ext : '');
+            $newName = $folder.'/'.\Str::random(40).($ext ? '.'.$ext : '');
             $disk->copy($path, $newName);
+
             return $newName;
         } catch (\Throwable $e) {
             \Log::warning("copyFile failed for {$path}: {$e->getMessage()}");
+
             return null;
         }
     }
 
     private function parseVisualOverrides(?string $json): ?array
     {
-        if (!$json || trim($json) === '') return null;
+        if (! $json || trim($json) === '') {
+            return null;
+        }
         $decoded = json_decode($json, true);
-        if (!is_array($decoded)) return null;
+        if (! is_array($decoded)) {
+            return null;
+        }
 
         // The payload must be a flat map of scalar settings per bucket;
         // nested or oversized structures are dropped before persistence.
         $decoded = VenueConfigExporter::sanitizeGalleryOverrides($decoded);
 
         $clean = [
-            'visual_config'   => is_array($decoded['visual_config']   ?? null) ? $decoded['visual_config']   : [],
+            'visual_config' => is_array($decoded['visual_config'] ?? null) ? $decoded['visual_config'] : [],
             'material_config' => is_array($decoded['material_config'] ?? null) ? $decoded['material_config'] : [],
-            'post_fx'         => is_array($decoded['post_fx']         ?? null) ? $decoded['post_fx']         : [],
+            'post_fx' => is_array($decoded['post_fx'] ?? null) ? $decoded['post_fx'] : [],
         ];
 
-        $clean = array_filter($clean, fn ($bucket) => !empty($bucket));
+        $clean = array_filter($clean, fn ($bucket) => ! empty($bucket));
+
         return empty($clean) ? null : $clean;
     }
 
     private function normalizeVisualOverrides(?array $overrides, ?VenueTemplate $venue): ?array
     {
-        if (!$overrides || !$venue) {
+        if (! $overrides || ! $venue) {
             return $overrides;
         }
 
@@ -939,7 +990,7 @@ class GalleryController extends Controller
                 unset($overrides['visual_config'][$key]);
             }
         }
-        if (!empty($overrides['material_config'])) {
+        if (! empty($overrides['material_config'])) {
             foreach (VenueConfigExporter::VENUE_OWNED_MATERIAL_KEYS as $owned) {
                 unset($overrides['material_config'][$owned]);
             }
@@ -952,15 +1003,15 @@ class GalleryController extends Controller
             unset($overrides['material_config']);
         }
 
-        $venueVisual   = is_array($venue->visual_config)   ? $venue->visual_config   : [];
+        $venueVisual = is_array($venue->visual_config) ? $venue->visual_config : [];
         $venueMaterial = is_array($venue->material_config) ? $venue->material_config : [];
         // The venue declares post-processing INSIDE visual_config.post_fx.
-        $venuePostFx   = is_array($venueVisual['post_fx'] ?? null) ? $venueVisual['post_fx'] : [];
+        $venuePostFx = is_array($venueVisual['post_fx'] ?? null) ? $venueVisual['post_fx'] : [];
 
         $buckets = [
-            'visual_config'   => $venueVisual,
+            'visual_config' => $venueVisual,
             'material_config' => $venueMaterial,
-            'post_fx'         => $venuePostFx,
+            'post_fx' => $venuePostFx,
         ];
 
         foreach ($buckets as $bucket => $defaults) {
@@ -968,9 +1019,10 @@ class GalleryController extends Controller
                 continue;
             }
             foreach ($overrides[$bucket] as $key => $value) {
-                if (!array_key_exists($key, $defaults)) {
+                if (! array_key_exists($key, $defaults)) {
                     // Undeclared in the venue — a real deviation either way.
                     $overrides[$bucket][$key] = $this->canonicalizeOverrideValue($value);
+
                     continue;
                 }
                 if ($this->overrideValueEquals($value, $defaults[$key])) {
@@ -995,16 +1047,19 @@ class GalleryController extends Controller
         if (is_string($a) && is_string($b)) {
             $ca = $this->canonicalizeOverrideValue($a);
             $cb = $this->canonicalizeOverrideValue($b);
+
             return $ca === $cb;
         }
+
         return $a === $b;
     }
 
     private function canonicalizeOverrideValue($value)
     {
         if (is_string($value) && preg_match('/^(?:0x|#)([0-9a-fA-F]{6})$/', $value, $m)) {
-            return '0x' . strtolower($m[1]);
+            return '0x'.strtolower($m[1]);
         }
+
         return $value;
     }
 
@@ -1016,61 +1071,61 @@ class GalleryController extends Controller
         ];
 
         return [
-            'id'          => $gallery->id,
-            'title'       => $gallery->title,
+            'id' => $gallery->id,
+            'title' => $gallery->title,
             'description' => $gallery->description,
-            'wall_texture'    => $gallery->wall_texture,
-            'floor_material'  => $gallery->floor_material,
-            'frame_style'     => $gallery->frame_style,
+            'wall_texture' => $gallery->wall_texture,
+            'floor_material' => $gallery->floor_material,
+            'frame_style' => $gallery->frame_style,
             'lighting_preset' => $preset,
-            'room_layout'     => $layout,
-            'venue_slug'      => $gallery->venueTemplate?->slug,
-            'venueConfig'     => $venueConfig,
-            'images' => $gallery->images->map(fn($img) => array_filter([
-                'id'             => $img->id,
-                'url'            => asset($img->path),
-                'textures'       => [
-                    'thumb'  => $img->conversionUrl('thumb'),
-                    'small'  => $img->conversionUrl('small'),
+            'room_layout' => $layout,
+            'venue_slug' => $gallery->venueTemplate?->slug,
+            'venueConfig' => $venueConfig,
+            'images' => $gallery->images->map(fn ($img) => array_filter([
+                'id' => $img->id,
+                'url' => asset($img->path),
+                'textures' => [
+                    'thumb' => $img->conversionUrl('thumb'),
+                    'small' => $img->conversionUrl('small'),
                     'medium' => $img->conversionUrl('medium'),
-                    'large'  => $img->conversionUrl('large'),
+                    'large' => $img->conversionUrl('large'),
                 ],
-                'width'          => $img->width,
-                'height'         => $img->height,
-                'aspectRatio'    => $img->width / max($img->height, 1),
-                'orientation'    => $img->orientation,
-                'title'          => $img->title ?? $img->original_name,
-                'description'    => $img->description,
-                'artist'         => $img->artist ? [
-                    'id'     => $img->artist->id,
-                    'name'   => $img->artist->name,
-                    'slug'   => $img->artist->slug,
-                    'url'    => route('artist.profile', $img->artist->slug),
+                'width' => $img->width,
+                'height' => $img->height,
+                'aspectRatio' => $img->width / max($img->height, 1),
+                'orientation' => $img->orientation,
+                'title' => $img->title ?? $img->original_name,
+                'description' => $img->description,
+                'artist' => $img->artist ? [
+                    'id' => $img->artist->id,
+                    'name' => $img->artist->name,
+                    'slug' => $img->artist->slug,
+                    'url' => route('artist.profile', $img->artist->slug),
                 ] : null,
-                'price'          => $img->price ? (float) $img->price : null,
-                'currency'       => $img->currency,
+                'price' => $img->price ? (float) $img->price : null,
+                'currency' => $img->currency,
                 'formattedPrice' => $img->formattedPrice(),
-                'forSale'        => (bool) $img->for_sale,
-                'medium'         => $img->medium,
-                'year'           => $img->year,
-                'dimensions'     => $img->dimensions,
-                'edition'        => $img->formattedEdition(),
-                'externalUrl'    => $img->external_url,
+                'forSale' => (bool) $img->for_sale,
+                'medium' => $img->medium,
+                'year' => $img->year,
+                'dimensions' => $img->dimensions,
+                'edition' => $img->formattedEdition(),
+                'externalUrl' => $img->external_url,
             ], fn ($v) => $v !== null))->values(),
-            'imageCount'     => $gallery->images->count(),
-            'audioUrl'       => $gallery->audio_path ? asset('storage/' . $gallery->audio_path) : null,
-            'userPlan'       => $gallery->user->plan ?? 'free',
-            'customLogoUrl'  => ($gallery->custom_logo_path && $gallery->user->plan === 'studio')
-                                    ? asset('storage/' . $gallery->custom_logo_path)
+            'imageCount' => $gallery->images->count(),
+            'audioUrl' => $gallery->audio_path ? asset('storage/'.$gallery->audio_path) : null,
+            'userPlan' => $gallery->user->plan ?? 'free',
+            'customLogoUrl' => ($gallery->custom_logo_path && $gallery->user->plan === 'studio')
+                                    ? asset('storage/'.$gallery->custom_logo_path)
                                     : null,
             'curtainLogoUrl' => ($gallery->curtain_logo_path && $gallery->user->plan === 'studio')
-                                    ? asset('storage/' . $gallery->curtain_logo_path)
+                                    ? asset('storage/'.$gallery->curtain_logo_path)
                                     : null,
             'curtainBgColor' => ($gallery->curtain_bg_color && $gallery->user->plan === 'studio')
                                     ? $gallery->curtain_bg_color
                                     : null,
-            'newsletterUrl'  => $isPreview ? null : route('gallery.newsletter', $gallery->slug),
-            'eventsUrl'      => $isPreview ? null : route('gallery.events.index', $gallery->slug),
+            'newsletterUrl' => $isPreview ? null : route('gallery.newsletter', $gallery->slug),
+            'eventsUrl' => $isPreview ? null : route('gallery.events.index', $gallery->slug),
             'hasUpcomingEvents' => $isPreview ? false : $gallery->scheduleEvents()->active()->upcoming()->exists(),
 
             'arrival_enabled' => \App\Services\FeatureFlag::isEnabled('arrival_choreography'),
@@ -1086,15 +1141,15 @@ class GalleryController extends Controller
         }
 
         \Log::warning('Venue plan-tier enforcement: rejected venue above plan', [
-            'venue_id'        => $venueTemplateId,
-            'venue_plan'      => $venue?->plan_required,
-            'plan_holder_id'  => $planHolder->id,
-            'plan'            => $planHolder->plan,
+            'venue_id' => $venueTemplateId,
+            'venue_plan' => $venue?->plan_required,
+            'plan_holder_id' => $planHolder->id,
+            'plan' => $planHolder->plan,
         ]);
 
         return back()->withInput()->with('error',
-            "The \"{$venue->name}\" venue requires the " . ucfirst($venue->plan_required) .
-            " plan. Please choose a venue available on your current plan or upgrade."
+            "The \"{$venue->name}\" venue requires the ".ucfirst($venue->plan_required).
+            ' plan. Please choose a venue available on your current plan or upgrade.'
         );
     }
 
@@ -1113,36 +1168,36 @@ class GalleryController extends Controller
     private function galleryValidationRules(bool $isUpdate = false): array
     {
         $rules = [
-            'title'           => 'required|string|max:255',
-            'description'     => 'nullable|string|max:1000',
-            'seo_title'       => 'nullable|string|max:200',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'seo_title' => 'nullable|string|max:200',
             'seo_description' => 'nullable|string|max:300',
-            'wall_texture'    => 'required|in:white,concrete,brick,wood,plaster,marble,velvet',
-            'frame_style'     => 'required|in:modern,classic,minimal,gold,silver,bronze,black',
+            'wall_texture' => 'required|in:white,concrete,brick,wood,plaster,marble,velvet',
+            'frame_style' => 'required|in:modern,classic,minimal,gold,silver,bronze,black',
             'lighting_preset' => 'required|in:bright,moody,dramatic',
-            'floor_material'  => 'required|in:wood,marble,concrete,terrazzo,grass,sand',
-            'room_layout'     => 'required|in:square,corridor,l-shape,rotunda',
+            'floor_material' => 'required|in:wood,marble,concrete,terrazzo,grass,sand',
+            'room_layout' => 'required|in:square,corridor,l-shape,rotunda',
             'venue_template_id' => ['nullable', 'integer',
                 \Illuminate\Validation\Rule::exists('venue_templates', 'id')
                     ->where(fn ($q) => $q->where('is_active', true)->where('is_draft', false)),
             ],
-            'gallery_pin'     => 'nullable|digits:4',
-            'opens_at'        => 'nullable|date',
-            'closes_at'       => 'nullable|date|after_or_equal:opens_at',
-            'audio'           => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
-            'custom_logo'     => 'nullable|file|mimes:png,jpg,jpeg|max:2048',
-            'custom_domain'   => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9-]+\.)+[a-z]{2,}$/i'],
+            'gallery_pin' => 'nullable|digits:4',
+            'opens_at' => 'nullable|date',
+            'closes_at' => 'nullable|date|after_or_equal:opens_at',
+            'audio' => 'nullable|file|mimes:mp3,wav,m4a|max:10240',
+            'custom_logo' => 'nullable|file|mimes:png,jpg,jpeg|max:2048',
+            'custom_domain' => ['nullable', 'string', 'max:255', 'regex:/^([a-z0-9-]+\.)+[a-z]{2,}$/i'],
             // NEW (Round 4) — Branded entrance curtain (Studio only)
-            'curtain_logo'        => 'nullable|file|mimes:png,jpeg,webp|max:2048',
-            'curtain_bg_color'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'curtain_logo' => 'nullable|file|mimes:png,jpeg,webp|max:2048',
+            'curtain_bg_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'curtain_bg_color_text' => 'nullable|string|max:20',
             'visual_overrides_json' => ['nullable', 'string', 'max:16000', 'regex:/^\s*(\{.*\}|\[\])?\s*$/s'],
         ];
 
         if ($isUpdate) {
-            $rules['clear_pin']          = 'nullable|boolean';
+            $rules['clear_pin'] = 'nullable|boolean';
             $rules['clear_curtain_logo'] = 'nullable|boolean';
-            $rules['clear_curtain_bg']   = 'nullable|boolean';
+            $rules['clear_curtain_bg'] = 'nullable|boolean';
         }
 
         return $rules;

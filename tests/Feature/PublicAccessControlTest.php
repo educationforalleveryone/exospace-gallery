@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
 use App\Models\GalleryScheduleEvent;
@@ -29,28 +28,28 @@ class PublicAccessControlTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'    => $user->id,
-            'title'      => 'Gated Show',
-            'slug'       => 'gated-show-' . uniqid(),
-            'description'=> 'A survey of new digital works.',
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'title' => 'Gated Show',
+            'slug' => 'gated-show-'.uniqid(),
+            'description' => 'A survey of new digital works.',
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
-            'title'         => 'Hidden Masterpiece',
-            'description'   => 'A richly documented work with enough descriptive depth to pass the quality gate.',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
+            'title' => 'Hidden Masterpiece',
+            'description' => 'A richly documented work with enough descriptive depth to pass the quality gate.',
         ], $attrs));
     }
 
@@ -144,10 +143,10 @@ class PublicAccessControlTest extends TestCase
         $gallery = $this->pinGallery();
         GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Private Vernissage',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(3),
-            'is_active'  => true,
+            'title' => 'Private Vernissage',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(3),
+            'is_active' => true,
         ]);
 
         $response = $this->get("/gallery/{$gallery->slug}/events");
@@ -161,10 +160,10 @@ class PublicAccessControlTest extends TestCase
         $gallery = $this->pinGallery();
         GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Private Vernissage',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(3),
-            'is_active'  => true,
+            'title' => 'Private Vernissage',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(3),
+            'is_active' => true,
         ]);
 
         $this
@@ -187,10 +186,10 @@ class PublicAccessControlTest extends TestCase
         $gallery = $this->makeGallery(['opens_at' => now()->addDays(7)]);
         GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Opening Night',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(6),
-            'is_active'  => true,
+            'title' => 'Opening Night',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(6),
+            'is_active' => true,
         ]);
 
         $this->get("/gallery/{$gallery->slug}/events")
@@ -204,14 +203,14 @@ class PublicAccessControlTest extends TestCase
         $gallery = $this->pinGallery();
         $event = GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Private Vernissage',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(3),
-            'is_active'  => true,
+            'title' => 'Private Vernissage',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(3),
+            'is_active' => true,
         ]);
 
         $response = $this->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", [
-            'name'  => 'Sneaky Visitor',
+            'name' => 'Sneaky Visitor',
             'email' => 'sneaky@example.com',
         ]);
 
@@ -225,22 +224,22 @@ class PublicAccessControlTest extends TestCase
         $gallery = $this->pinGallery();
         $event = GalleryScheduleEvent::create([
             'gallery_id' => $gallery->id,
-            'title'      => 'Private Vernissage',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(3),
-            'is_active'  => true,
+            'title' => 'Private Vernissage',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(3),
+            'is_active' => true,
         ]);
 
         $this
             ->withSession(["pin_verified_{$gallery->id}" => true])
             ->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", [
-                'name'  => 'Invited Guest',
+                'name' => 'Invited Guest',
                 'email' => 'guest@example.com',
             ]);
 
         $this->assertDatabaseHas('event_rsvps', [
             'schedule_event_id' => $event->id,
-            'email'             => 'guest@example.com',
+            'email' => 'guest@example.com',
         ]);
     }
 }

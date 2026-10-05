@@ -36,10 +36,10 @@ class ArtistProfileController extends Controller
         $galleries = $images->groupBy('gallery_id')->map(function ($imgs) {
             return [
                 'gallery' => $imgs->first()->gallery,
-                'images'  => $imgs,
+                'images' => $imgs,
             ];
         })->filter(fn ($g) => $g['gallery'] !== null)
-          ->sortByDesc(fn ($g) => $g['gallery']->updated_at);
+            ->sortByDesc(fn ($g) => $g['gallery']->updated_at);
 
         $galleries = $galleries->values();
 
@@ -58,12 +58,12 @@ class ArtistProfileController extends Controller
             $graphs[] = [
                 '@context' => 'https://schema.org',
                 '@type' => 'ItemList',
-                'name' => 'Artworks by ' . $artist->name . ' on ' . config('seo.site_name', 'Exospace'),
+                'name' => 'Artworks by '.$artist->name.' on '.config('seo.site_name', 'Exospace'),
                 'numberOfItems' => $workCount,
                 'itemListElement' => $images->take(25)->values()->map(fn ($img, $i) => [
                     '@type' => 'ListItem',
                     'position' => $i + 1,
-                    'url' => url('/gallery/' . $img->gallery->slug . '/artwork/' . $img->id),
+                    'url' => url('/gallery/'.$img->gallery->slug.'/artwork/'.$img->id),
                     'name' => $img->title ?: $img->original_name ?: 'Untitled',
                 ])->all(),
             ];

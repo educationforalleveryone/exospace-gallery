@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class VenueDarkMuseumTest extends TestCase
@@ -12,30 +12,30 @@ class VenueDarkMuseumTest extends TestCase
     use RefreshDatabase;
 
     public const DEEPENED_VISUAL = [
-        'fog_near'              => 12,
-        'fog_far'               => 70,
-        'ambient_intensity'     => 3.2,
-        'spot_intensity'        => 1.9,
-        'fill_intensity'        => 0.5,
+        'fog_near' => 12,
+        'fog_far' => 70,
+        'ambient_intensity' => 3.2,
+        'spot_intensity' => 1.9,
+        'fill_intensity' => 0.5,
         'tone_mapping_exposure' => 0.8,
-        'frame_override'        => 'gold',
-        'artwork_light_base'      => 0.32,
-        'artwork_light_pool_cap'  => 14,
-        'env_intensity'           => 0.14,
-        'hemisphere_intensity'    => 0.04,
+        'frame_override' => 'gold',
+        'artwork_light_base' => 0.32,
+        'artwork_light_pool_cap' => 14,
+        'env_intensity' => 0.14,
+        'hemisphere_intensity' => 0.04,
     ];
 
     public const DEEPENED_POST_FX = [
-        'bloom'             => false,
-        'vignette'          => true,
-        'vignette_blend'    => 'black',
+        'bloom' => false,
+        'vignette' => true,
+        'vignette_blend' => 'black',
         'vignette_darkness' => 0.5,
-        'vignette_offset'   => 1.15,
+        'vignette_offset' => 1.15,
     ];
 
     public const DEEPENED_PLACEMENT = [
-        'density'          => 'generous',
-        'focal_wall'       => 'front',
+        'density' => 'generous',
+        'focal_wall' => 'front',
         'pair_orientation' => true,
     ];
 
@@ -52,7 +52,7 @@ class VenueDarkMuseumTest extends TestCase
     private function jsonCol(string $slug, string $col): array
     {
         $row = $this->venueRow($slug);
-        if (!$row) {
+        if (! $row) {
             return [];
         }
 
@@ -126,34 +126,34 @@ class VenueDarkMuseumTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         DB::table('venue_templates')->where('slug', 'dark-museum')->update([
-            'version'       => '1.0.0',
-            'description'   => 'Dramatic lighting with black walls. Premium artwork presentation with gold-leaf frames.',
+            'version' => '1.0.0',
+            'description' => 'Dramatic lighting with black walls. Premium artwork presentation with gold-leaf frames.',
             'visual_config' => json_encode([
-                'wall_height'            => 5,
-                'wall_depth'             => 0.3,
-                'ceiling_type'           => 'flat',
-                'ceiling_color'          => '0x080808',
-                'ceiling_height'         => 5,
-                'background_color'       => '0x020202',
-                'fog_color'              => '0x020202',
-                'fog_near'               => 5,
-                'fog_far'                => 18,
-                'ambient_color'          => '0xfff4e6',
-                'structure_pass'         => 'museum',
-                'ambient_intensity'      => 0.15,
-                'spot_intensity'         => 0.55,
-                'fill_intensity'         => 0.08,
-                'tone_mapping_exposure'  => 0.5,
-                'frame_override'         => 'gold',
+                'wall_height' => 5,
+                'wall_depth' => 0.3,
+                'ceiling_type' => 'flat',
+                'ceiling_color' => '0x080808',
+                'ceiling_height' => 5,
+                'background_color' => '0x020202',
+                'fog_color' => '0x020202',
+                'fog_near' => 5,
+                'fog_far' => 18,
+                'ambient_color' => '0xfff4e6',
+                'structure_pass' => 'museum',
+                'ambient_intensity' => 0.15,
+                'spot_intensity' => 0.55,
+                'fill_intensity' => 0.08,
+                'tone_mapping_exposure' => 0.5,
+                'frame_override' => 'gold',
             ]),
             'material_config' => json_encode([
-                'wall_color'            => '0x1a1a1a',
-                'wall_roughness'        => 0.85,
-                'wall_metalness'        => 0.0,
-                'wall_normal_strength'  => 0.6,
-                'floor_color'           => null,
-                'floor_roughness'       => 0.3,
-                'floor_metalness'       => 0.2,
+                'wall_color' => '0x1a1a1a',
+                'wall_roughness' => 0.85,
+                'wall_metalness' => 0.0,
+                'wall_normal_strength' => 0.6,
+                'floor_color' => null,
+                'floor_roughness' => 0.3,
+                'floor_metalness' => 0.2,
                 'floor_normal_strength' => 0.5,
             ]),
         ]);
@@ -190,9 +190,9 @@ class VenueDarkMuseumTest extends TestCase
         // An admin hand-tuned the rig BEFORE this update ships.
         DB::table('venue_templates')->where('slug', 'dark-museum')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('dark-museum'), [
-                'ambient_intensity'     => 2.5,    // custom — must survive
+                'ambient_intensity' => 2.5,    // custom — must survive
                 'tone_mapping_exposure' => 1.1,    // custom — must survive
-                'post_fx'               => ['bloom' => true], // custom — must survive
+                'post_fx' => ['bloom' => true], // custom — must survive
             ])),
         ]);
 
@@ -246,7 +246,7 @@ class VenueDarkMuseumTest extends TestCase
 
         $vc = $this->visualConfig('dark-museum');
         $exposure = (float) ($vc['tone_mapping_exposure'] ?? 0.5);
-        $this->assertLessThan(1.0, $exposure, "[dark-museum] preconditions: a dark rig.");
+        $this->assertLessThan(1.0, $exposure, '[dark-museum] preconditions: a dark rig.');
         $this->assertArrayHasKey(
             'artwork_light_base',
             $vc,
@@ -255,7 +255,7 @@ class VenueDarkMuseumTest extends TestCase
         $this->assertGreaterThanOrEqual(
             0.3,
             (float) $vc['artwork_light_base'],
-            "[dark-museum] artwork_light_base must be a real standing glow (≥ 0.3 — the museum is darker than the loft)."
+            '[dark-museum] artwork_light_base must be a real standing glow (≥ 0.3 — the museum is darker than the loft).'
         );
         $this->assertGreaterThanOrEqual(
             12,
@@ -278,7 +278,7 @@ class VenueDarkMuseumTest extends TestCase
         $vc = $this->visualConfig('dark-museum');
         foreach (['fog_near', 'fog_far', 'ambient_intensity', 'spot_intensity', 'fill_intensity', 'tone_mapping_exposure'] as $key) {
             $this->assertStringContainsString(
-                "{$key}: " . $vc[$key],
+                "{$key}: ".$vc[$key],
                 $body,
                 "[harness] dark-museum {$key} must mirror the seeded row."
             );

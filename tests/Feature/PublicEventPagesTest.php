@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Mail\EventRsvpNotification;
+use App\Models\EventRsvp;
 use App\Models\Gallery;
 use App\Models\GalleryScheduleEvent;
-use App\Models\EventRsvp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -28,11 +28,11 @@ class PublicEventPagesTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'    => $user->id,
-            'title'      => 'Scheduled Show',
-            'slug'       => 'scheduled-show-' . uniqid(),
-            'description'=> 'A gallery with a public events schedule.',
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'title' => 'Scheduled Show',
+            'slug' => 'scheduled-show-'.uniqid(),
+            'description' => 'A gallery with a public events schedule.',
+            'is_active' => true,
         ], $attrs));
     }
 
@@ -40,10 +40,10 @@ class PublicEventPagesTest extends TestCase
     {
         return GalleryScheduleEvent::create(array_merge([
             'gallery_id' => $gallery->id,
-            'title'      => 'Opening Reception',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(5),
-            'is_active'  => true,
+            'title' => 'Opening Reception',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(5),
+            'is_active' => true,
         ], $attrs));
     }
 
@@ -71,7 +71,7 @@ class PublicEventPagesTest extends TestCase
         $gallery = $this->makeGallery();
 
         $this->post("/gallery/{$gallery->slug}/events/not-an-event/rsvp", [
-            'name'  => 'Visitor',
+            'name' => 'Visitor',
             'email' => 'visitor@example.com',
         ])->assertNotFound();
     }
@@ -84,7 +84,7 @@ class PublicEventPagesTest extends TestCase
         $event = $this->addEvent($galleryA);
 
         $this->post("/gallery/{$galleryB->slug}/events/{$event->id}/rsvp", [
-            'name'  => 'Visitor',
+            'name' => 'Visitor',
             'email' => 'visitor@example.com',
         ])->assertNotFound();
 
@@ -109,18 +109,18 @@ class PublicEventPagesTest extends TestCase
     {
         $banned = User::factory()->create(['banned_at' => now()]);
         $gallery = Gallery::create([
-            'user_id'    => $banned->id,
-            'title'      => 'Banned Owner Show',
-            'slug'       => 'banned-owner-show-' . uniqid(),
-            'description'=> 'x',
-            'is_active'  => true,
+            'user_id' => $banned->id,
+            'title' => 'Banned Owner Show',
+            'slug' => 'banned-owner-show-'.uniqid(),
+            'description' => 'x',
+            'is_active' => true,
         ]);
         $event = $this->addEvent($gallery);
 
         $this->get("/gallery/{$gallery->slug}/events")->assertNotFound();
 
         $this->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", [
-            'name'  => 'Visitor',
+            'name' => 'Visitor',
             'email' => 'visitor@example.com',
         ])->assertNotFound();
         $this->assertDatabaseMissing('event_rsvps', ['schedule_event_id' => $event->id]);
@@ -133,7 +133,7 @@ class PublicEventPagesTest extends TestCase
         $event = $this->addEvent($gallery, ['is_active' => false]);
 
         $this->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", [
-            'name'  => 'Visitor',
+            'name' => 'Visitor',
             'email' => 'visitor@example.com',
         ])->assertRedirect()->assertSessionHas('error');
 
@@ -148,7 +148,7 @@ class PublicEventPagesTest extends TestCase
         $event = $this->addEvent($gallery, ['starts_at' => now()->subDay()]);
 
         $this->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", [
-            'name'  => 'Visitor',
+            'name' => 'Visitor',
             'email' => 'visitor@example.com',
         ])->assertRedirect()->assertSessionHas('error');
 
@@ -164,8 +164,8 @@ class PublicEventPagesTest extends TestCase
 
         foreach (range(1, 7) as $daysAgo) {
             $this->addEvent($gallery, [
-                'title'     => "Reception {$daysAgo} Days Ago",
-                'type'      => 'event',
+                'title' => "Reception {$daysAgo} Days Ago",
+                'type' => 'event',
                 'starts_at' => now()->subDays($daysAgo),
             ]);
         }
@@ -202,10 +202,10 @@ class PublicEventPagesTest extends TestCase
         // Stored instants are UTC: 22:00 UTC on 2030-07-01 is 18:00 EDT on the
         // same day in New York, so the end (01:00 UTC) stays on July 1 there.
         $this->addEvent($gallery, [
-            'title'     => 'Gallery Hour',
+            'title' => 'Gallery Hour',
             'starts_at' => '2030-07-01 22:00:00',
-            'ends_at'   => '2030-07-02 01:00:00',
-            'timezone'  => 'America/New_York',
+            'ends_at' => '2030-07-02 01:00:00',
+            'timezone' => 'America/New_York',
         ]);
 
         $html = $this->get("/gallery/{$gallery->slug}/events")
@@ -223,10 +223,10 @@ class PublicEventPagesTest extends TestCase
         // 03:00 UTC on 2030-07-02 is 11:00 PM EDT on July 1; 04:00 UTC on
         // 2030-07-03 is 12:00 AM EDT on July 3 — a two-calendar-day range.
         $this->addEvent($gallery, [
-            'title'     => 'Overnight Workshop',
+            'title' => 'Overnight Workshop',
             'starts_at' => '2030-07-02 03:00:00',
-            'ends_at'   => '2030-07-03 04:00:00',
-            'timezone'  => 'America/New_York',
+            'ends_at' => '2030-07-03 04:00:00',
+            'timezone' => 'America/New_York',
         ]);
 
         $html = $this->get("/gallery/{$gallery->slug}/events")
@@ -243,7 +243,7 @@ class PublicEventPagesTest extends TestCase
     {
         $gallery = $this->makeGallery();
         $this->addEvent($gallery, [
-            'title'        => 'Virtual Artist Talk',
+            'title' => 'Virtual Artist Talk',
             'location_url' => 'https://zoom.us/j/1234567890',
         ]);
 
@@ -259,7 +259,7 @@ class PublicEventPagesTest extends TestCase
     {
         $gallery = $this->makeGallery();
         $this->addEvent($gallery, [
-            'title'        => 'Streamed Walkthrough',
+            'title' => 'Streamed Walkthrough',
             'location_url' => 'https://meet.example.com/room',
         ]);
 
@@ -272,7 +272,7 @@ class PublicEventPagesTest extends TestCase
     {
         $gallery = $this->makeGallery();
         $this->addEvent($gallery, [
-            'title'        => 'Crafty Talk',
+            'title' => 'Crafty Talk',
             'location_url' => 'javascript:alert(1)',
         ]);
 
@@ -326,14 +326,14 @@ class PublicEventPagesTest extends TestCase
         $event = $this->addEvent($gallery);
 
         $this->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", [
-            'name'  => 'Curious Visitor',
+            'name' => 'Curious Visitor',
             'email' => 'visitor@example.com',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('event_rsvps', [
             'schedule_event_id' => $event->id,
-            'email'             => 'visitor@example.com',
-            'name'              => 'Curious Visitor',
+            'email' => 'visitor@example.com',
+            'name' => 'Curious Visitor',
         ]);
         Mail::assertQueued(EventRsvpNotification::class, 1);
     }
@@ -362,13 +362,13 @@ class PublicEventPagesTest extends TestCase
 
         EventRsvp::create([
             'schedule_event_id' => $event->id,
-            'name'              => 'First Guest',
-            'email'             => 'first@example.com',
-            'confirmed_at'      => now(),
+            'name' => 'First Guest',
+            'email' => 'first@example.com',
+            'confirmed_at' => now(),
         ]);
 
         $this->post("/gallery/{$gallery->slug}/events/{$event->id}/rsvp", [
-            'name'  => 'Second Guest',
+            'name' => 'Second Guest',
             'email' => 'second@example.com',
         ])->assertRedirect()->assertSessionHas('error', 'This event has reached capacity.');
 

@@ -6,7 +6,6 @@ namespace App\Ops\Logging;
 
 use App\Ops\Services\OpsEventIngestor;
 use App\Ops\Support\ErrorClassifier;
-use Illuminate\Support\Facades\App;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\Level;
 use Monolog\LogRecord;

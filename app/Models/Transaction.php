@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Transaction extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'user_id',
         'invoice_id',
@@ -44,6 +45,6 @@ class Transaction extends Model
 
     public function formattedAmount(): string
     {
-        return number_format((float) $this->amount, 2) . ' ' . $this->currency;
+        return number_format((float) $this->amount, 2).' '.$this->currency;
     }
 }

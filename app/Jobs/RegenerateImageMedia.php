@@ -16,6 +16,7 @@ class RegenerateImageMedia implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 120;
+
     public int $tries = 1;
 
     public function __construct(
@@ -33,6 +34,7 @@ class RegenerateImageMedia implements ShouldQueue
             Log::info('RegenerateImageMedia: image not found (deleted?) — skipping', [
                 'image_id' => $this->imageId,
             ]);
+
             return;
         }
 
@@ -41,6 +43,7 @@ class RegenerateImageMedia implements ShouldQueue
             Log::info('RegenerateImageMedia: skipping — already has media', [
                 'image_id' => $image->id,
             ]);
+
             return;
         }
 
@@ -52,7 +55,7 @@ class RegenerateImageMedia implements ShouldQueue
         if (! file_exists($fullPath)) {
             Log::warning('RegenerateImageMedia: file not found on disk', [
                 'image_id' => $image->id,
-                'path'     => $fullPath,
+                'path' => $fullPath,
             ]);
             throw new \RuntimeException("RegenerateImageMedia: file not found on disk for image {$image->id}: {$fullPath}");
         }

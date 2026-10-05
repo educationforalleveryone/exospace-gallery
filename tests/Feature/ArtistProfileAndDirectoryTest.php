@@ -30,26 +30,26 @@ class ArtistProfileAndDirectoryTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'     => $user->id,
-            'title'       => 'Public Show',
-            'slug'        => 'public-show',
+            'user_id' => $user->id,
+            'title' => 'Public Show',
+            'slug' => 'public-show',
             'description' => 'An open exhibition.',
-            'is_active'   => true,
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 
@@ -118,9 +118,9 @@ class ArtistProfileAndDirectoryTest extends TestCase
     public function test_social_handles_render_as_readable_labels(): void
     {
         $artist = Artist::create([
-            'name'      => 'Handle Artist',
+            'name' => 'Handle Artist',
             'instagram' => 'maya.chen',
-            'twitter'   => 'mayachen',
+            'twitter' => 'mayachen',
         ]);
         $gallery = $this->makePublicGallery();
         $this->addArtwork($gallery, ['artist_id' => $artist->id]);
@@ -150,7 +150,7 @@ class ArtistProfileAndDirectoryTest extends TestCase
         $this->addArtwork($open, ['artist_id' => $artist->id, 'title' => 'Visible Work']);
 
         $closed = $this->makePublicGallery([
-            'slug'      => 'closed-show', 'title' => 'Closed Show',
+            'slug' => 'closed-show', 'title' => 'Closed Show',
             'closes_at' => now()->subDay(),
         ]);
         $this->addArtwork($closed, ['artist_id' => $artist->id, 'title' => 'Expired Work']);
@@ -179,7 +179,7 @@ class ArtistProfileAndDirectoryTest extends TestCase
     public function test_non_http_website_scheme_is_not_rendered_as_a_link(): void
     {
         $artist = Artist::create([
-            'name'    => 'Scheme Artist',
+            'name' => 'Scheme Artist',
             'website' => 'javascript://%0Aalert(1)',
         ]);
         $gallery = $this->makePublicGallery();
@@ -237,7 +237,7 @@ class ArtistProfileAndDirectoryTest extends TestCase
 
         $html = $this->get('/artists')->getContent();
 
-        $this->assertStringContainsString('href="https://exospace.gallery/artist/' . $artist->slug . '"', $html);
+        $this->assertStringContainsString('href="https://exospace.gallery/artist/'.$artist->slug.'"', $html);
         $this->get("/artist/{$artist->slug}")->assertOk();
     }
 

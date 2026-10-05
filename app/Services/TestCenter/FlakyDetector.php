@@ -26,8 +26,7 @@ class FlakyDetector
             $runsQuery->where('profile', $profile);
         }
 
-        $runIds      = $runsQuery->pluck('id');
-        $profileOfRun= QaTestRun::whereIn('id', $runIds)->pluck('profile', 'id');
+        $runIds = $runsQuery->pluck('id');
 
         if ($runIds->isEmpty()) {
             return collect();
@@ -44,16 +43,16 @@ class FlakyDetector
         $grouped = [];
 
         foreach ($rows as $row) {
-            $key   = ($row->profile ?? '?').'|'.$row->test_identifier;
+            $key = ($row->profile ?? '?').'|'.$row->test_identifier;
             $runId = $row->qa_test_run_id;
             $isProblem = in_array($row->status, ['failed', 'error', 'timed_out'], true);
 
             if (! isset($grouped[$key][$runId])) {
                 $grouped[$key][$runId] = [
-                    'problem'     => false,
-                    'message'     => null,
-                    'profile'     => $row->profile,
-                    'identifier'  => $row->test_identifier,
+                    'problem' => false,
+                    'message' => null,
+                    'profile' => $row->profile,
+                    'identifier' => $row->test_identifier,
                 ];
             }
 
@@ -73,10 +72,10 @@ class FlakyDetector
             }
 
             krsort($perRun);                       // newest run id first
-            $statuses    = array_column($perRun, 'problem');
-            $passes      = count(array_filter($statuses, static fn ($p) => ! $p));
-            $problems    = $executions - $passes;
-            $passRate    = round(100 * $passes / $executions, 1);
+            $statuses = array_column($perRun, 'problem');
+            $passes = count(array_filter($statuses, static fn ($p) => ! $p));
+            $problems = $executions - $passes;
+            $passRate = round(100 * $passes / $executions, 1);
 
             if ($problems === 0) {
                 continue;                          // always green → uninteresting here
@@ -107,14 +106,14 @@ class FlakyDetector
             $firstProblemRow = collect(array_values($perRun))->firstWhere('problem', true);
 
             $results->push([
-                'profile'         => $firstProblemRow['profile'],
+                'profile' => $firstProblemRow['profile'],
                 'test_identifier' => $firstProblemRow['identifier'],
-                'executions'      => $executions,
-                'passes'          => $passes,
-                'problems'        => $problems,
-                'pass_rate'       => $passRate,
-                'kind'            => $kind,
-                'last_status'     => array_values($perRun)[0]['problem'] ? 'fail' : 'pass',
+                'executions' => $executions,
+                'passes' => $passes,
+                'problems' => $problems,
+                'pass_rate' => $passRate,
+                'kind' => $kind,
+                'last_status' => array_values($perRun)[0]['problem'] ? 'fail' : 'pass',
                 'last_problem_message' => $firstProblemRow['message'],
             ]);
         }

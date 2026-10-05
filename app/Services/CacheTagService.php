@@ -130,8 +130,8 @@ class CacheTagService
     private function report(string $op, string $key, Throwable $e): void
     {
         Log::warning('Cache unavailable — serving uncached data', [
-            'op'    => $op,
-            'key'   => $key,
+            'op' => $op,
+            'key' => $key,
             'error' => $e->getMessage(),
         ]);
     }

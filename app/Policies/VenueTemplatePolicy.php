@@ -15,6 +15,7 @@ class VenueTemplatePolicy
         if (in_array($ability, ['create', 'update', 'delete', 'toggle', 'toggleFeatured'], true)) {
             return $user->is_super_admin;
         }
+
         return null;
     }
 

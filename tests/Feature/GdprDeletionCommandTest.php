@@ -13,8 +13,8 @@ use Tests\TestCase;
 
 class GdprDeletionCommandTest extends TestCase
 {
-    use RefreshDatabase;
     use AssertsSchedule;
+    use RefreshDatabase;
 
     private function makeDueRequest(User $user, array $overrides = []): GdprDeletionRequest
     {
@@ -37,7 +37,7 @@ class GdprDeletionCommandTest extends TestCase
         // The FK is onDelete('set null') — the completed row is kept and
         // anonymized (user_id nulled, email preserved for audit).
         $this->assertDatabaseHas('gdpr_deletion_requests', [
-            'email'  => $user->email,
+            'email' => $user->email,
             'status' => 'completed',
         ]);
     }
@@ -51,7 +51,7 @@ class GdprDeletionCommandTest extends TestCase
 
         $this->assertDatabaseHas('users', ['id' => $user->id]);
         $this->assertDatabaseHas('gdpr_deletion_requests', [
-            'id'     => $request->id,
+            'id' => $request->id,
             'status' => 'pending',
         ]);
     }
@@ -77,7 +77,7 @@ class GdprDeletionCommandTest extends TestCase
 
         // Simulate a concurrent run that just claimed the request.
         GdprDeletionRequest::where('id', $request->id)->update([
-            'status'     => 'processing',
+            'status' => 'processing',
             'updated_at' => now(),
         ]);
 
@@ -88,7 +88,7 @@ class GdprDeletionCommandTest extends TestCase
         // The user must survive — the other run owns the request.
         $this->assertDatabaseHas('users', ['id' => $user->id]);
         $this->assertDatabaseHas('gdpr_deletion_requests', [
-            'id'     => $request->id,
+            'id' => $request->id,
             'status' => 'processing',
         ]);
     }
@@ -104,7 +104,7 @@ class GdprDeletionCommandTest extends TestCase
         GdprDeletionRequest::query()->update(['scheduled_deletion_at' => now()->subHour()]);
 
         GdprDeletionRequest::where('id', $request->id)->update([
-            'status'     => 'processing',
+            'status' => 'processing',
             'updated_at' => now()->subHours(7),
         ]);
 
@@ -112,7 +112,7 @@ class GdprDeletionCommandTest extends TestCase
 
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
         $this->assertDatabaseHas('gdpr_deletion_requests', [
-            'id'     => $request->id,
+            'id' => $request->id,
             'status' => 'completed',
         ]);
     }
@@ -144,14 +144,14 @@ class GdprDeletionCommandTest extends TestCase
 
         // The failing request stays pending for the next run…
         $this->assertDatabaseHas('gdpr_deletion_requests', [
-            'id'     => $blocking->id,
+            'id' => $blocking->id,
             'status' => 'pending',
         ]);
 
         // …while the unrelated request completed. (Users are NOT deleted
         // here — the service is mocked — only the request state moves.)
         $this->assertDatabaseHas('gdpr_deletion_requests', [
-            'id'     => $other->id,
+            'id' => $other->id,
             'status' => 'completed',
         ]);
     }

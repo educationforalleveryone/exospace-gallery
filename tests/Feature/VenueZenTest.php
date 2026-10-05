@@ -14,60 +14,60 @@ class VenueZenTest extends TestCase
     private function v1BaselineRow(): array
     {
         return [
-            'name'          => 'Japanese Zen Gallery',
-            'slug'          => 'zen-gallery',
-            'description'   => 'A quiet, focused space: shoji screens, a tokonoma alcove and warm wood, tuned for close, calm looking.',
-            'category'      => 'minimal',
-            'tags'          => json_encode(['zen', 'natural', 'calm']),
+            'name' => 'Japanese Zen Gallery',
+            'slug' => 'zen-gallery',
+            'description' => 'A quiet, focused space: shoji screens, a tokonoma alcove and warm wood, tuned for close, calm looking.',
+            'category' => 'minimal',
+            'tags' => json_encode(['zen', 'natural', 'calm']),
             'plan_required' => 'pro',
-            'capacity_min'  => 10,
-            'capacity_max'  => 40,
-            'sort_order'    => 5,
-            'is_featured'   => false,
-            'version'       => '1.0.0',
+            'capacity_min' => 10,
+            'capacity_max' => 40,
+            'sort_order' => 5,
+            'is_featured' => false,
+            'version' => '1.0.0',
             'default_settings' => json_encode([
-                'wall_texture'    => 'wood',
-                'floor_material'  => 'wood',
-                'lighting_preset'  => 'bright',
-                'frame_style'     => 'minimal',
-                'room_layout'     => 'rotunda',
+                'wall_texture' => 'wood',
+                'floor_material' => 'wood',
+                'lighting_preset' => 'bright',
+                'frame_style' => 'minimal',
+                'room_layout' => 'rotunda',
             ]),
             'visual_config' => json_encode([
-                'wall_height'            => 3.2,
-                'wall_depth'             => 0.15,
-                'ceiling_type'           => 'flat',
-                'ceiling_color'          => '0x1e1c14',
-                'ceiling_height'         => 3.2,
-                'background_color'       => '0x1a1710',
-                'fog_color'              => '0x1a1710',
-                'fog_near'               => 12,
-                'fog_far'                => 40,
-                'ambient_color'          => '0xffe8c2',
-                'ambient_intensity'      => 0.22,
-                'spot_intensity'         => 0.45,
-                'fill_intensity'         => 0.14,
-                'tone_mapping_exposure'  => 0.55,
-                'frame_override'         => null,
-                'environment'            => 'studio',
-                'structure_pass'        => 'rooms',
-                'structure'              => [
+                'wall_height' => 3.2,
+                'wall_depth' => 0.15,
+                'ceiling_type' => 'flat',
+                'ceiling_color' => '0x1e1c14',
+                'ceiling_height' => 3.2,
+                'background_color' => '0x1a1710',
+                'fog_color' => '0x1a1710',
+                'fog_near' => 12,
+                'fog_far' => 40,
+                'ambient_color' => '0xffe8c2',
+                'ambient_intensity' => 0.22,
+                'spot_intensity' => 0.45,
+                'fill_intensity' => 0.14,
+                'tone_mapping_exposure' => 0.55,
+                'frame_override' => null,
+                'environment' => 'studio',
+                'structure_pass' => 'rooms',
+                'structure' => [
                     ['id' => 'shoji-a-top', 'primitive' => 'box', 'at' => [1.9, 2.065, -0.55], 'size' => [0.06, 0.09, 1.15], 'material' => 'wood_dark'],
                     ['id' => 'alcove-stone', 'primitive' => 'sphere', 'at' => [1.62, 0.36, -2.1], 'size' => [0.4, 0.4, 0.4], 'material' => 'stone'],
                 ],
             ]),
             'material_config' => json_encode([
-                'wall_color'             => null,
-                'wall_roughness'         => 0.7,
-                'wall_metalness'         => 0.0,
-                'wall_normal_strength'   => 0.5,
-                'floor_color'            => null,
-                'floor_roughness'        => 0.7,
-                'floor_metalness'        => 0.0,
-                'floor_normal_strength'  => 0.6,
+                'wall_color' => null,
+                'wall_roughness' => 0.7,
+                'wall_metalness' => 0.0,
+                'wall_normal_strength' => 0.5,
+                'floor_color' => null,
+                'floor_roughness' => 0.7,
+                'floor_metalness' => 0.0,
+                'floor_normal_strength' => 0.6,
             ]),
             'supported_layouts' => json_encode(['square', 'rotunda', 'l-shape']),
-            'is_active'         => true,
-            'is_draft'          => false,
+            'is_active' => true,
+            'is_draft' => false,
         ];
     }
 
@@ -94,11 +94,14 @@ class VenueZenTest extends TestCase
     private function canonical($v)
     {
         if (is_array($v)) {
-            foreach ($v as $k => $sub) { $v[$k] = $this->canonical($sub); }
+            foreach ($v as $k => $sub) {
+                $v[$k] = $this->canonical($sub);
+            }
             ksort($v);
         } elseif (is_int($v) || is_float($v)) {
             $v = (float) $v;
         }
+
         return $v;
     }
 
@@ -136,8 +139,8 @@ class VenueZenTest extends TestCase
 
         // The procession rhythm.
         $this->assertSame([
-            'density'          => 'generous',
-            'focal_wall'       => 'front',
+            'density' => 'generous',
+            'focal_wall' => 'front',
             'pair_orientation' => true,
         ], $vc['placement'] ?? null);
 
@@ -178,7 +181,7 @@ class VenueZenTest extends TestCase
 
         $this->zenMigration()->up();
 
-        $row  = $this->zenRow();
+        $row = $this->zenRow();
         $seed = collect(\Database\Seeders\VenueTemplateSeeder::templates())
             ->firstWhere('slug', 'zen-gallery');
 
@@ -230,11 +233,11 @@ class VenueZenTest extends TestCase
             'A hand-tuned exposure must never be overwritten by the deepening.');
 
         DB::table('venue_templates')->where('slug', 'zen-gallery')->update([
-            'version'       => '9.9.9',
-            'description'   => 'Admin bespoke zen',
+            'version' => '9.9.9',
+            'description' => 'Admin bespoke zen',
             'visual_config' => json_encode([
                 'structure_pass' => 'rooms',
-                'structure'      => [
+                'structure' => [
                     ['id' => 'custom-prop', 'primitive' => 'box', 'at' => [0, 1, 0], 'size' => [1, 1, 1], 'material' => 'stone'],
                 ],
             ]),
@@ -258,12 +261,12 @@ class VenueZenTest extends TestCase
         $this->zenMigration()->down();
 
         $row = $this->zenRow();
-        $v1  = $this->v1BaselineRow();
+        $v1 = $this->v1BaselineRow();
 
         $this->assertSame('1.0.0', $row->version, 'down() reverts the version stamp.');
         $this->assertSame($v1['description'], $row->description, 'down() reverts the copy.');
         $downVc = json_decode((string) $row->visual_config, true);
-        $v1Vc   = json_decode($v1['visual_config'], true);
+        $v1Vc = json_decode($v1['visual_config'], true);
         unset($v1Vc['structure']);   // one-way removal (see the pin below)
         $this->assertSame(
             $v1Vc,
@@ -294,16 +297,16 @@ class VenueZenTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $user    = \App\Models\User::factory()->create(['plan' => 'pro']);
+        $user = \App\Models\User::factory()->create(['plan' => 'pro']);
         $venueId = DB::table('venue_templates')->where('slug', 'zen-gallery')->value('id');
 
         $exporter = app(VenueConfigExporter::class);
 
         // A gallery row still carrying rotunda from the v1 era.
         $gallery = \App\Models\Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venueId,
-            'room_layout'       => 'rotunda',
+            'room_layout' => 'rotunda',
         ]);
 
         $this->assertSame('square', $exporter->layoutForGallery($gallery),
@@ -322,14 +325,14 @@ class VenueZenTest extends TestCase
             $this->assertContains($key, VenueConfigExporter::VENUE_OWNED_VISUAL_KEYS,
                 "[{$key}] is venue-owned architecture — a stale gallery override cannot reshape the venue.");
         }
-        $this->assertSame('s6', VenueConfigExporter::SCHEMA,
-            'The s5 zen bump + the s6 nebula-palette bump re-key every cached payload on deploy.');
+        $this->assertSame('s7', VenueConfigExporter::SCHEMA,
+            'The s7 schema bump re-keys cached payloads on deploy.');
 
         // The shipped lists (runtime patch guard mirror) carry them too.
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
-        $user    = \App\Models\User::factory()->create(['plan' => 'pro']);
+        $user = \App\Models\User::factory()->create(['plan' => 'pro']);
         $gallery = \App\Models\Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => DB::table('venue_templates')->where('slug', 'zen-gallery')->value('id'),
         ]);
         $payload = app(VenueConfigExporter::class)->forGallery($gallery);
@@ -346,8 +349,8 @@ class VenueZenTest extends TestCase
 
     public function test_venue_request_vocabulary_admits_the_bays_pass(): void
     {
-        $request  = new \App\Http\Requests\SuperAdmin\VenueTemplateRequest();
-        $rule     = $request->rules()['visual_config.structure_pass'] ?? null;
+        $request = new \App\Http\Requests\SuperAdmin\VenueTemplateRequest;
+        $rule = $request->rules()['visual_config.structure_pass'] ?? null;
         $this->assertNotNull($rule, 'The structure_pass rule must exist.');
         $rendered = collect($rule)->map(fn ($r) => (string) $r)->implode('|');
         $this->assertStringContainsString('bays', $rendered,

@@ -24,12 +24,12 @@ class CohortRetentionHistoryTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -75,11 +75,11 @@ class CohortRetentionHistoryTest extends TestCase
 
         // Gallery updated during the cohort's W1 window, user never logs in.
         $gallery = Gallery::create([
-            'user_id'     => $user->id,
-            'title'       => 'Retention ' . uniqid(),
-            'slug'        => 'ret-' . uniqid(),
+            'user_id' => $user->id,
+            'title' => 'Retention '.uniqid(),
+            'slug' => 'ret-'.uniqid(),
             'description' => 'x',
-            'is_active'   => false,
+            'is_active' => false,
         ]);
         $gallery->forceFill([
             'created_at' => $registeredAt->copy()->addHours(1),

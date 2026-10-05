@@ -81,7 +81,7 @@ class OpsSweepDiagnosticsTest extends TestCase
         ]);
 
         $this->runSweep()
-            ->expectsOutputToContain("not in the allow-list")
+            ->expectsOutputToContain('not in the allow-list')
             ->assertExitCode(0);
 
         $this->assertSame(0, $this->sweepEvents()->count());

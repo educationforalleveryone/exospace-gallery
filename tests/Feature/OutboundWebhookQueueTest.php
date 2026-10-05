@@ -7,7 +7,6 @@ namespace Tests\Feature;
 use App\Jobs\DeliverOutboundWebhook;
 use App\Services\OutboundWebhookService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -17,7 +16,8 @@ class OutboundWebhookQueueTest extends TestCase
     use RefreshDatabase;
 
     private const WEBHOOK = 'https://hooks.example.com/queued';
-    private const SECRET  = 'queued-webhook-secret';
+
+    private const SECRET = 'queued-webhook-secret';
 
     protected function setUp(): void
     {
@@ -26,7 +26,7 @@ class OutboundWebhookQueueTest extends TestCase
         // Per-test Http fakes: array-form fakes accumulate stubs, so each
         // test declares exactly the fake it needs (a catch-all here would
         // shadow later URL-specific stubs).
-        config(['services.outbound_webhook.url'    => self::WEBHOOK]);
+        config(['services.outbound_webhook.url' => self::WEBHOOK]);
         config(['services.outbound_webhook.secret' => self::SECRET]);
     }
 

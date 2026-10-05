@@ -19,7 +19,7 @@ class PreflightAssets extends Command
         $this->info('🔍 Running asset preflight check...');
         $this->newLine();
 
-        $errors   = 0;
+        $errors = 0;
         $warnings = 0;
 
         $this->info('Checking public asset directories...');
@@ -40,7 +40,7 @@ class PreflightAssets extends Command
                 $this->error("  ✗ Missing directory: {$dir}");
                 if ($this->option('fix')) {
                     @mkdir($full, 0775, true);
-                    $this->line("    ↳ Created empty directory");
+                    $this->line('    ↳ Created empty directory');
                 }
                 $errors++;
             } else {
@@ -92,7 +92,7 @@ class PreflightAssets extends Command
                 // Fallback to /assets/thumbnails/venues/{slug}.jpg
                 $fallback = public_path("assets/thumbnails/venues/{$venue->slug}.jpg");
                 if (! file_exists($fallback)) {
-                    $this->warn("    ⚠ No thumbnail — venue picker will use gradient fallback");
+                    $this->warn('    ⚠ No thumbnail — venue picker will use gradient fallback');
                     $warnings++;
                 }
             }
@@ -113,7 +113,9 @@ class PreflightAssets extends Command
             if (is_array($venue->decorations)) {
                 foreach ($venue->decorations as $dec) {
                     $path = $dec['model_path'] ?? null;
-                    if (! $path) continue;
+                    if (! $path) {
+                        continue;
+                    }
                     if (! Storage::disk('public')->exists($path)) {
                         $this->error("    ✗ Missing decoration GLB: {$path}");
                         $errors++;
@@ -134,16 +136,16 @@ class PreflightAssets extends Command
             foreach ($galleries as $gallery) {
                 $issues = [];
                 if ($gallery->audio_path && ! Storage::disk('public')->exists($gallery->audio_path)) {
-                    $issues[] = "audio";
+                    $issues[] = 'audio';
                 }
                 if ($gallery->custom_logo_path && ! Storage::disk('public')->exists($gallery->custom_logo_path)) {
-                    $issues[] = "custom_logo";
+                    $issues[] = 'custom_logo';
                 }
                 if ($gallery->curtain_logo_path && ! Storage::disk('public')->exists($gallery->curtain_logo_path)) {
-                    $issues[] = "curtain_logo";
+                    $issues[] = 'curtain_logo';
                 }
                 if (! empty($issues)) {
-                    $this->error("  ✗ Gallery #{$gallery->id} ({$gallery->title}): missing " . implode(', ', $issues));
+                    $this->error("  ✗ Gallery #{$gallery->id} ({$gallery->title}): missing ".implode(', ', $issues));
                     $errors++;
                 }
             }
@@ -178,15 +180,18 @@ class PreflightAssets extends Command
 
         if ($errors === 0 && $warnings === 0) {
             $this->info('✅ All assets present. Gallery will load without 404s.');
+
             return Command::SUCCESS;
         }
 
         if ($errors > 0) {
             $this->error("❌ {$errors} error(s), {$warnings} warning(s).");
+
             return Command::FAILURE;
         }
 
         $this->warn("⚠ {$warnings} warning(s), 0 errors — gallery will run, but consider addressing warnings.");
+
         return Command::SUCCESS;
     }
 }

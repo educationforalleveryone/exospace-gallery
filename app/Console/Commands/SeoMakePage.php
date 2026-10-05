@@ -23,7 +23,7 @@ class SeoMakePage extends Command
         $type = (string) $this->option('type');
         $title = (string) ($this->option('title') ?: ucwords(str_replace(['-', '_'], ' ', $slug)));
 
-        if (!in_array($type, SeoPage::TYPES, true)) {
+        if (! in_array($type, SeoPage::TYPES, true)) {
             $this->error("Invalid type '{$type}'. Use: landing or editorial.");
 
             return self::FAILURE;
@@ -36,11 +36,11 @@ class SeoMakePage extends Command
         }
 
         $page = SeoPage::create([
-            'type'     => $type,
-            'slug'     => $slug,
-            'title'    => $title,
-            'status'   => 'draft',
-            'blocks'   => $this->starterBlocks($type, $title),
+            'type' => $type,
+            'slug' => $slug,
+            'title' => $title,
+            'status' => 'draft',
+            'blocks' => $this->starterBlocks($type, $title),
             'author_id' => optional(auth()->user())->id,
         ]);
 

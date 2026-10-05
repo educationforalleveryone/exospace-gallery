@@ -6,8 +6,6 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Ops\Models\OpsApplication;
-use App\Ops\Models\OpsDiagnosticRun;
-use App\Ops\Models\OpsEvent;
 use App\Ops\Services\OpsEventIngestor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

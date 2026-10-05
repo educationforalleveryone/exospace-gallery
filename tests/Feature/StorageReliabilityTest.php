@@ -9,8 +9,8 @@ use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
 use App\Models\User;
-use App\Observers\SitemapCacheObserver;
 use App\Models\VenueTemplate;
+use App\Observers\SitemapCacheObserver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -20,8 +20,8 @@ use Tests\TestCase;
 
 class StorageReliabilityTest extends TestCase
 {
-    use RefreshDatabase;
     use AssertsSchedule;
+    use RefreshDatabase;
 
     /** @var list<string> */
     private array $tempDirs = [];
@@ -55,7 +55,7 @@ class StorageReliabilityTest extends TestCase
         @chmod($dir, 0755);
 
         foreach (array_diff(scandir($dir) ?: [], ['.', '..']) as $entry) {
-            $path = $dir . '/' . $entry;
+            $path = $dir.'/'.$entry;
             if (is_dir($path) && ! is_link($path)) {
                 $this->forceDeleteDir($path);
             } else {
@@ -68,7 +68,7 @@ class StorageReliabilityTest extends TestCase
 
     private function makeTempDir(): string
     {
-        $dir = sys_get_temp_dir() . '/exospace-storage-test-' . uniqid();
+        $dir = sys_get_temp_dir().'/exospace-storage-test-'.uniqid();
         mkdir($dir, 0755, true);
         $this->tempDirs[] = $dir;
 
@@ -84,7 +84,7 @@ class StorageReliabilityTest extends TestCase
     private function superAdmin(): User
     {
         return User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
     }
@@ -92,18 +92,18 @@ class StorageReliabilityTest extends TestCase
     private function venuePayload(array $files = []): array
     {
         return array_merge([
-            'name'             => 'Storage Probe Venue',
-            'description'      => 'Uploaded through storage reliability tests.',
-            'category'         => 'gallery',
-            'plan_required'    => 'free',
-            'capacity_min'     => 10,
-            'is_active'        => true,
+            'name' => 'Storage Probe Venue',
+            'description' => 'Uploaded through storage reliability tests.',
+            'category' => 'gallery',
+            'plan_required' => 'free',
+            'capacity_min' => 10,
+            'is_active' => true,
             'default_settings' => json_encode([
-                'wall_texture'    => 'white',
-                'floor_material'  => 'wood',
-                'frame_style'     => 'modern',
+                'wall_texture' => 'white',
+                'floor_material' => 'wood',
+                'frame_style' => 'modern',
                 'lighting_preset' => 'bright',
-                'room_layout'     => 'square',
+                'room_layout' => 'square',
             ]),
         ], $files);
     }
@@ -178,7 +178,7 @@ class StorageReliabilityTest extends TestCase
         Storage::fake('public');
         $curator = User::factory()->create();
         $artist = Artist::factory()->create([
-            'created_by'    => $curator->id,
+            'created_by' => $curator->id,
             'portrait_path' => 'artist-portraits/original.png',
         ]);
         Storage::disk('public')->put('artist-portraits/original.png', 'original-bytes');
@@ -213,7 +213,7 @@ class StorageReliabilityTest extends TestCase
         Storage::fake('public');
         $curator = User::factory()->create();
         $artist = Artist::factory()->create([
-            'created_by'    => $curator->id,
+            'created_by' => $curator->id,
             'portrait_path' => 'artist-portraits/old.png',
         ]);
         Storage::disk('public')->put('artist-portraits/old.png', 'old-bytes');
@@ -240,7 +240,7 @@ class StorageReliabilityTest extends TestCase
         Storage::fake('public');
         $curator = User::factory()->create();
         $artist = Artist::factory()->create([
-            'created_by'    => $curator->id,
+            'created_by' => $curator->id,
             'portrait_path' => 'artist-portraits/doomed.png',
         ]);
         Storage::disk('public')->put('artist-portraits/doomed.png', 'bytes');
@@ -315,9 +315,9 @@ class StorageReliabilityTest extends TestCase
                 ->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
                 ->put(route('super.venues.update', $venue), $this->venuePayload([
                     'thumbnail_image' => UploadedFile::fake()->image('replacement.png'),
-                    'slug'            => $venue->slug,
-                    'name'            => $venue->name,
-                    'description'     => $venue->description,
+                    'slug' => $venue->slug,
+                    'name' => $venue->name,
+                    'description' => $venue->description,
                 ]));
         } finally {
             VenueTemplate::flushEventListeners();
@@ -345,9 +345,9 @@ class StorageReliabilityTest extends TestCase
             ->withSession(['mfa_verified' => true, 'mfa_verified_at' => now()->timestamp])
             ->put(route('super.venues.update', $venue), $this->venuePayload([
                 'thumbnail_image' => UploadedFile::fake()->image('replacement.png'),
-                'slug'            => $venue->slug,
-                'name'            => $venue->name,
-                'description'     => $venue->description,
+                'slug' => $venue->slug,
+                'name' => $venue->name,
+                'description' => $venue->description,
             ]))
             ->assertRedirect();
 
@@ -412,10 +412,10 @@ class StorageReliabilityTest extends TestCase
         $gallery = Gallery::factory()->create();
         $image = GalleryImage::factory()->create([
             'gallery_id' => $gallery->id,
-            'filename'   => 'lost.jpg',
-            'path'       => 'storage/galleries/' . $gallery->id . '/lost.jpg',
+            'filename' => 'lost.jpg',
+            'path' => 'storage/galleries/'.$gallery->id.'/lost.jpg',
         ]);
-        Storage::disk('public')->put('galleries/' . $gallery->id . '/lost.jpg', 'legacy-bytes');
+        Storage::disk('public')->put('galleries/'.$gallery->id.'/lost.jpg', 'legacy-bytes');
 
         $this->artisan('exospace:reconcile-artwork-media')->assertSuccessful();
 
@@ -431,10 +431,10 @@ class StorageReliabilityTest extends TestCase
         $gallery = Gallery::factory()->create();
         $image = GalleryImage::factory()->create([
             'gallery_id' => $gallery->id,
-            'filename'   => 'recoverable.jpg',
-            'path'       => 'storage/galleries/' . $gallery->id . '/recoverable.jpg',
+            'filename' => 'recoverable.jpg',
+            'path' => 'storage/galleries/'.$gallery->id.'/recoverable.jpg',
         ]);
-        Storage::disk('public')->put('galleries/' . $gallery->id . '/recoverable.jpg', 'legacy-bytes');
+        Storage::disk('public')->put('galleries/'.$gallery->id.'/recoverable.jpg', 'legacy-bytes');
 
         $this->artisan('exospace:reconcile-artwork-media', ['--fix' => true])->assertSuccessful();
 
@@ -449,7 +449,7 @@ class StorageReliabilityTest extends TestCase
         Gallery::factory()->create();
         GalleryImage::factory()->create([
             'filename' => 'ghost.jpg',
-            'path'     => 'storage/galleries/1/ghost.jpg',
+            'path' => 'storage/galleries/1/ghost.jpg',
         ]);
 
         $this->artisan('exospace:reconcile-artwork-media', ['--fix' => true])->assertSuccessful();

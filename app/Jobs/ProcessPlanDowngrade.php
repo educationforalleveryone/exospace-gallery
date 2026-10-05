@@ -32,20 +32,22 @@ class ProcessPlanDowngrade implements ShouldQueue
             Log::info('ProcessPlanDowngrade: user not found (deleted?)', [
                 'user_id' => $this->userId,
             ]);
+
             return;
         }
 
         if ($user->plan !== 'free') {
             Log::info('ProcessPlanDowngrade: user is no longer on free — skipping cleanup', [
                 'user_id' => $this->userId,
-                'plan'    => $user->plan,
+                'plan' => $user->plan,
             ]);
+
             return;
         }
 
         Log::info('ProcessPlanDowngrade: starting gallery cleanup', [
             'user_id' => $this->userId,
-            'reason'  => $this->reason,
+            'reason' => $this->reason,
         ]);
 
         $service->downgradeToFree($user, $this->reason);
@@ -59,8 +61,8 @@ class ProcessPlanDowngrade implements ShouldQueue
     {
         Log::error('ProcessPlanDowngrade: job failed after retries', [
             'user_id' => $this->userId,
-            'reason'  => $this->reason,
-            'error'   => $e->getMessage(),
+            'reason' => $this->reason,
+            'error' => $e->getMessage(),
         ]);
     }
 }

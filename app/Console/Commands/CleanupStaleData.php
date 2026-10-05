@@ -16,7 +16,8 @@ class CleanupStaleData extends Command
     private const SCHEDULER_LOG_BACKUPS = 5;
 
     protected $signature = 'exospace:cleanup-stale';
-    protected $description = 'Clean up expired pending upgrades, team invitations, stale webhook ledger rows, aged analytics snapshots, and rotated scheduler logs.';
+
+    protected $description = 'Clean up expired pending upgrades, team invitations, stale webhook ledger rows, aged analytics snapshots, read notifications, and rotated scheduler logs.';
 
     public function handle(): int
     {
@@ -25,6 +26,7 @@ class CleanupStaleData extends Command
         $this->cleanupWebhookLedger();
         $this->cleanupOnboardingSnapshots();
         $this->cleanupRetentionSnapshots();
+        $this->cleanupReadNotifications();
         $this->rotateSchedulerLog();
 
         $this->info('Stale data cleanup complete.');
@@ -64,6 +66,7 @@ class CleanupStaleData extends Command
     {
         if (! \Illuminate\Support\Facades\Schema::hasColumn('processed_webhooks', 'payload')) {
             $this->info('Webhook ledger: payload column absent (legacy schema) — nothing to prune.');
+
             return;
         }
 
@@ -83,6 +86,7 @@ class CleanupStaleData extends Command
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('onboarding_snapshots')) {
             $this->info('Onboarding snapshots: table absent (legacy schema) — nothing to prune.');
+
             return;
         }
 
@@ -102,6 +106,7 @@ class CleanupStaleData extends Command
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('retention_snapshots')) {
             $this->info('Retention snapshots: table absent (legacy schema) — nothing to prune.');
+
             return;
         }
 
@@ -114,6 +119,27 @@ class CleanupStaleData extends Command
             Log::info('CleanupStaleData: pruned aged retention snapshots', ['count' => $deleted]);
         } else {
             $this->info('No aged retention snapshots.');
+        }
+    }
+
+    private function cleanupReadNotifications(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('user_notifications')) {
+            $this->info('User notifications: table absent (legacy schema) — nothing to prune.');
+
+            return;
+        }
+
+        $deleted = \Illuminate\Support\Facades\DB::table('user_notifications')
+            ->whereNotNull('read_at')
+            ->where('read_at', '<', now()->subDays(90))
+            ->delete();
+
+        if ($deleted > 0) {
+            $this->info("Pruned {$deleted} read notifications older than 90 days.");
+            Log::info('CleanupStaleData: pruned read notifications', ['count' => $deleted]);
+        } else {
+            $this->info('No aged read notifications.');
         }
     }
 
@@ -131,6 +157,7 @@ class CleanupStaleData extends Command
 
         if (! is_file($logPath)) {
             $this->info('Scheduler log: not present yet — nothing to rotate.');
+
             return;
         }
 
@@ -138,6 +165,7 @@ class CleanupStaleData extends Command
 
         if ($size === false || $size <= self::SCHEDULER_LOG_MAX_BYTES) {
             $this->info('Scheduler log: within rotation threshold.');
+
             return;
         }
 

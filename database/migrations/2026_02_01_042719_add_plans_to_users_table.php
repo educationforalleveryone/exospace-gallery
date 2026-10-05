@@ -18,19 +18,19 @@ return new class extends Migration
         });
 
         DB::table('users')->where('plan', 'free')->update([
-            'max_galleries'  => 1,
-            'max_images'     => 10,
-            'plan_started_at'=> DB::raw('COALESCE(plan_started_at, CURRENT_TIMESTAMP)'),
+            'max_galleries' => 1,
+            'max_images' => 10,
+            'plan_started_at' => DB::raw('COALESCE(plan_started_at, CURRENT_TIMESTAMP)'),
         ]);
         DB::table('users')->where('plan', 'pro')->update([
-            'max_galleries'  => 5,
-            'max_images'     => 100,
-            'plan_started_at'=> DB::raw('COALESCE(plan_started_at, CURRENT_TIMESTAMP)'),
+            'max_galleries' => 5,
+            'max_images' => 100,
+            'plan_started_at' => DB::raw('COALESCE(plan_started_at, CURRENT_TIMESTAMP)'),
         ]);
         DB::table('users')->where('plan', 'studio')->update([
-            'max_galleries'  => 999,
-            'max_images'     => 500,
-            'plan_started_at'=> DB::raw('COALESCE(plan_started_at, CURRENT_TIMESTAMP)'),
+            'max_galleries' => 999,
+            'max_images' => 500,
+            'plan_started_at' => DB::raw('COALESCE(plan_started_at, CURRENT_TIMESTAMP)'),
         ]);
     }
 

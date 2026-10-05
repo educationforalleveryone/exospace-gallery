@@ -30,8 +30,8 @@ class SubscriptionReconciliationTest extends TestCase
     private function subscribedUser(array $attrs = []): User
     {
         return User::factory()->create(array_merge([
-            'plan'            => 'pro',
-            'subscription_id' => 'SUB-' . uniqid(),
+            'plan' => 'pro',
+            'subscription_id' => 'SUB-'.uniqid(),
             'plan_expires_at' => now()->subDay(), // paid period already over
         ], $attrs));
     }
@@ -69,7 +69,7 @@ class SubscriptionReconciliationTest extends TestCase
     public function test_lifetime_purchase_that_superseded_a_subscription_is_never_downgraded(): void
     {
         $user = $this->subscribedUser([
-            'plan_expires_at'     => null,
+            'plan_expires_at' => null,
             'subscription_status' => 'cancelled',
         ]);
 
@@ -84,8 +84,8 @@ class SubscriptionReconciliationTest extends TestCase
     public function test_expired_free_user_with_old_reference_does_not_raise_live_reference_alert(): void
     {
         User::factory()->create([
-            'plan'                => 'free',
-            'subscription_id'     => 'SUB-OLD',
+            'plan' => 'free',
+            'subscription_id' => 'SUB-OLD',
             'subscription_status' => 'expired',
         ]);
 
@@ -137,7 +137,7 @@ class SubscriptionReconciliationTest extends TestCase
 
         Http::fake([$this->apiUrl($user) => Http::response([
             'SubscriptionEnabled' => true,
-            'NextChargedDate'     => now()->addDays(10)->toDateString(),
+            'NextChargedDate' => now()->addDays(10)->toDateString(),
         ])]);
 
         $this->artisan('exospace:reconcile-subscriptions')->assertExitCode(0);
@@ -151,7 +151,7 @@ class SubscriptionReconciliationTest extends TestCase
 
         Http::fake([$this->apiUrl($user) => Http::response([
             'SubscriptionEnabled' => true,
-            'ExpirationDate'      => now()->subDays(3)->toDateString(),
+            'ExpirationDate' => now()->subDays(3)->toDateString(),
         ])]);
 
         $this->artisan('exospace:reconcile-subscriptions')->assertExitCode(0);
@@ -174,7 +174,7 @@ class SubscriptionReconciliationTest extends TestCase
     public function test_free_user_with_live_reference_is_alert_only(): void
     {
         User::factory()->create([
-            'plan'            => 'free',
+            'plan' => 'free',
             'subscription_id' => 'SUB-FREE-REF',
         ]);
 
@@ -214,27 +214,27 @@ class SubscriptionReconciliationTest extends TestCase
 
     private function apiUrl(User $user): string
     {
-        return self::API_BASE . $user->subscription_id;
+        return self::API_BASE.$user->subscription_id;
     }
 
     // ── Part 2: chargeback reversal restore semantics ───────────────────
 
     private function postWebhook(array $payload)
     {
-        $saleId = $payload['sale_id'] ?? 'SALE-' . uniqid();
-        $invoiceId = $payload['invoice_id'] ?? 'INV-' . uniqid();
+        $saleId = $payload['sale_id'] ?? 'SALE-'.uniqid();
+        $invoiceId = $payload['invoice_id'] ?? 'INV-'.uniqid();
         $vendorId = $payload['vendor_id'] ?? 'V12345';
         $secretWord = 'test-secret-word';
 
         $stringToHash = $saleId
-                      . $vendorId
-                      . $invoiceId
-                      . $secretWord;
+                      .$vendorId
+                      .$invoiceId
+                      .$secretWord;
 
         $payload = array_merge([
-            'md5_hash'       => strtoupper(md5($stringToHash)),
-            'vendor_id'      => $vendorId,
-            'sale_id'        => $saleId,
+            'md5_hash' => strtoupper(md5($stringToHash)),
+            'vendor_id' => $vendorId,
+            'sale_id' => $saleId,
             'customer_email' => 'buyer@example.com',
         ], $payload);
 
@@ -244,31 +244,31 @@ class SubscriptionReconciliationTest extends TestCase
     public function test_chargeback_reversal_on_subscription_restores_finite_period(): void
     {
         $user = User::factory()->create([
-            'plan'            => 'free',
+            'plan' => 'free',
             'subscription_id' => 'SUB-CB-1',
         ]);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-CB-SUB-1',
-            'plan'      => 'pro',
-            'status'    => 'chargeback',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-CB-SUB-1',
+            'plan' => 'pro',
+            'status' => 'chargeback',
         ]);
         Invoice::create([
-            'user_id'        => $user->id,
+            'user_id' => $user->id,
             'transaction_id' => $transaction->id,
             'invoice_number' => 'INV-2026-00001',
-            'amount'         => 29.00,
-            'currency'       => 'USD',
-            'plan'           => 'pro',
-            'customer_name'  => 'Test Buyer',
+            'amount' => 29.00,
+            'currency' => 'USD',
+            'plan' => 'pro',
+            'customer_name' => 'Test Buyer',
             'customer_email' => 'buyer@example.com',
-            'issued_at'      => now(),
-            'billing_type'   => 'subscription',
+            'issued_at' => now(),
+            'billing_type' => 'subscription',
         ]);
 
         $this->postWebhook([
             'message_type' => 'CHARGEBACK_REVERSED',
-            'invoice_id'   => 'INV-CB-SUB-1',
+            'invoice_id' => 'INV-CB-SUB-1',
         ])->assertOk();
 
         $user->refresh();
@@ -281,31 +281,31 @@ class SubscriptionReconciliationTest extends TestCase
     public function test_chargeback_reversal_on_one_time_purchase_stays_lifetime(): void
     {
         $user = User::factory()->create([
-            'plan'            => 'free',
+            'plan' => 'free',
             'subscription_id' => null,
         ]);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-CB-OT-1',
-            'plan'      => 'pro',
-            'status'    => 'chargeback',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-CB-OT-1',
+            'plan' => 'pro',
+            'status' => 'chargeback',
         ]);
         Invoice::create([
-            'user_id'        => $user->id,
+            'user_id' => $user->id,
             'transaction_id' => $transaction->id,
             'invoice_number' => 'INV-2026-00002',
-            'amount'         => 299.00,
-            'currency'       => 'USD',
-            'plan'           => 'pro',
-            'customer_name'  => 'Test Buyer',
+            'amount' => 299.00,
+            'currency' => 'USD',
+            'plan' => 'pro',
+            'customer_name' => 'Test Buyer',
             'customer_email' => 'buyer@example.com',
-            'issued_at'      => now(),
-            'billing_type'   => 'one_time',
+            'issued_at' => now(),
+            'billing_type' => 'one_time',
         ]);
 
         $this->postWebhook([
             'message_type' => 'CHARGEBACK_REVERSED',
-            'invoice_id'   => 'INV-CB-OT-1',
+            'invoice_id' => 'INV-CB-OT-1',
         ])->assertOk();
 
         $user->refresh();

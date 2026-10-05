@@ -18,63 +18,63 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
     private function voidVenue(array $overrides = []): VenueTemplate
     {
         return VenueTemplate::factory()->create(array_merge([
-            'name'            => 'Infinite Void',
-            'slug'            => 'infinite-void-' . uniqid(),
-            'visual_config'   => [
-                'background_color'      => '0x000000',
-                'ambient_intensity'     => 0.3,
-                'spot_intensity'        => 1.3,
+            'name' => 'Infinite Void',
+            'slug' => 'infinite-void-'.uniqid(),
+            'visual_config' => [
+                'background_color' => '0x000000',
+                'ambient_intensity' => 0.3,
+                'spot_intensity' => 1.3,
                 'tone_mapping_exposure' => 0.9,
                 'post_fx' => [
-                    'bloom'             => false,
-                    'vignette'          => true,
+                    'bloom' => false,
+                    'vignette' => true,
                     'vignette_darkness' => 1.0,
-                    'vignette_offset'   => 1.35,
+                    'vignette_offset' => 1.35,
                 ],
             ],
             'material_config' => [
-                'floor_color'     => '0x0a0a0a',
+                'floor_color' => '0x0a0a0a',
                 'floor_roughness' => 0.32,
                 'floor_metalness' => 0.25,
             ],
-            'is_draft'        => false,
-            'is_active'       => true,
+            'is_draft' => false,
+            'is_active' => true,
         ], $overrides));
     }
 
     private function updatePayload(array $overrides = []): array
     {
         return array_merge([
-            'title'           => 'Normalization Test Gallery',
-            'wall_texture'    => 'white',
-            'frame_style'     => 'modern',
+            'title' => 'Normalization Test Gallery',
+            'wall_texture' => 'white',
+            'frame_style' => 'modern',
             'lighting_preset' => 'dramatic',
-            'floor_material'  => 'marble',
-            'room_layout'     => 'rotunda',
+            'floor_material' => 'marble',
+            'room_layout' => 'rotunda',
         ], $overrides);
     }
 
     public function test_overrides_that_restate_the_venue_are_dropped(): void
     {
-        $user    = User::factory()->create();
-        $venue   = $this->voidVenue();
+        $user = User::factory()->create();
+        $venue = $this->voidVenue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
         ]);
 
         $json = json_encode([
             'visual_config' => [
-                'background_color'      => '#000000',
-                'ambient_intensity'     => 0.3,
+                'background_color' => '#000000',
+                'ambient_intensity' => 0.3,
                 'tone_mapping_exposure' => '0.9',
             ],
             'material_config' => [
                 'floor_color' => '0x0a0a0a',
             ],
             'post_fx' => [
-                'bloom'             => false,
-                'vignette'          => true,
+                'bloom' => false,
+                'vignette' => true,
                 'vignette_darkness' => 1.0,
             ],
         ]);
@@ -96,18 +96,18 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_real_deviations_persist_in_canonical_form(): void
     {
-        $user    = User::factory()->create();
-        $venue   = $this->voidVenue();
+        $user = User::factory()->create();
+        $venue = $this->voidVenue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
         ]);
 
         $json = json_encode([
             'visual_config' => [
-                'background_color'  => '#6D0DA0',
+                'background_color' => '#6D0DA0',
                 'ambient_intensity' => 0.11,
-                'frame_override'    => 'black',
+                'frame_override' => 'black',
             ],
             'post_fx' => [
                 'bloom_strength' => 0.35,
@@ -148,17 +148,17 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_mixed_save_keeps_only_the_deviations(): void
     {
-        $user    = User::factory()->create();
-        $venue   = $this->voidVenue();
+        $user = User::factory()->create();
+        $venue = $this->voidVenue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
         ]);
 
         $json = json_encode([
             'visual_config' => [
-                'background_color'  => '0x6D0DA0', // venue-owned → stripped
-                'spot_intensity'    => 1.3,        // restates venue → dropped
+                'background_color' => '0x6D0DA0', // venue-owned → stripped
+                'spot_intensity' => 1.3,        // restates venue → dropped
             ],
         ]);
 
@@ -179,34 +179,34 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_venue_switch_normalizes_against_the_new_venue(): void
     {
-        $user    = User::factory()->create();
-        $oldVenue = $this->voidVenue(['slug' => 'old-venue-' . uniqid()]);
+        $user = User::factory()->create();
+        $oldVenue = $this->voidVenue(['slug' => 'old-venue-'.uniqid()]);
         // The NEW venue declares a different background.
         $newVenue = $this->voidVenue([
-            'slug'            => 'new-venue-' . uniqid(),
-            'visual_config'   => [
-                'background_color'      => '0x050510',
-                'ambient_intensity'     => 0.5,
-                'spot_intensity'        => 1.0,
+            'slug' => 'new-venue-'.uniqid(),
+            'visual_config' => [
+                'background_color' => '0x050510',
+                'ambient_intensity' => 0.5,
+                'spot_intensity' => 1.0,
                 'tone_mapping_exposure' => 1.0,
                 'post_fx' => ['bloom' => true, 'vignette' => false, 'vignette_darkness' => 0.4, 'vignette_offset' => 1.0],
             ],
         ]);
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $oldVenue->id,
         ]);
 
         $json = json_encode([
             'visual_config' => [
-                'background_color'  => '0x050510',
+                'background_color' => '0x050510',
                 'ambient_intensity' => 0.5,
             ],
         ]);
 
         $this->actingAs($user)
             ->put(route('admin.galleries.update', $gallery), $this->updatePayload([
-                'venue_template_id'     => $newVenue->id,
+                'venue_template_id' => $newVenue->id,
                 'visual_overrides_json' => $json,
             ]))
             ->assertRedirect();
@@ -221,12 +221,12 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_reset_all_clears_stored_overrides(): void
     {
-        $user    = User::factory()->create();
-        $venue   = $this->voidVenue();
+        $user = User::factory()->create();
+        $venue = $this->voidVenue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => ['background_color' => '0x6d0da0'],
             ],
         ]);
@@ -235,9 +235,9 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
         $this->actingAs($user)
             ->put(route('admin.galleries.update', $gallery), $this->updatePayload([
                 'visual_overrides_json' => json_encode([
-                    'visual_config'   => new \stdClass(),
-                    'material_config' => new \stdClass(),
-                    'post_fx'         => new \stdClass(),
+                    'visual_config' => new \stdClass,
+                    'material_config' => new \stdClass,
+                    'post_fx' => new \stdClass,
                 ]),
             ]))
             ->assertRedirect();
@@ -250,14 +250,14 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_exporter_does_not_ship_the_legacy_post_fx_sibling(): void
     {
-        $user    = User::factory()->create();
-        $venue   = $this->voidVenue();
+        $user = User::factory()->create();
+        $venue = $this->voidVenue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => ['background_color' => '0x6d0da0'],
-                'post_fx'       => ['bloom_strength' => 0.35],
+                'post_fx' => ['bloom_strength' => 0.35],
             ],
         ]);
 
@@ -278,15 +278,15 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_exporter_ignores_legacy_saved_background_overrides(): void
     {
-        $user    = User::factory()->create();
-        $venue   = $this->voidVenue();
+        $user = User::factory()->create();
+        $venue = $this->voidVenue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
             // The incident row: purple saved by an old panel build.
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => [
-                    'background_color'  => '0x6d0da0',
+                    'background_color' => '0x6d0da0',
                     'ambient_intensity' => 0.11,
                 ],
             ],
@@ -308,57 +308,57 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_exporter_ignores_the_dark_museum_incident_override_row(): void
     {
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $venue = VenueTemplate::factory()->create([
-            'name'            => 'Dark Museum',
-            'slug'            => 'dark-museum-' . uniqid(),
-            'visual_config'   => [
-                'background_color'      => '0x050505',
-                'fog_color'             => '0x050505',
-                'fog_near'              => 12,
-                'fog_far'               => 70,
-                'wall_height'           => 5,
-                'ambient_color'         => '0xffe8c8',
-                'ambient_intensity'     => 3.2,
-                'spot_intensity'        => 1.9,
-                'fill_intensity'        => 0.5,
+            'name' => 'Dark Museum',
+            'slug' => 'dark-museum-'.uniqid(),
+            'visual_config' => [
+                'background_color' => '0x050505',
+                'fog_color' => '0x050505',
+                'fog_near' => 12,
+                'fog_far' => 70,
+                'wall_height' => 5,
+                'ambient_color' => '0xffe8c8',
+                'ambient_intensity' => 3.2,
+                'spot_intensity' => 1.9,
+                'fill_intensity' => 0.5,
                 'tone_mapping_exposure' => 0.8,
-                'hemisphere_intensity'  => 0.04,
-                'structure_pass'        => 'museum',
-                'artwork_light_base'    => 0.32,
+                'hemisphere_intensity' => 0.04,
+                'structure_pass' => 'museum',
+                'artwork_light_base' => 0.32,
             ],
             'material_config' => [
-                'texture_tint'    => true,
-                'wall_color'      => '0x7a746c',
-                'floor_color'     => '0x3a3835',
+                'texture_tint' => true,
+                'wall_color' => '0x7a746c',
+                'floor_color' => '0x3a3835',
                 'floor_roughness' => 0.3,
             ],
-            'is_draft'  => false,
+            'is_draft' => false,
             'is_active' => true,
         ]);
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => [
-                    'fog_color'             => '0x6d0da0',
-                    'fog_near'              => 12,
-                    'fog_far'               => 70,
-                    'open_air'              => true,
-                    'floor_reflection'      => 'planar',
-                    'placement_mode'        => 'float',
-                    'structure_pass'        => 'phenomena',
-                    'void_starfield'        => true,
-                    'ambient_color'         => '0x8844ff',
-                    'ambient_intensity'     => 0.18,
-                    'spot_intensity'        => 0.5,
-                    'fill_intensity'        => 0.15,
-                    'hemisphere_intensity'  => 0.15,
+                    'fog_color' => '0x6d0da0',
+                    'fog_near' => 12,
+                    'fog_far' => 70,
+                    'open_air' => true,
+                    'floor_reflection' => 'planar',
+                    'placement_mode' => 'float',
+                    'structure_pass' => 'phenomena',
+                    'void_starfield' => true,
+                    'ambient_color' => '0x8844ff',
+                    'ambient_intensity' => 0.18,
+                    'spot_intensity' => 0.5,
+                    'fill_intensity' => 0.15,
+                    'hemisphere_intensity' => 0.15,
                     'tone_mapping_exposure' => 0.55,
-                    'artwork_light_base'    => 0.1,
+                    'artwork_light_base' => 0.1,
                 ],
                 'material_config' => [
-                    'texture_tint'    => false,
+                    'texture_tint' => false,
                     'floor_roughness' => 0.18,
                 ],
             ],
@@ -381,39 +381,39 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_exporter_ignores_the_residual_floor_and_post_fx_layers(): void
     {
-        $user  = User::factory()->create();
+        $user = User::factory()->create();
         $venue = VenueTemplate::factory()->create([
-            'name'            => 'Dark Museum',
-            'slug'            => 'dark-museum-' . uniqid(),
-            'visual_config'   => [
+            'name' => 'Dark Museum',
+            'slug' => 'dark-museum-'.uniqid(),
+            'visual_config' => [
                 'background_color' => '0x050505',
-                'fog_color'        => '0x050505',
+                'fog_color' => '0x050505',
                 'ambient_intensity' => 3.2,
                 'tone_mapping_exposure' => 0.8,
                 'placement' => ['density' => 'generous', 'focal_wall' => 'front', 'pair_orientation' => true],
-                'post_fx'   => ['bloom' => false, 'vignette' => true, 'vignette_blend' => 'black', 'vignette_darkness' => 0.5, 'vignette_offset' => 1.15],
+                'post_fx' => ['bloom' => false, 'vignette' => true, 'vignette_blend' => 'black', 'vignette_darkness' => 0.5, 'vignette_offset' => 1.15],
             ],
             'material_config' => [
-                'texture_tint'    => true,
-                'wall_color'      => '0x7a746c',
-                'floor_color'     => '0x3a3835',
+                'texture_tint' => true,
+                'wall_color' => '0x7a746c',
+                'floor_color' => '0x3a3835',
                 'floor_roughness' => 0.3,
                 'floor_metalness' => 0.15,
                 'floor_tile_meters' => 3.0,
             ],
-            'is_draft'  => false,
+            'is_draft' => false,
             'is_active' => true,
         ]);
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => [
                     'placement' => ['density' => 'packed'],
-                    'post_fx'   => ['bloom' => true, 'vignette_blend' => 'grey'],
+                    'post_fx' => ['bloom' => true, 'vignette_blend' => 'grey'],
                 ],
                 'material_config' => [
-                    'floor_color'     => '0x9c9c98',
+                    'floor_color' => '0x9c9c98',
                     'floor_roughness' => 0.12,
                     'floor_metalness' => 0.35,
                 ],
@@ -438,13 +438,13 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_venue_switch_discards_submitted_overrides_wholesale(): void
     {
-        $user     = User::factory()->create();
-        $oldVenue = $this->voidVenue(['slug' => 'old-venue-' . uniqid()]);
-        $newVenue = $this->voidVenue(['slug' => 'new-venue-' . uniqid()]);
-        $gallery  = Gallery::factory()->create([
-            'user_id'           => $user->id,
+        $user = User::factory()->create();
+        $oldVenue = $this->voidVenue(['slug' => 'old-venue-'.uniqid()]);
+        $newVenue = $this->voidVenue(['slug' => 'new-venue-'.uniqid()]);
+        $gallery = Gallery::factory()->create([
+            'user_id' => $user->id,
             'venue_template_id' => $oldVenue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => ['tone_mapping_exposure' => 0.55],
             ],
         ]);
@@ -455,7 +455,7 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
         $this->actingAs($user)
             ->put(route('admin.galleries.update', $gallery), $this->updatePayload([
-                'venue_template_id'     => $newVenue->id,
+                'venue_template_id' => $newVenue->id,
                 'visual_overrides_json' => $json,
             ]))
             ->assertRedirect();
@@ -472,23 +472,23 @@ class GalleryVisualOverrideNormalizationTest extends TestCase
 
     public function test_preview_runtime_overrides_cannot_set_background(): void
     {
-        $user    = User::factory()->create();
-        $venue   = $this->voidVenue();
+        $user = User::factory()->create();
+        $venue = $this->voidVenue();
         $gallery = Gallery::factory()->create([
-            'user_id'           => $user->id,
+            'user_id' => $user->id,
             'venue_template_id' => $venue->id,
         ]);
 
         $config = app(VenueConfigExporter::class)->forGalleryPreview($gallery, [
             'visual_config' => [
                 'background_color' => '0x6d0da0',
-                'fog_color'        => '0x6d0da0',
-                'fog_far'          => 42,
-                'open_air'         => true,
+                'fog_color' => '0x6d0da0',
+                'fog_far' => 42,
+                'open_air' => true,
             ],
             // s3: the runtime MATERIAL patch gets the same guard.
             'material_config' => [
-                'floor_color'     => '0x9c9c98',
+                'floor_color' => '0x9c9c98',
                 'floor_roughness' => 0.12,
                 'floor_metalness' => 0.35,
             ],

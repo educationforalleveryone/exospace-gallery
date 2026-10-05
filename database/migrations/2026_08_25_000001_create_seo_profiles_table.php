@@ -34,7 +34,7 @@ return new class extends Migration
 
             // Who last edited this profile (audit trail)
             $table->foreignId('updated_by')->nullable()
-                  ->constrained('users')->nullOnDelete();
+                ->constrained('users')->nullOnDelete();
 
             $table->timestamps();
         });

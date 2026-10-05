@@ -34,12 +34,12 @@ class InputValidationBoundariesTest extends TestCase
     private function updatePayload(array $overrides = []): array
     {
         return array_merge([
-            'title'           => 'Validation Boundary Gallery',
-            'wall_texture'    => 'white',
-            'frame_style'     => 'modern',
+            'title' => 'Validation Boundary Gallery',
+            'wall_texture' => 'white',
+            'frame_style' => 'modern',
             'lighting_preset' => 'dramatic',
-            'floor_material'  => 'marble',
-            'room_layout'     => 'rotunda',
+            'floor_material' => 'marble',
+            'room_layout' => 'rotunda',
         ], $overrides);
     }
 
@@ -131,11 +131,11 @@ class InputValidationBoundariesTest extends TestCase
 
         $this->actingAs($this->curator)
             ->putJson(route('admin.galleries.images.metadata', [$gallery, $image]), [
-                'title'         => 'Untitled',
-                'price'         => '1250.50',
-                'currency'      => 'USD',
-                'for_sale'      => 1,
-                'edition_size'  => 25,
+                'title' => 'Untitled',
+                'price' => '1250.50',
+                'currency' => 'USD',
+                'for_sale' => 1,
+                'edition_size' => 25,
             ])
             ->assertOk()
             ->assertJson(['success' => true]);
@@ -177,11 +177,11 @@ class InputValidationBoundariesTest extends TestCase
 
         $this->actingAs($this->curator)
             ->post(route('admin.galleries.events.store', $gallery), [
-                'title'     => 'Opening night',
-                'type'      => 'opening',
+                'title' => 'Opening night',
+                'type' => 'opening',
                 'starts_at' => now()->addWeek()->format('Y-m-d\TH:i'),
-                'timezone'  => 'UTC',
-                'capacity'  => 40,
+                'timezone' => 'UTC',
+                'capacity' => 40,
             ])
             ->assertRedirect()
             ->assertSessionHas('status');
@@ -197,10 +197,10 @@ class InputValidationBoundariesTest extends TestCase
 
         $this->actingAs($this->curator)
             ->postJson(route('admin.galleries.events.store', $gallery), [
-                'title'     => 'Opening night',
-                'type'      => 'opening',
+                'title' => 'Opening night',
+                'type' => 'opening',
                 'starts_at' => now()->addWeek()->format('Y-m-d\TH:i'),
-                'capacity'  => 99999999999,
+                'capacity' => 99999999999,
             ])
             ->assertJsonValidationErrors('capacity');
 
@@ -257,16 +257,16 @@ class InputValidationBoundariesTest extends TestCase
         $gallery = $this->gallery();
 
         $json = json_encode([
-            'visual_config'   => [
-                'fog_near'   => 12,
-                'nested'     => ['deep' => ['deeper' => 1]],
+            'visual_config' => [
+                'fog_near' => 12,
+                'nested' => ['deep' => ['deeper' => 1]],
             ],
             'material_config' => [
                 'floor_roughness' => 0.5,
-                5                 => 'positional',
+                5 => 'positional',
             ],
-            'unknown_bucket'  => ['a' => 1],
-            'scalar_root'     => 'x',
+            'unknown_bucket' => ['a' => 1],
+            'scalar_root' => 'x',
         ]);
 
         $this->actingAs($this->curator)
@@ -278,7 +278,7 @@ class InputValidationBoundariesTest extends TestCase
 
         $gallery->refresh();
         $this->assertSame([
-            'visual_config'   => ['fog_near' => 12],
+            'visual_config' => ['fog_near' => 12],
             'material_config' => ['floor_roughness' => 0.5],
         ], $gallery->visual_overrides);
     }
@@ -289,16 +289,16 @@ class InputValidationBoundariesTest extends TestCase
             'visual_config' => [
                 str_repeat('k', 65) => 1,
                 str_repeat('k', 64) => 2,
-                'frame_override'    => str_repeat('v', 256),
-                'frame_style'       => 'classic',
-                'open_air'          => false,
+                'frame_override' => str_repeat('v', 256),
+                'frame_style' => 'classic',
+                'open_air' => false,
             ],
         ]);
 
         $this->assertSame([
             str_repeat('k', 64) => 2,
-            'frame_style'       => 'classic',
-            'open_air'          => false,
+            'frame_style' => 'classic',
+            'open_air' => false,
         ], $sanitized['visual_config']);
     }
 
@@ -306,7 +306,7 @@ class InputValidationBoundariesTest extends TestCase
     {
         $keys = [];
         for ($i = 0; $i < 60; $i++) {
-            $keys['override_key_' . $i] = $i;
+            $keys['override_key_'.$i] = $i;
         }
 
         $sanitized = VenueConfigExporter::sanitizeGalleryOverrides(['visual_config' => $keys]);
@@ -324,7 +324,7 @@ class InputValidationBoundariesTest extends TestCase
         ]));
 
         $this->actingAs($this->curator)
-            ->get(route('admin.galleries.preview', $gallery) . '?override=' . $override)
+            ->get(route('admin.galleries.preview', $gallery).'?override='.$override)
             ->assertOk();
     }
 
@@ -355,7 +355,7 @@ class InputValidationBoundariesTest extends TestCase
 
         $this->actingAs($this->curator)
             ->put(route('admin.galleries.update', $gallery), $this->updatePayload([
-                'opens_at'  => now()->addMonth()->format('Y-m-d\TH:i'),
+                'opens_at' => now()->addMonth()->format('Y-m-d\TH:i'),
                 'closes_at' => now()->addWeek()->format('Y-m-d\TH:i'),
             ]))
             ->assertSessionHasErrors('closes_at');
@@ -401,17 +401,17 @@ class InputValidationBoundariesTest extends TestCase
     public function test_seo_acquisition_window_is_clamped(): void
     {
         $superAdmin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         foreach (['999999999999999999', '0', '-5', '90'] as $days) {
             $this->actingAs($superAdmin)
                 ->withSession([
-                    'mfa_verified'    => true,
+                    'mfa_verified' => true,
                     'mfa_verified_at' => now()->timestamp,
                 ])
-                ->get('/master-control/seo?tab=acquisition&days=' . $days)
+                ->get('/master-control/seo?tab=acquisition&days='.$days)
                 ->assertOk();
         }
     }

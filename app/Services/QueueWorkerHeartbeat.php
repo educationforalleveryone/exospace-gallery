@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Cache;
 final class QueueWorkerHeartbeat
 {
     public const CACHE_KEY = 'ops:queue-worker:heartbeat';
+
     private const TTL_SECONDS = 1800;
 
     public static function stamp(): void

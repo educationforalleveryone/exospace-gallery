@@ -133,12 +133,12 @@ class AlertDeduplicationTest extends TestCase
         // Create a persistent failing-jobs condition (above the 10-job warning threshold).
         for ($i = 0; $i < 15; $i++) {
             \Illuminate\Support\Facades\DB::table('failed_jobs')->insert([
-                'uuid'           => 'test-uuid-' . $i,
-                'connection'     => 'redis',
-                'queue'          => 'default',
-                'payload'        => json_encode(['job' => 'test']),
-                'exception'      => 'Test exception',
-                'failed_at'      => now(),
+                'uuid' => 'test-uuid-'.$i,
+                'connection' => 'redis',
+                'queue' => 'default',
+                'payload' => json_encode(['job' => 'test']),
+                'exception' => 'Test exception',
+                'failed_at' => now(),
             ]);
         }
 

@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\AdminAuditLog;
-use App\Models\User;
 use App\Models\WebhookSubscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -16,9 +14,13 @@ class WebhookSubscriptionDispatchTest extends TestCase
     use RefreshDatabase;
 
     private const ENV_URL = 'https://env.example.com/exospace';
+
     private const ENV_SECRET = 'env-shared-secret';
+
     private const SUB_URL_A = 'https://sub-a.example.com/hook';
+
     private const SUB_URL_B = 'https://sub-b.example.com/hook';
+
     private const SUB_SECRET_A = 'per-sub-secret-a';
 
     protected function setUp(): void
@@ -51,24 +53,24 @@ class WebhookSubscriptionDispatchTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, // falls back to global secret
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null, // falls back to global secret
+            'is_active' => true,
+            'added_by' => null,
         ]);
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_B,
-            'secret'     => self::SUB_SECRET_A, // per-sub secret overrides global
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => self::SUB_SECRET_A, // per-sub secret overrides global
+            'is_active' => true,
+            'added_by' => null,
         ]);
         // A subscription for a DIFFERENT event — must NOT receive this dispatch.
         WebhookSubscription::create([
             'event_type' => 'gallery.published',
-            'target_url'  => 'https://wrong-event.example.com/hook',
-            'secret'      => null,
-            'is_active'   => true,
-            'added_by'    => null,
+            'target_url' => 'https://wrong-event.example.com/hook',
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         \App\Services\OutboundWebhookService::dispatch('billing.recipient_added', ['recipient_email' => 'test@example.com']);
@@ -79,6 +81,7 @@ class WebhookSubscriptionDispatchTest extends TestCase
         $urls = [];
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) use (&$urls) {
             $urls[] = $request->url();
+
             return true;
         });
 
@@ -93,9 +96,9 @@ class WebhookSubscriptionDispatchTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_removed',
             'target_url' => self::SUB_URL_A,
-            'secret'     => self::SUB_SECRET_A,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => self::SUB_SECRET_A,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         \App\Services\OutboundWebhookService::dispatch('billing.recipient_removed', ['recipient_email' => 'gone@example.com']);
@@ -125,9 +128,9 @@ class WebhookSubscriptionDispatchTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null, // explicit null → fall back to env secret
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null, // explicit null → fall back to env secret
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         \App\Services\OutboundWebhookService::dispatch('billing.recipient_added', ['recipient_email' => 'fb@example.com']);
@@ -143,6 +146,7 @@ class WebhookSubscriptionDispatchTest extends TestCase
             }
 
             $expected = hash_hmac('sha256', $request->body(), self::ENV_SECRET);
+
             return hash_equals($expected, $sig);
         });
     }
@@ -153,17 +157,17 @@ class WebhookSubscriptionDispatchTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'gallery.published',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
         // Paused subscription — does NOT receive.
         WebhookSubscription::create([
             'event_type' => 'gallery.published',
             'target_url' => self::SUB_URL_B,
-            'secret'     => null,
-            'is_active'  => false,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => false,
+            'added_by' => null,
         ]);
 
         \App\Services\OutboundWebhookService::dispatch('gallery.published', ['id' => 42]);
@@ -188,9 +192,9 @@ class WebhookSubscriptionDispatchTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         // Dispatch a DIFFERENT event with no subscribers for it.

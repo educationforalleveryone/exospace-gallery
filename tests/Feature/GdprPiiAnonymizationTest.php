@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Models\AdminAuditLog;
 use App\Models\Artist;
-use App\Models\Gallery;
 use App\Models\Invoice;
 use App\Models\Transaction;
 use App\Models\User;
@@ -23,14 +22,14 @@ class GdprPiiAnonymizationTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'victim@example.com',
-            'name'  => 'Victim User',
+            'name' => 'Victim User',
         ]);
 
         Transaction::factory()->count(3)->create([
-            'user_id'        => $user->id,
+            'user_id' => $user->id,
             'customer_email' => 'victim@example.com',
-            'customer_name'  => 'Victim User',
-            'amount'         => 99.00,
+            'customer_name' => 'Victim User',
+            'amount' => 99.00,
         ]);
 
         app(UserDeletionService::class)->deleteUser($user, 'Self-serve deletion');
@@ -54,27 +53,27 @@ class GdprPiiAnonymizationTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'victim@example.com',
-            'name'  => 'Victim User',
+            'name' => 'Victim User',
         ]);
 
         $transaction = Transaction::factory()->create([
-            'user_id'        => $user->id,
+            'user_id' => $user->id,
             'customer_email' => 'victim@example.com',
         ]);
 
         Invoice::create([
-            'user_id'         => $user->id,
-            'transaction_id'  => $transaction->id,
-            'invoice_number'  => 'INV-2026-TEST1',
-            'amount'          => 99.00,
-            'tax_amount'      => 0,
-            'tax_rate'        => 0,
-            'currency'        => 'USD',
-            'plan'            => 'pro',
-            'customer_name'   => 'Victim User',
-            'customer_email'  => 'victim@example.com',
+            'user_id' => $user->id,
+            'transaction_id' => $transaction->id,
+            'invoice_number' => 'INV-2026-TEST1',
+            'amount' => 99.00,
+            'tax_amount' => 0,
+            'tax_rate' => 0,
+            'currency' => 'USD',
+            'plan' => 'pro',
+            'customer_name' => 'Victim User',
+            'customer_email' => 'victim@example.com',
             'billing_address' => "123 Main St\nSan Francisco, CA",
-            'issued_at'       => now(),
+            'issued_at' => now(),
         ]);
 
         app(UserDeletionService::class)->deleteUser($user, 'Self-serve deletion');
@@ -94,29 +93,29 @@ class GdprPiiAnonymizationTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'curator@example.com',
-            'name'  => 'Jane Curator',
+            'name' => 'Jane Curator',
         ]);
 
         // Artist whose email matches the deleted user — should be fully anonymized.
         $matchingArtist = Artist::create([
-            'name'       => 'Jane Curator',
-            'slug'       => 'jane-curator',
-            'email'      => 'curator@example.com',
+            'name' => 'Jane Curator',
+            'slug' => 'jane-curator',
+            'email' => 'curator@example.com',
             'created_by' => $user->id,
         ]);
 
         // Artist with a DIFFERENT email — should be left alone (not the deleted user's PII).
         $otherArtist = Artist::create([
-            'name'       => 'Other Artist',
-            'slug'       => 'other-artist-' . uniqid(),
-            'email'      => 'someone-else@example.com',
+            'name' => 'Other Artist',
+            'slug' => 'other-artist-'.uniqid(),
+            'email' => 'someone-else@example.com',
             'created_by' => $user->id,
         ]);
 
         app(UserDeletionService::class)->deleteUser($user, 'Self-serve deletion');
 
         $matching = $matchingArtist->fresh();
-        $other    = $otherArtist->fresh();
+        $other = $otherArtist->fresh();
 
         // Email + name are both anonymized.
         $this->assertNull($matching->email, 'Matching artist email must be null');
@@ -134,11 +133,11 @@ class GdprPiiAnonymizationTest extends TestCase
         ]);
 
         $artist = Artist::create([
-            'name'          => 'Curator Artist',
-            'slug'          => 'curator-artist-' . uniqid(),
-            'email'         => 'curator@example.com',
+            'name' => 'Curator Artist',
+            'slug' => 'curator-artist-'.uniqid(),
+            'email' => 'curator@example.com',
             'portrait_path' => null, // already null — the anonymizer must not skip null portraits
-            'created_by'    => $user->id,
+            'created_by' => $user->id,
         ]);
 
         app(UserDeletionService::class)->deleteUser($user, 'Self-serve deletion');
@@ -151,13 +150,13 @@ class GdprPiiAnonymizationTest extends TestCase
     public function test_admin_audit_log_scrubs_pii_at_write_time(): void
     {
         $superAdmin = User::factory()->create([
-            'email'          => 'admin@example.com',
+            'email' => 'admin@example.com',
             'is_super_admin' => true,
         ]);
 
         $target = User::factory()->create([
             'email' => 'victim@example.com',
-            'name'  => 'Victim Name',
+            'name' => 'Victim Name',
         ]);
 
         $this->actingAs($superAdmin);
@@ -167,10 +166,10 @@ class GdprPiiAnonymizationTest extends TestCase
         $target->isBanned = true;
 
         AdminAuditLog::record('user_banned', $target, [
-            'email'         => 'victim@example.com',  // explicit PII in payload
-            'plan'          => 'free',                // non-PII context — preserved
-            'from'          => 'free',
-            'to'            => 'banned',
+            'email' => 'victim@example.com',  // explicit PII in payload
+            'plan' => 'free',                // non-PII context — preserved
+            'from' => 'free',
+            'to' => 'banned',
             'customer_name' => 'Victim Name',         // explicit PII in payload
         ]);
 
@@ -193,13 +192,13 @@ class GdprPiiAnonymizationTest extends TestCase
     public function test_admin_audit_log_scrubs_dirty_attributes_pii(): void
     {
         $superAdmin = User::factory()->create(['is_super_admin' => true]);
-        $target     = User::factory()->create(['email' => 'original@example.com']);
+        $target = User::factory()->create(['email' => 'original@example.com']);
 
         $this->actingAs($superAdmin);
 
         // Simulate the controller changing the email + plan.
         $target->email = 'new@example.com';
-        $target->plan  = 'pro';
+        $target->plan = 'pro';
 
         AdminAuditLog::record('plan_changed', $target, ['reason' => 'admin upgrade']);
 
@@ -225,10 +224,10 @@ class GdprPiiAnonymizationTest extends TestCase
     {
         $data = [
             'previous_email' => 'old@example.com',
-            'new_email'      => 'new@example.com',
-            'admin_email'    => 'admin@example.com',
-            'target_email'   => 'target@example.com',
-            'plan'           => 'pro',
+            'new_email' => 'new@example.com',
+            'admin_email' => 'admin@example.com',
+            'target_email' => 'target@example.com',
+            'plan' => 'pro',
         ];
         $scrubbed = AdminAuditLog::scrubPii($data);
 
@@ -252,17 +251,17 @@ class GdprPiiAnonymizationTest extends TestCase
     {
         // Insert an old audit log row with raw PII (legacy row before scrubbing existed).
         DB::table('admin_audit_logs')->insert([
-            'actor_id'    => null,
-            'action'      => 'user_banned',
+            'actor_id' => null,
+            'action' => 'user_banned',
             'target_type' => 'App\\Models\\User',
-            'target_id'   => 1,
-            'payload'     => json_encode([
-                'email'         => 'old-victim@example.com',
+            'target_id' => 1,
+            'payload' => json_encode([
+                'email' => 'old-victim@example.com',
                 'customer_name' => 'Old Victim',
-                'plan'          => 'free',
-                '_changed'      => ['email' => 'old-victim@example.com', 'plan' => 'banned'],
+                'plan' => 'free',
+                '_changed' => ['email' => 'old-victim@example.com', 'plan' => 'banned'],
             ]),
-            'ip'         => '127.0.0.1',
+            'ip' => '127.0.0.1',
             'created_at' => now()->subYears(2), // older than 18-month retention
         ]);
 
@@ -295,12 +294,12 @@ class GdprPiiAnonymizationTest extends TestCase
     {
         // Insert a RECENT audit log row with raw PII.
         DB::table('admin_audit_logs')->insert([
-            'actor_id'    => null,
-            'action'      => 'user_banned',
+            'actor_id' => null,
+            'action' => 'user_banned',
             'target_type' => 'App\\Models\\User',
-            'target_id'   => 1,
-            'payload'     => json_encode(['email' => 'recent@example.com']),
-            'ip'         => '127.0.0.1',
+            'target_id' => 1,
+            'payload' => json_encode(['email' => 'recent@example.com']),
+            'ip' => '127.0.0.1',
             'created_at' => now()->subDays(7), // within retention window
         ]);
 
@@ -319,12 +318,12 @@ class GdprPiiAnonymizationTest extends TestCase
     {
         // Insert an old row that's ALREADY been scrubbed.
         DB::table('admin_audit_logs')->insert([
-            'actor_id'    => null,
-            'action'      => 'user_banned',
+            'actor_id' => null,
+            'action' => 'user_banned',
             'target_type' => 'App\\Models\\User',
-            'target_id'   => 1,
-            'payload'     => json_encode(['email' => 'pii:alreadydone']),
-            'ip'         => '127.0.0.1',
+            'target_id' => 1,
+            'payload' => json_encode(['email' => 'pii:alreadydone']),
+            'ip' => '127.0.0.1',
             'created_at' => now()->subYears(2),
         ]);
 

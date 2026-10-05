@@ -10,7 +10,6 @@ use App\Ops\Services\IncidentCorrelationService;
 use App\Ops\Services\OpsEventIngestor;
 use App\Services\OperationalAlertService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class OpsIncidentCorrelationTest extends TestCase

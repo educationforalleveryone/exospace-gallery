@@ -116,8 +116,8 @@ class QaRunProfile extends Command
 
         $this->ensureRunnerRecordStore();
 
-        $conflicts   = (array) ($profile['conflicts_with'] ?? []);
-        $lockKey     = "qa:run:{$targetEnv}";
+        $conflicts = (array) ($profile['conflicts_with'] ?? []);
+        $lockKey = "qa:run:{$targetEnv}";
         $lockSeconds = (int) config('test-center.lock_seconds', 3600);
 
         $lock = Cache::lock($lockKey, $lockSeconds);
@@ -183,10 +183,12 @@ class QaRunProfile extends Command
         $this->components->info(($profile['icon'] ?? '🧪')." Running {$key}");
         $started = microtime(true);
 
-        \Illuminate\Support\Facades\Artisan::call($command, [
-            '--env'    => $targetEnv,
-            '--format' => 'junit-json',
-        ]);
+        // Pass the target the way the probe command actually consumes it:
+        // qa:smoke resolves its base URL from --target-env (the global --env
+        // only switches APP_ENV, so a staging run would probe production),
+        // qa:health is in-process and takes no target. Mirrors ProbeRunner.
+        $params = $command === 'qa:smoke' ? ['--target-env' => $targetEnv] : [];
+        \Illuminate\Support\Facades\Artisan::call($command, $params + ['--format' => 'junit-json']);
         $json = trim(\Illuminate\Support\Facades\Artisan::output());
 
         $parsedPayload = json_decode($json, true);
@@ -202,24 +204,24 @@ class QaRunProfile extends Command
         @mkdir(dirname($artifactPath), 0775, true);
         file_put_contents($artifactPath, $this->buildJunitXml($key, $parsedPayload));
 
-        $totals   = $parser->parseFile($artifactPath)['totals'];
+        $totals = $parser->parseFile($artifactPath)['totals'];
         $problems = $totals['failures'] + $totals['errors'];
-        $status   = match (true) {
+        $status = match (true) {
             $totals['tests'] === 0 => QaTestRun::STATUS_NOT_EXECUTED,
-            $problems === 0        => QaTestRun::STATUS_PASSED,
-            default                => QaTestRun::STATUS_FAILED,
+            $problems === 0 => QaTestRun::STATUS_PASSED,
+            default => QaTestRun::STATUS_FAILED,
         };
 
         $run = $recorder->record([
-            'profile'     => $key,
+            'profile' => $key,
             'environment' => $targetEnv,
-            'safety'      => $profile['safety'] ?? 'prod-safe-read',
-            'trigger'     => 'manual',
-            'runner'      => $this->runnerName(),
-            'meta'        => ['target_url' => config('test-center.environments.'.$targetEnv.'.base_url')],
+            'safety' => $profile['safety'] ?? 'prod-safe-read',
+            'trigger' => 'manual',
+            'runner' => $this->runnerName(),
+            'meta' => ['target_url' => config('test-center.environments.'.$targetEnv.'.base_url')],
         ], $artifactPath, [
-            'status'      => $status,
-            'started_at'  => now()->subMilliseconds((int) (microtime(true) - $started) * 1000),
+            'status' => $status,
+            'started_at' => now()->subMilliseconds((int) round((microtime(true) - $started) * 1000)),
             'finished_at' => now(),
             'duration_ms' => (int) round((microtime(true) - $started) * 1000),
         ]);
@@ -228,7 +230,6 @@ class QaRunProfile extends Command
 
         return $status === QaTestRun::STATUS_PASSED ? self::SUCCESS : self::FAILURE;
     }
-
 
     private function buildJunitXml(string $suiteName, array $payload): string
     {
@@ -255,7 +256,7 @@ class QaRunProfile extends Command
             '<?xml version="1.0" encoding="UTF-8"?><testsuites><testsuite name="%s" tests="%d" assertions="%d" failures="%d" errors="0" skipped="%d" time="%s">%s</testsuite></testsuites>',
             htmlspecialchars($suiteName, ENT_XML1),
             (int) $t['tests'], (int) $t['assertions'], (int) $t['failures'],
-            (int) $t['skipped'], (string) round(($payload['duration_ms'] ?? 0)/1000, 3),
+            (int) $t['skipped'], (string) round(($payload['duration_ms'] ?? 0) / 1000, 3),
             $casesXml
         );
     }
@@ -310,7 +311,7 @@ class QaRunProfile extends Command
         $this->components->twoColumnDetail('Database', $envOverrides['DB_CONNECTION'] ?? 'sqlite');
         $this->newLine();
 
-        $startedAt      = now();
+        $startedAt = now();
         $startTimestamp = microtime(true);
 
         $process = new Process($args, base_path(), $envOverrides, null,
@@ -322,14 +323,14 @@ class QaRunProfile extends Command
         // store leaks RateLimiter hits ACROSS tests/processes producing
         // phantom 429s). Deterministic > clever.
         $process->setEnv(array_merge(getenv() ?: [], $_ENV ?? [], $envOverrides, [
-            'APP_ENV'           => 'testing',
-            'APP_KEY'           => env('APP_KEY') ?: ($_ENV['APP_KEY'] ?? ''),
-            'CACHE_STORE'       => 'array',
-            'SESSION_DRIVER'    => 'array',
-            'QUEUE_CONNECTION'  => 'sync',
-            'MAIL_MAILER'       => 'array',
-            'DB_CONNECTION'     => $envOverrides['DB_CONNECTION'] ?? null,
-            'DB_DATABASE'       => $envOverrides['DB_DATABASE'] ?? ':memory:',
+            'APP_ENV' => 'testing',
+            'APP_KEY' => env('APP_KEY') ?: ($_ENV['APP_KEY'] ?? ''),
+            'CACHE_STORE' => 'array',
+            'SESSION_DRIVER' => 'array',
+            'QUEUE_CONNECTION' => 'sync',
+            'MAIL_MAILER' => 'array',
+            'DB_CONNECTION' => $envOverrides['DB_CONNECTION'] ?? null,
+            'DB_DATABASE' => $envOverrides['DB_DATABASE'] ?? ':memory:',
         ]));
 
         // Stream output so long suites feel alive instead of hanging silently.
@@ -339,8 +340,8 @@ class QaRunProfile extends Command
             flush();
         });
 
-        $finishedAt     = now();
-        $wallClockMs    = (int) round((microtime(true) - $startTimestamp) * 1000);
+        $finishedAt = now();
+        $wallClockMs = (int) round((microtime(true) - $startTimestamp) * 1000);
 
         if (! file_exists($artifactPath)) {
             $reason = 'Test runner produced no JUnit artifact — process probably timed out or crashed before executing tests.';
@@ -356,26 +357,26 @@ class QaRunProfile extends Command
         $totals = $parsed['totals'];
 
         $status = match (true) {
-            $totals['tests'] === 0                          => QaTestRun::STATUS_NOT_EXECUTED,
+            $totals['tests'] === 0 => QaTestRun::STATUS_NOT_EXECUTED,
             ($totals['failures'] + $totals['errors']) === 0 => QaTestRun::STATUS_PASSED,
-            default                                         => QaTestRun::STATUS_FAILED,
+            default => QaTestRun::STATUS_FAILED,
         };
 
         $metadata = [
-            'profile'     => $key,
+            'profile' => $key,
             'environment' => $targetEnv,
-            'safety'      => $profile['safety'] ?? 'test-only',
-            'trigger'     => 'manual',
-            'runner'      => $this->runnerName(),
-            'db_driver'   => $envOverrides['DB_CONNECTION'] ?? 'sqlite',
-            'meta'        => ['suite_xml' => basename($suiteXmlPath), 'exit_code' => $exitCode],
+            'safety' => $profile['safety'] ?? 'test-only',
+            'trigger' => 'manual',
+            'runner' => $this->runnerName(),
+            'db_driver' => $envOverrides['DB_CONNECTION'] ?? 'sqlite',
+            'meta' => ['suite_xml' => basename($suiteXmlPath), 'exit_code' => $exitCode],
         ];
 
         $run = $recorder->record($metadata, $artifactPath, [
-            'status'       => $status,
-            'started_at'   => $startedAt,
-            'finished_at'  => $finishedAt,
-            'duration_ms'  => $wallClockMs,
+            'status' => $status,
+            'started_at' => $startedAt,
+            'finished_at' => $finishedAt,
+            'duration_ms' => $wallClockMs,
         ]);
 
         $this->renderSummary($parser, $key, $run, $status);
@@ -402,7 +403,7 @@ class QaRunProfile extends Command
             throw new RuntimeException('phpunit.xml not found in project root.');
         }
 
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
         $dom->load($baseXmlPath);
 
         // PHPUnit resolves relative paths (bootstrap, xsd) against the CONFIG
@@ -426,15 +427,15 @@ class QaRunProfile extends Command
             }
         }
 
-        $suites  = $xpath->query('//testsuites')->item(0);
+        $suites = $xpath->query('//testsuites')->item(0);
 
         while ($suites->firstChild) {
             $suites->removeChild($suites->firstChild);
         }
 
         $passes = [[
-            'name'         => $key,
-            'paths'        => $registry->resolvePaths($key),
+            'name' => $key,
+            'paths' => $registry->resolvePaths($key),
             'env_override' => [],
         ]];
 
@@ -443,8 +444,8 @@ class QaRunProfile extends Command
             $labelSuffix = $passConfig['__label_suffix'] ?? ('#'.($i + 2));
             $env = array_diff_key($passConfig, ['__label_suffix' => true]);
             $extraPasses[] = [
-                'name'         => $key.$labelSuffix,
-                'paths'        => $registry->resolvePaths($key),
+                'name' => $key.$labelSuffix,
+                'paths' => $registry->resolvePaths($key),
                 'env_override' => $env,
             ];
         }
@@ -480,11 +481,11 @@ class QaRunProfile extends Command
             $cfg = config('test-center.mysql_test');
             $envOverrideFirst += [
                 'DB_CONNECTION' => 'mysql',
-                'DB_HOST'       => (string) $cfg['host'],
-                'DB_PORT'       => (string) $cfg['port'],
-                'DB_DATABASE'   => (string) $cfg['database'],
-                'DB_USERNAME'   => (string) $cfg['username'],
-                'DB_PASSWORD'   => (string) $cfg['password'],
+                'DB_HOST' => (string) $cfg['host'],
+                'DB_PORT' => (string) $cfg['port'],
+                'DB_DATABASE' => (string) $cfg['database'],
+                'DB_USERNAME' => (string) $cfg['username'],
+                'DB_PASSWORD' => (string) $cfg['password'],
             ];
         } elseif ($dbPreference === 'sqlite') {
             $envOverrideFirst += ['DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => ':memory:'];
@@ -506,16 +507,16 @@ class QaRunProfile extends Command
         // redis drivers leaking into a testing boot) causes *auth-flow* test
         // failures that look like product bugs. Catch it early and loudly.
         $poisonous = [
-            'SESSION_DOMAIN'      => '/^(?!$)/',
-            'SESSION_SECURE_COOKIE'=> '/^(true|1)$/i',
+            'SESSION_DOMAIN' => '/^(?!$)/',
+            'SESSION_SECURE_COOKIE' => '/^(true|1)$/i',
         ];
 
         foreach ($poisonous as $var => $badPattern) {
             $value = (string) getenv($var);
             if ($value !== '' && preg_match($badPattern, $value) && ! file_exists(base_path('.env.testing'))) {
                 return [
-                    'reason'   => "Suspicious {$var}={$value} present from your .env — this poisons session-based auth tests.",
-                    'fix'      => 'Create an empty-ish .env.testing, or remove these overrides while running suites (CI already isolates via `cp .env.example .env`).',
+                    'reason' => "Suspicious {$var}={$value} present from your .env — this poisons session-based auth tests.",
+                    'fix' => 'Create an empty-ish .env.testing, or remove these overrides while running suites (CI already isolates via `cp .env.example .env`).',
                     'required' => ['.env.testing OR clean shell'],
                 ];
             }
@@ -525,7 +526,7 @@ class QaRunProfile extends Command
             if (! extension_loaded('pdo_mysql')) {
                 return [
                     'reason' => 'PHP extension pdo_mysql is missing — MySQL profiles cannot run.',
-                    'fix'    => 'Install/enable pdo_mysql, or run this profile with sqlite (`--database=sqlite`) accepting reduced fidelity.',
+                    'fix' => 'Install/enable pdo_mysql, or run this profile with sqlite (`--database=sqlite`) accepting reduced fidelity.',
                 ];
             }
 
@@ -533,8 +534,8 @@ class QaRunProfile extends Command
             if (empty($cfg['host'])) {
                 if ($dbPreference === 'mysql-required') {
                     return [
-                        'reason'   => 'TEST_MYSQL_HOST is not configured.',
-                        'fix'      => 'Set TEST_MYSQL_* variables in .env (or your runner secrets) pointing at an ephemeral MySQL 8 test database.',
+                        'reason' => 'TEST_MYSQL_HOST is not configured.',
+                        'fix' => 'Set TEST_MYSQL_* variables in .env (or your runner secrets) pointing at an ephemeral MySQL 8 test database.',
                         'required' => ['TEST_MYSQL_HOST', 'TEST_MYSQL_PORT', 'TEST_MYSQL_DATABASE', 'TEST_MYSQL_USERNAME', 'TEST_MYSQL_PASSWORD'],
                     ];
                 }
@@ -551,7 +552,7 @@ class QaRunProfile extends Command
             } catch (\Throwable $e) {
                 return [
                     'reason' => 'Cannot connect to MySQL test database: '.preg_replace('/(password[^ ]*)/i', '[redacted]', $e->getMessage()),
-                    'fix'    => 'Start the test MySQL container/service, verify credentials, then retry. This failure would otherwise have surfaced as hundreds of connection errors.',
+                    'fix' => 'Start the test MySQL container/service, verify credentials, then retry. This failure would otherwise have surfaced as hundreds of connection errors.',
                 ];
             }
         }
@@ -634,10 +635,10 @@ class QaRunProfile extends Command
     private function recordBlocked(RunRecorder $recorder, string $key, array $profile, string $env, ?string $reason): QaTestRun
     {
         return $recorder->record([
-            'profile'        => $key,
-            'environment'    => $env,
-            'safety'         => $profile['safety'] ?? 'test-only',
-            'trigger'        => 'manual',
+            'profile' => $key,
+            'environment' => $env,
+            'safety' => $profile['safety'] ?? 'test-only',
+            'trigger' => 'manual',
             'blocked_reason' => $reason,
         ], null, ['status' => QaTestRun::STATUS_BLOCKED]);
     }
@@ -645,11 +646,11 @@ class QaRunProfile extends Command
     private function recordNotReady(RunRecorder $recorder, string $key, array $profile, string $env, string $reason, string $fix): QaTestRun
     {
         return $recorder->record([
-            'profile'        => $key,
-            'environment'    => $env,
-            'safety'         => $profile['safety'] ?? 'test-only',
-            'trigger'        => 'manual',
-            'runner'         => $this->runnerName(),
+            'profile' => $key,
+            'environment' => $env,
+            'safety' => $profile['safety'] ?? 'test-only',
+            'trigger' => 'manual',
+            'runner' => $this->runnerName(),
             'blocked_reason' => "{$reason} — fix: {$fix}",
         ], null, ['status' => QaTestRun::STATUS_NOT_EXECUTED]);
     }

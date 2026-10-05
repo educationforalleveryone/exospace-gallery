@@ -10,13 +10,14 @@ use Illuminate\Support\Facades\Log;
 class GalleryPinController extends Controller
 {
     private const MAX_FAILED_ATTEMPTS = 5;
+
     private const LOCKOUT_MINUTES = 15;
 
     public function show(string $slug)
     {
         $gallery = Gallery::publiclyAccessible()->where('slug', $slug)->firstOrFail();
 
-        if (!$gallery->hasPinProtection()) {
+        if (! $gallery->hasPinProtection()) {
             return redirect()->route('gallery.view', $slug);
         }
 
@@ -45,12 +46,13 @@ class GalleryPinController extends Controller
             // hash, only the attempt-counting lockout is suspended.
             Log::warning('PIN lockout check unavailable — proceeding without lockout', [
                 'gallery_id' => $gallery->id,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
         if ($lockedUntil !== null && $lockedUntil > now()) {
             $minutes = (int) ceil(now()->diffInSeconds($lockedUntil) / 60);
+
             return back()
                 ->withErrors(['pin' => "Too many incorrect attempts. This gallery is locked for {$minutes} minute(s). Please try again later."])
                 ->withInput();
@@ -63,10 +65,11 @@ class GalleryPinController extends Controller
             } catch (\Throwable $e) {
                 Log::warning('PIN attempt counter could not be cleared', [
                     'gallery_id' => $gallery->id,
-                    'error'      => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
             session(["pin_verified_{$gallery->id}" => true]);
+
             return redirect()->route('gallery.view', $slug);
         }
 
@@ -80,7 +83,7 @@ class GalleryPinController extends Controller
         } catch (\Throwable $e) {
             Log::warning('PIN attempt counting unavailable — lockout not enforced', [
                 'gallery_id' => $gallery->id,
-                'error'      => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -89,7 +92,7 @@ class GalleryPinController extends Controller
             Cache::forget($attemptsKey);
 
             return back()
-                ->withErrors(['pin' => 'Too many incorrect attempts. This gallery has been locked for ' . self::LOCKOUT_MINUTES . ' minutes. Please try again later.'])
+                ->withErrors(['pin' => 'Too many incorrect attempts. This gallery has been locked for '.self::LOCKOUT_MINUTES.' minutes. Please try again later.'])
                 ->withInput();
         }
 
@@ -100,6 +103,7 @@ class GalleryPinController extends Controller
         }
 
         $remaining = self::MAX_FAILED_ATTEMPTS - $attempts;
+
         return back()
             ->withErrors(['pin' => "Incorrect PIN. {$remaining} attempt(s) remaining before temporary lockout."])
             ->withInput();

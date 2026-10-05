@@ -25,8 +25,8 @@ class TeamMembershipLifecycleTest extends TestCase
     {
         return TeamInvitation::factory()->withToken($token)->create([
             'team_id' => $team->id,
-            'email'   => $email,
-            'role'    => $role,
+            'email' => $email,
+            'role' => $role,
         ]);
     }
 
@@ -47,7 +47,7 @@ class TeamMembershipLifecycleTest extends TestCase
         $this->assertDatabaseHas('team_user', [
             'team_id' => $team->id,
             'user_id' => $user->id,
-            'role'    => 'owner',
+            'role' => 'owner',
         ]);
         $this->assertSame($team->id, $user->fresh()->current_team_id);
     }
@@ -86,7 +86,7 @@ class TeamMembershipLifecycleTest extends TestCase
         $attacker = User::factory()->create();
 
         $this->actingAs($creator)->post(route('admin.teams.store'), [
-            'name'     => 'Hijack Attempt',
+            'name' => 'Hijack Attempt',
             'owner_id' => $attacker->id,
         ]);
 
@@ -124,9 +124,9 @@ class TeamMembershipLifecycleTest extends TestCase
         $this->expectException(QueryException::class);
 
         DB::table('team_user')->insert([
-            'team_id'    => $team->id,
-            'user_id'    => $member->id,
-            'role'       => 'viewer',
+            'team_id' => $team->id,
+            'user_id' => $member->id,
+            'role' => 'viewer',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -200,7 +200,7 @@ class TeamMembershipLifecycleTest extends TestCase
 
         $this->actingAs($owner)->post(route('admin.teams.invite', $team), [
             'email' => 'newcollab@example.com',
-            'role'  => 'editor',
+            'role' => 'editor',
         ]);
 
         Mail::assertQueued(TeamInvitationMail::class, 1);
@@ -222,7 +222,7 @@ class TeamMembershipLifecycleTest extends TestCase
 
         $this->actingAs($owner)->post(route('admin.teams.invite', $team), [
             'email' => 'queuetrip@example.com',
-            'role'  => 'viewer',
+            'role' => 'viewer',
         ]);
 
         $mailable = Mail::queued(TeamInvitationMail::class)->first();
@@ -255,7 +255,7 @@ class TeamMembershipLifecycleTest extends TestCase
         $this->assertDatabaseHas('team_user', [
             'team_id' => $team->id,
             'user_id' => $invitee->id,
-            'role'    => 'viewer',
+            'role' => 'viewer',
         ]);
         $this->assertSame($team->id, $invitee->fresh()->current_team_id);
     }
@@ -284,8 +284,8 @@ class TeamMembershipLifecycleTest extends TestCase
         $invitee = User::factory()->create(['email' => 'late@example.com']);
         TeamInvitation::factory()->withToken('expired-token')->expired()->create([
             'team_id' => $team->id,
-            'email'   => 'late@example.com',
-            'role'    => 'editor',
+            'email' => 'late@example.com',
+            'role' => 'editor',
         ]);
 
         $this->actingAs($invitee)
@@ -441,7 +441,7 @@ class TeamMembershipLifecycleTest extends TestCase
 
         $this->actingAs($editor)->patch(route('admin.teams.update-role', $team), [
             'user_id' => $owner->id,
-            'role'    => 'viewer',
+            'role' => 'viewer',
         ])->assertForbidden();
 
         $this->assertSame($owner->id, $team->fresh()->owner_id);
@@ -455,7 +455,7 @@ class TeamMembershipLifecycleTest extends TestCase
         $attacker = User::factory()->create();
 
         $this->actingAs($owner)->patch(route('admin.teams.update', $team), [
-            'name'     => 'Renamed Team',
+            'name' => 'Renamed Team',
             'owner_id' => $attacker->id,
         ]);
 

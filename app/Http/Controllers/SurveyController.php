@@ -13,7 +13,7 @@ class SurveyController extends Controller
     public function submitNps(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
-            'score'    => ['required', 'integer', 'min:0', 'max:10'],
+            'score' => ['required', 'integer', 'min:0', 'max:10'],
             'feedback' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -29,17 +29,28 @@ class SurveyController extends Controller
             if ($request->expectsJson()) {
                 return response()->json(['error' => 'You have already submitted an NPS response.'], 422);
             }
+
             return back()->with('info', 'You have already submitted a survey response.');
         }
 
-        $survey = SurveyResponse::create([
-            'user_id'      => $user->id,
-            'survey_type'  => 'nps',
-            'score'        => $validated['score'],
-            'feedback'     => $validated['feedback'] ?? null,
-            'triggered_at' => now(),
-            'responded_at' => now(),
-        ]);
+        try {
+            $survey = SurveyResponse::create([
+                'user_id' => $user->id,
+                'survey_type' => 'nps',
+                'score' => $validated['score'],
+                'feedback' => $validated['feedback'] ?? null,
+                'triggered_at' => now(),
+                'responded_at' => now(),
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // Two concurrent submissions raced past the exists() check; the
+            // (user_id, survey_type) unique index closes the window.
+            if ($request->expectsJson()) {
+                return response()->json(['error' => 'You have already submitted an NPS response.'], 422);
+            }
+
+            return back()->with('info', 'You have already submitted a survey response.');
+        }
 
         if ($request->expectsJson()) {
             return response()->json(['success' => true, 'message' => 'Thank you for your feedback!']);
@@ -66,20 +77,20 @@ class SurveyController extends Controller
             ->selectRaw('COALESCE(AVG(score), 0) AS avg_score')
             ->first();
 
-        $total     = (int) ($agg->total ?? 0);
+        $total = (int) ($agg->total ?? 0);
         $promoters = (int) ($agg->promoters ?? 0);
-        $passives  = (int) ($agg->passives ?? 0);
+        $passives = (int) ($agg->passives ?? 0);
         $detractors = (int) ($agg->detractors ?? 0);
-        $avgScore  = round((float) ($agg->avg_score ?? 0), 1);
-        $npsScore  = $total > 0 ? (int) round((($promoters - $detractors) / $total) * 100) : 0;
+        $avgScore = round((float) ($agg->avg_score ?? 0), 1);
+        $npsScore = $total > 0 ? (int) round((($promoters - $detractors) / $total) * 100) : 0;
 
         $stats = [
-            'total'      => $total,
-            'promoters'  => $promoters,
-            'passives'   => $passives,
+            'total' => $total,
+            'promoters' => $promoters,
+            'passives' => $passives,
             'detractors' => $detractors,
-            'nps_score'  => $npsScore,
-            'avg_score'  => $avgScore,
+            'nps_score' => $npsScore,
+            'avg_score' => $avgScore,
         ];
 
         return view('super-admin.nps.index', compact('responses', 'stats'));

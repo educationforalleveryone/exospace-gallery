@@ -39,17 +39,17 @@ class RollupAnalyticsTest extends TestCase
         $gallery = $this->makeGallery();
 
         $ancient = AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 'old-session'),
-            'created_at'    => now()->subDays(91),
+            'created_at' => now()->subDays(91),
         ]);
 
         $edge = AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 'edge-session'),
-            'created_at'    => now()->subDays(89),
+            'created_at' => now()->subDays(89),
         ]);
 
         $this->artisan('exospace:rollup-analytics', ['--prune-only' => true, '--retention' => 90])
@@ -64,17 +64,17 @@ class RollupAnalyticsTest extends TestCase
         $gallery = $this->makeGallery();
 
         $withinWeek = AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 'week-session'),
-            'created_at'    => now()->subDays(3),
+            'created_at' => now()->subDays(3),
         ]);
 
         $beyondWeek = AnalyticsEvent::create([
-            'gallery_id'    => $gallery->id,
-            'event'         => 'view',
+            'gallery_id' => $gallery->id,
+            'event' => 'view',
             'session_token' => hash('sha256', 'old-week-session'),
-            'created_at'    => now()->subDays(8),
+            'created_at' => now()->subDays(8),
         ]);
 
         $this->artisan('exospace:rollup-analytics', ['--prune-only' => true, '--retention' => 7])
@@ -89,9 +89,9 @@ class RollupAnalyticsTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create([
-            'user_id'   => $user->id,
-            'title'     => 'Rollup Test Gallery',
-            'slug'      => 'rollup-test-gallery-'.uniqid(),
+            'user_id' => $user->id,
+            'title' => 'Rollup Test Gallery',
+            'slug' => 'rollup-test-gallery-'.uniqid(),
             'is_active' => true,
         ]);
     }

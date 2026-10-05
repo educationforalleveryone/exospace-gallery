@@ -10,32 +10,35 @@ use Illuminate\Support\Facades\Log;
 class CoolifyDomainManager
 {
     private ?string $token;
+
     private ?string $baseUrl;
+
     private ?string $appUuid;
 
     public function __construct()
     {
-        $this->token    = config('services.coolify.api_token');
-        $this->baseUrl  = (string) config('services.coolify.api_base_url', '');
-        $this->appUuid  = config('services.coolify.application_uuid');
+        $this->token = config('services.coolify.api_token');
+        $this->baseUrl = (string) config('services.coolify.api_base_url', '');
+        $this->appUuid = config('services.coolify.application_uuid');
     }
 
     public function isConfigured(): bool
     {
-        return !empty($this->token) && !empty($this->baseUrl) && !empty($this->appUuid);
+        return ! empty($this->token) && ! empty($this->baseUrl) && ! empty($this->appUuid);
     }
 
     public function addDomain(string $domain): array
     {
         $domain = $this->normalize($domain);
-        if (!$domain) {
+        if (! $domain) {
             return ['success' => false, 'message' => 'Invalid domain.'];
         }
 
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             Log::warning('CoolifyDomainManager: not configured — skipping addDomain.', [
                 'domain' => $domain,
             ]);
+
             return [
                 'success' => false,
                 'message' => 'Coolify API not configured. Add COOLIFY_API_TOKEN, COOLIFY_API_BASE_URL, and COOLIFY_APPLICATION_UUID to your .env, or add the domain manually in Coolify.',
@@ -64,6 +67,7 @@ class CoolifyDomainManager
                     // Bust the cache so subsequent reads see the new list
                     Cache::forget($this->cacheKey());
                     Log::info('CoolifyDomainManager: added domain.', ['domain' => $domain]);
+
                     return [
                         'success' => true,
                         'message' => "Domain '{$domain}' added to Coolify. SSL cert will be provisioned automatically (may take 1-5 minutes).",
@@ -76,6 +80,7 @@ class CoolifyDomainManager
             Log::info('CoolifyDomainManager: addDomain lock busy, another worker is updating Coolify domains', [
                 'domain' => $domain,
             ]);
+
             return [
                 'success' => false,
                 'message' => 'Another domain update is in progress. Please retry in a moment.',
@@ -83,8 +88,9 @@ class CoolifyDomainManager
         } catch (\Throwable $e) {
             Log::error('CoolifyDomainManager: addDomain failed', [
                 'domain' => $domain,
-                'error'  => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
+
             return ['success' => false, 'message' => 'Unexpected error. Check the logs.'];
         }
     }
@@ -92,11 +98,11 @@ class CoolifyDomainManager
     public function removeDomain(string $domain): array
     {
         $domain = $this->normalize($domain);
-        if (!$domain) {
+        if (! $domain) {
             return ['success' => false, 'message' => 'Invalid domain.'];
         }
 
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             // If we never could have added it, removing is a no-op success
             return ['success' => true, 'message' => 'Coolify API not configured — nothing to remove.'];
         }
@@ -111,7 +117,7 @@ class CoolifyDomainManager
                     return ['success' => false, 'message' => 'Could not fetch current domains from Coolify API.'];
                 }
 
-                if (!in_array($domain, $current, true)) {
+                if (! in_array($domain, $current, true)) {
                     return ['success' => true, 'message' => "Domain '{$domain}' not in Coolify's domain list — nothing to remove."];
                 }
 
@@ -121,6 +127,7 @@ class CoolifyDomainManager
                 if ($result) {
                     Cache::forget($this->cacheKey());
                     Log::info('CoolifyDomainManager: removed domain.', ['domain' => $domain]);
+
                     return [
                         'success' => true,
                         'message' => "Domain '{$domain}' removed from Coolify.",
@@ -131,6 +138,7 @@ class CoolifyDomainManager
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             Log::info('CoolifyDomainManager: removeDomain lock busy', ['domain' => $domain]);
+
             return [
                 'success' => false,
                 'message' => 'Another domain update is in progress. Please retry in a moment.',
@@ -138,15 +146,16 @@ class CoolifyDomainManager
         } catch (\Throwable $e) {
             Log::error('CoolifyDomainManager: removeDomain failed', [
                 'domain' => $domain,
-                'error'  => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
+
             return ['success' => false, 'message' => 'Unexpected error. Check the logs.'];
         }
     }
 
     public function getCurrentDomains(): ?array
     {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             return null;
         }
 
@@ -156,10 +165,10 @@ class CoolifyDomainManager
                     ->timeout(10)
                     ->get("{$this->baseUrl}/api/v1/applications/{$this->appUuid}");
 
-                if (!$resp->successful()) {
+                if (! $resp->successful()) {
                     Log::error('CoolifyDomainManager: GET application failed.', [
                         'status' => $resp->status(),
-                        'body'   => $resp->body(),
+                        'body' => $resp->body(),
                     ]);
                     // Throw so Cache::remember does NOT cache null.
                     throw new \RuntimeException("Coolify API GET failed: HTTP {$resp->status()}");
@@ -170,6 +179,7 @@ class CoolifyDomainManager
 
                 // Coolify stores domains as a comma-separated string
                 $list = array_filter(array_map('trim', explode(',', $domains)));
+
                 return array_values($list);
             } catch (ConnectionException $e) {
                 Log::error('CoolifyDomainManager: connection error.', ['message' => $e->getMessage()]);
@@ -185,7 +195,7 @@ class CoolifyDomainManager
 
     private function updateDomains(array $domains): bool
     {
-        if (!$this->isConfigured()) {
+        if (! $this->isConfigured()) {
             return false;
         }
 
@@ -196,20 +206,23 @@ class CoolifyDomainManager
                     'domains' => implode(',', $domains),
                 ]);
 
-            if (!$resp->successful()) {
+            if (! $resp->successful()) {
                 Log::error('CoolifyDomainManager: PATCH application failed.', [
                     'status' => $resp->status(),
-                    'body'   => $resp->body(),
+                    'body' => $resp->body(),
                 ]);
+
                 return false;
             }
 
             return true;
         } catch (ConnectionException $e) {
             Log::error('CoolifyDomainManager: connection error on PATCH.', ['message' => $e->getMessage()]);
+
             return false;
         } catch (\Throwable $e) {
             Log::error('CoolifyDomainManager: unexpected error on PATCH.', ['message' => $e->getMessage()]);
+
             return false;
         }
     }
@@ -221,6 +234,7 @@ class CoolifyDomainManager
         $domain = explode('/', $domain)[0];
         $domain = explode(':', $domain)[0];
         $domain = preg_replace('/^www\./', '', $domain);
+
         return $domain;
     }
 

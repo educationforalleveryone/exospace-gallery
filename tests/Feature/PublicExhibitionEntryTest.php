@@ -26,26 +26,26 @@ class PublicExhibitionEntryTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'    => $user->id,
-            'title'      => 'Coastal Light',
-            'slug'       => 'coastal-light-' . uniqid(),
-            'description'=> 'A photographic survey of shoreline towns.',
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'title' => 'Coastal Light',
+            'slug' => 'coastal-light-'.uniqid(),
+            'description' => 'A photographic survey of shoreline towns.',
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 
@@ -65,10 +65,10 @@ class PublicExhibitionEntryTest extends TestCase
     {
         $owner = User::factory()->create(['email' => 'secretowner@example.com']);
         $gallery = Gallery::create([
-            'user_id'    => $owner->id,
-            'title'      => 'Private Payload Check',
-            'slug'       => 'payload-check-' . uniqid(),
-            'is_active'  => true,
+            'user_id' => $owner->id,
+            'title' => 'Private Payload Check',
+            'slug' => 'payload-check-'.uniqid(),
+            'is_active' => true,
         ]);
         $this->addArtwork($gallery);
 
@@ -130,7 +130,7 @@ class PublicExhibitionEntryTest extends TestCase
     {
         $gallery = $this->makeGallery();
 
-        $this->get('/gallery/' . strtoupper($gallery->slug))->assertNotFound();
+        $this->get('/gallery/'.strtoupper($gallery->slug))->assertNotFound();
     }
 
     public function test_not_yet_opened_exhibition_shows_coming_soon(): void
@@ -173,18 +173,18 @@ class PublicExhibitionEntryTest extends TestCase
     public function test_venue_hub_excludes_banned_owner_exhibitions(): void
     {
         $venue = VenueTemplate::create([
-            'slug'             => 'test-venue-' . uniqid(),
-            'name'             => 'Test Venue',
-            'description'      => 'A test venue with live exhibitions.',
+            'slug' => 'test-venue-'.uniqid(),
+            'name' => 'Test Venue',
+            'description' => 'A test venue with live exhibitions.',
             'default_settings' => [],
-            'visual_config'    => [],
-            'material_config'  => [],
-            'decorations'      => [],
-            'lighting_fixtures'=> [],
-            'is_active'        => true,
-            'is_draft'         => false,
-            'version'          => 1,
-            'published_at'     => now(),
+            'visual_config' => [],
+            'material_config' => [],
+            'decorations' => [],
+            'lighting_fixtures' => [],
+            'is_active' => true,
+            'is_draft' => false,
+            'version' => 1,
+            'published_at' => now(),
         ]);
 
         $active = $this->makeGallery(['venue_template_id' => $venue->id]);
@@ -220,7 +220,7 @@ class PublicExhibitionEntryTest extends TestCase
         $gallery = $this->makeGallery(['is_active' => false]);
 
         $this->post(route('gallery.track', $gallery), [
-            'event'         => 'view',
+            'event' => 'view',
             'session_token' => 'test-session-token',
         ])->assertOk();
     }

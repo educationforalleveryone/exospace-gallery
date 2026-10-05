@@ -22,12 +22,12 @@ class BillingExportTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -35,14 +35,14 @@ class BillingExportTest extends TestCase
     private function makeTransaction(array $attrs = []): Transaction
     {
         return Transaction::create(array_merge([
-            'user_id'         => User::factory()->create()->id,
-            'invoice_id'      => 'INV-' . uniqid(),
-            'plan'            => 'pro',
-            'amount'          => 29.00,
-            'currency'        => 'USD',
-            'customer_email'  => 'buyer@example.com',
-            'customer_name'   => 'Test Buyer',
-            'status'          => 'refunded',
+            'user_id' => User::factory()->create()->id,
+            'invoice_id' => 'INV-'.uniqid(),
+            'plan' => 'pro',
+            'amount' => 29.00,
+            'currency' => 'USD',
+            'customer_email' => 'buyer@example.com',
+            'customer_name' => 'Test Buyer',
+            'status' => 'refunded',
         ], $attrs));
     }
 
@@ -93,7 +93,7 @@ class BillingExportTest extends TestCase
     public function test_export_neutralises_spreadsheet_formulas_in_customer_fields(): void
     {
         $this->makeTransaction([
-            'customer_name'  => '=HYPERLINK("http://evil.test","x")',
+            'customer_name' => '=HYPERLINK("http://evil.test","x")',
             'customer_email' => '+cmd@example.com',
         ]);
 
@@ -156,21 +156,21 @@ class BillingExportTest extends TestCase
     public function test_webhooks_export_streams_the_ledger_with_failed_filter(): void
     {
         $failed = ProcessedWebhook::create([
-            'message_id'   => 'MSG-FAIL-' . uniqid(),
+            'message_id' => 'MSG-FAIL-'.uniqid(),
             'message_type' => 'REFUND_ISSUED',
-            'invoice_id'   => 'INV-FAIL',
-            'payload'      => ['message_type' => 'REFUND_ISSUED'],
-            'status'       => 'failed',
-            'updated_at'   => now(),
+            'invoice_id' => 'INV-FAIL',
+            'payload' => ['message_type' => 'REFUND_ISSUED'],
+            'status' => 'failed',
+            'updated_at' => now(),
         ]);
         ProcessedWebhook::create([
-            'message_id'   => 'MSG-OK-' . uniqid(),
+            'message_id' => 'MSG-OK-'.uniqid(),
             'message_type' => 'ORDER_CREATED',
-            'invoice_id'   => 'INV-OK',
-            'payload'      => ['message_type' => 'ORDER_CREATED'],
-            'status'       => 'processed',
+            'invoice_id' => 'INV-OK',
+            'payload' => ['message_type' => 'ORDER_CREATED'],
+            'status' => 'processed',
             'processed_at' => now(),
-            'updated_at'   => now(),
+            'updated_at' => now(),
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()

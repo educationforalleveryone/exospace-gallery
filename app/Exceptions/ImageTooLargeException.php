@@ -17,8 +17,8 @@ class ImageTooLargeException extends RuntimeException
 
         parent::__construct(
             "Image is {$width}x{$height} ({$megapixels}MP), which exceeds the "
-            . "{$maxMegapixels}MP upload limit. Please resize the image to "
-            . "at most ~7000x7000 pixels and try again."
+            ."{$maxMegapixels}MP upload limit. Please resize the image to "
+            .'at most ~7000x7000 pixels and try again.'
         );
     }
 }

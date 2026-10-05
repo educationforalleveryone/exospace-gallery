@@ -58,7 +58,7 @@ class VenueCathedralTest extends TestCase
         $row = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first();
         $this->assertDoesNotMatchRegularExpression(
             '/0xffaaaa|0xaaffaa|0xaaaaff|0xffffaa|0xffaaff|0xaaffff/',
-            (string) ($row->visual_config ?? '') . ($row->lighting_fixtures ?? ''),
+            (string) ($row->visual_config ?? '').($row->lighting_fixtures ?? ''),
             'The pastel-rainbow point-light palette must not survive in the row.'
         );
         $this->assertSame('2.1.0', $row->version, 'The deploy-review refinement bumps the venue version.');
@@ -96,40 +96,40 @@ class VenueCathedralTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         DB::table('venue_templates')->where('slug', 'crystal-cathedral')->update([
             'description' => 'A colonnade of tall glass rises through a deep blue void, coloured light glowing between the pillars. Artworks float in that light.',
-            'version'     => '1.0.0',
-            'tags'        => json_encode(['glass', 'crystal', 'ethereal', 'refraction']),
+            'version' => '1.0.0',
+            'tags' => json_encode(['glass', 'crystal', 'ethereal', 'refraction']),
             'visual_config' => json_encode([
-                'wall_height'            => 12,
-                'wall_depth'             => 0.3,
-                'ceiling_type'           => 'none',
-                'ceiling_height'         => 0,
-                'background_color'       => '0x0a0a1a',
-                'fog_color'              => '0x0a0a1a',
-                'fog_near'               => 15,
-                'fog_far'                => 50,
-                'ambient_color'          => '0xddeeff',
-                'ambient_intensity'      => 0.25,
-                'spot_intensity'         => 0.5,
-                'fill_intensity'         => 0.15,
-                'tone_mapping_exposure'  => 0.6,
-                'frame_override'         => 'silver',
-                'placement_mode'         => 'float',
-                'glass_material'         => 'transmission',
-                'colonnade_tint'         => '0xdfeaff',
-                'structure_pass'         => 'phenomena',
-                'open_air'               => true,
-                'layout_shape'           => 'circular',
-                'void_colonnade'         => true,
+                'wall_height' => 12,
+                'wall_depth' => 0.3,
+                'ceiling_type' => 'none',
+                'ceiling_height' => 0,
+                'background_color' => '0x0a0a1a',
+                'fog_color' => '0x0a0a1a',
+                'fog_near' => 15,
+                'fog_far' => 50,
+                'ambient_color' => '0xddeeff',
+                'ambient_intensity' => 0.25,
+                'spot_intensity' => 0.5,
+                'fill_intensity' => 0.15,
+                'tone_mapping_exposure' => 0.6,
+                'frame_override' => 'silver',
+                'placement_mode' => 'float',
+                'glass_material' => 'transmission',
+                'colonnade_tint' => '0xdfeaff',
+                'structure_pass' => 'phenomena',
+                'open_air' => true,
+                'layout_shape' => 'circular',
+                'void_colonnade' => true,
             ]),
             'material_config' => json_encode([
-                'wall_color'             => '0x202030',
-                'wall_roughness'         => 0.2,
-                'wall_metalness'         => 0.0,
-                'wall_normal_strength'   => 0.3,
-                'floor_color'            => null,
-                'floor_roughness'        => 0.1,
-                'floor_metalness'        => 0.4,
-                'floor_normal_strength'  => 0.3,
+                'wall_color' => '0x202030',
+                'wall_roughness' => 0.2,
+                'wall_metalness' => 0.0,
+                'wall_normal_strength' => 0.3,
+                'floor_color' => null,
+                'floor_roughness' => 0.1,
+                'floor_metalness' => 0.4,
+                'floor_normal_strength' => 0.3,
             ]),
         ]);
     }
@@ -295,16 +295,16 @@ class VenueCathedralTest extends TestCase
             );
         }
 
-        $venue   = VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
-        $owner   = User::factory()->create(['plan' => 'pro']);
+        $venue = VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
+        $owner = User::factory()->create(['plan' => 'pro']);
         $gallery = Gallery::factory()->create([
-            'user_id'           => $owner->id,
+            'user_id' => $owner->id,
             'venue_template_id' => $venue->id,
-            'visual_overrides'  => [
+            'visual_overrides' => [
                 'visual_config' => [
                     'background_color' => '0x660066',
-                    'void_colonnade'   => true,
-                    'void_arcade'      => false,
+                    'void_colonnade' => true,
+                    'void_arcade' => false,
                     'floor_reflection' => null,
                 ],
             ],
@@ -323,18 +323,18 @@ class VenueCathedralTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $venue   = VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
-        $owner   = User::factory()->create(['plan' => 'pro']);
+        $venue = VenueTemplate::where('slug', 'crystal-cathedral')->firstOrFail();
+        $owner = User::factory()->create(['plan' => 'pro']);
         $gallery = Gallery::factory()->create([
-            'user_id'           => $owner->id,
+            'user_id' => $owner->id,
             'venue_template_id' => $venue->id,
             // A stale exhibition layer from an earlier venue choice.
-            'lighting_preset'   => 'dramatic',
-            'room_layout'       => 'corridor',
+            'lighting_preset' => 'dramatic',
+            'room_layout' => 'corridor',
         ]);
 
         $exporter = app(VenueConfigExporter::class);
-        $gallery  = $gallery->refresh();
+        $gallery = $gallery->refresh();
 
         $this->assertSame(
             'bright',

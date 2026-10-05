@@ -24,7 +24,7 @@ class StampLastLogin
         } catch (\Throwable $e) {
             Log::debug('StampLastLogin: could not record login time', [
                 'user_id' => $user->id,
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }

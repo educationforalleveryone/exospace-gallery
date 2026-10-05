@@ -12,12 +12,14 @@ use Illuminate\Support\Facades\Schema;
 class OutboundWebhookService
 {
     public const TIMEOUT = 10;
+
     public const MAX_RETRIES = 3;
 
     public static function dispatch(string $eventType, array $payload, ?string $url = null): void
     {
         if ($url !== null) {
             static::dispatchSingle($eventType, $payload, $url);
+
             return;
         }
 
@@ -49,8 +51,8 @@ class OutboundWebhookService
     private static function dispatchSingle(string $eventType, array $payload, string $url, ?string $secret = null, ?int $subscriptionId = null): void
     {
         $body = json_encode([
-            'event'     => $eventType,
-            'payload'   => $payload,
+            'event' => $eventType,
+            'payload' => $payload,
             'timestamp' => now()->toIso8601String(),
         ]);
 
@@ -71,8 +73,8 @@ class OutboundWebhookService
                 // exactly $body — never a re-encoded copy of the decoded array.
                 $response = Http::timeout(self::TIMEOUT)
                     ->withHeaders(array_filter([
-                        'Content-Type'       => 'application/json',
-                        'X-Exospace-Event'   => $eventType,
+                        'Content-Type' => 'application/json',
+                        'X-Exospace-Event' => $eventType,
                         'X-Exospace-Signature' => $signature,
                     ]))
                     ->send('post', $url, ['body' => $body]);
@@ -81,28 +83,28 @@ class OutboundWebhookService
 
                 if ($response->successful()) {
                     Log::info('OutboundWebhook: dispatched successfully', [
-                        'event'   => $eventType,
-                        'url'     => $url,
+                        'event' => $eventType,
+                        'url' => $url,
                         'attempt' => $attempt,
                     ]);
                     $succeeded = true;
                     break; // Success — no more retries
                 }
 
-                $lastError = 'Non-2xx response: HTTP ' . $response->status();
+                $lastError = 'Non-2xx response: HTTP '.$response->status();
                 Log::warning('OutboundWebhook: non-2xx response', [
-                    'event'   => $eventType,
-                    'url'     => $url,
-                    'status'  => $response->status(),
+                    'event' => $eventType,
+                    'url' => $url,
+                    'status' => $response->status(),
                     'attempt' => $attempt,
                 ]);
             } catch (\Throwable $e) {
                 $lastError = $e->getMessage();
                 Log::warning('OutboundWebhook: dispatch failed', [
-                    'event'   => $eventType,
-                    'url'     => $url,
+                    'event' => $eventType,
+                    'url' => $url,
                     'attempt' => $attempt,
-                    'error'   => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
 
@@ -115,7 +117,7 @@ class OutboundWebhookService
         if (! $succeeded) {
             Log::error('OutboundWebhook: all retries exhausted', [
                 'event' => $eventType,
-                'url'   => $url,
+                'url' => $url,
             ]);
         }
 
@@ -123,21 +125,21 @@ class OutboundWebhookService
             if (Schema::hasTable('webhook_deliveries')) {
                 WebhookDelivery::create([
                     'subscription_id' => $subscriptionId,
-                    'event_type'      => $eventType,
-                    'target_url'      => $url,
-                    'http_status'     => $lastHttpStatus,
-                    'attempt_count'   => $finalAttempt,
-                    'success'         => $succeeded,
-                    'error_message'   => $succeeded ? null : $lastError,
-                    'delivered_at'    => now(),
+                    'event_type' => $eventType,
+                    'target_url' => $url,
+                    'http_status' => $lastHttpStatus,
+                    'attempt_count' => $finalAttempt,
+                    'success' => $succeeded,
+                    'error_message' => $succeeded ? null : $lastError,
+                    'delivered_at' => now(),
                 ]);
             }
         } catch (\Throwable $e) {
             Log::warning('OutboundWebhook: delivery ledger write failed', [
-                'event'          => $eventType,
-                'url'            => $url,
+                'event' => $eventType,
+                'url' => $url,
                 'subscription_id' => $subscriptionId,
-                'error'          => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -152,8 +154,8 @@ class OutboundWebhookService
         }
 
         $body = json_encode([
-            'event'     => $eventType,
-            'payload'   => $payload,
+            'event' => $eventType,
+            'payload' => $payload,
             'timestamp' => now()->toIso8601String(),
         ]);
 

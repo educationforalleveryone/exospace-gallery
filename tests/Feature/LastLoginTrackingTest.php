@@ -18,7 +18,7 @@ class LastLoginTrackingTest extends TestCase
         $this->assertNull($user->last_login_at, 'freshly created user has no login yet');
 
         $this->post('/login', [
-            'email'    => $user->email,
+            'email' => $user->email,
             'password' => 'password',
         ]);
 
@@ -37,7 +37,7 @@ class LastLoginTrackingTest extends TestCase
         $user = User::factory()->create();
 
         $this->post('/login', [
-            'email'    => $user->email,
+            'email' => $user->email,
             'password' => 'wrong-password',
         ]);
 
@@ -51,9 +51,9 @@ class LastLoginTrackingTest extends TestCase
     public function test_registration_auto_login_stamps(): void
     {
         $this->post('/register', [
-            'name'                  => 'Retention Test',
-            'email'                 => 'retention-' . uniqid() . '@example.test',
-            'password'              => 'password',
+            'name' => 'Retention Test',
+            'email' => 'retention-'.uniqid().'@example.test',
+            'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 

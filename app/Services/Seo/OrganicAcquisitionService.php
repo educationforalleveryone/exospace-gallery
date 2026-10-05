@@ -24,11 +24,11 @@ class OrganicAcquisitionService
 
         // Fill all channels so the UI has a stable shape.
         return array_merge([
-            'organic'  => 0,
-            'social'   => 0,
+            'organic' => 0,
+            'social' => 0,
             'referral' => 0,
             'campaign' => 0,
-            'direct'   => 0,
+            'direct' => 0,
         ], $rows);
     }
 

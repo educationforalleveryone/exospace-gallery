@@ -28,11 +28,11 @@ class SitemapEventsGroupTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'    => $user->id,
-            'title'      => 'Events Test Gallery',
-            'slug'       => 'events-' . uniqid(),
-            'description'=> 'A gallery with events.',
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'title' => 'Events Test Gallery',
+            'slug' => 'events-'.uniqid(),
+            'description' => 'A gallery with events.',
+            'is_active' => true,
         ], $attrs));
     }
 
@@ -40,10 +40,10 @@ class SitemapEventsGroupTest extends TestCase
     {
         return GalleryScheduleEvent::create(array_merge([
             'gallery_id' => $gallery->id,
-            'title'      => 'Opening Reception',
-            'type'       => 'opening',
-            'starts_at'  => now()->addDays(5),
-            'is_active'  => true,
+            'title' => 'Opening Reception',
+            'type' => 'opening',
+            'starts_at' => now()->addDays(5),
+            'is_active' => true,
         ], $attrs));
     }
 
@@ -65,7 +65,7 @@ class SitemapEventsGroupTest extends TestCase
         $xml = $this->get('/sitemap-events-1.xml')->getContent();
 
         $this->assertStringContainsString(
-            'https://exospace.gallery/gallery/' . $gallery->slug . '/events',
+            'https://exospace.gallery/gallery/'.$gallery->slug.'/events',
             $xml,
             'the RSVP surface is discoverable by crawlers',
         );
@@ -111,7 +111,7 @@ class SitemapEventsGroupTest extends TestCase
         $xml = $this->get('/sitemap-events-1.xml')->getContent();
 
         $this->assertStringContainsString(
-            'https://exospace.gallery/gallery/' . $gallery->slug . '/events',
+            'https://exospace.gallery/gallery/'.$gallery->slug.'/events',
             $xml,
             'pre-opening events remain the marketing surface',
         );
@@ -141,11 +141,11 @@ class SitemapEventsGroupTest extends TestCase
     {
         $banned = User::factory()->create(['banned_at' => now()]);
         $gallery = Gallery::create([
-            'user_id'    => $banned->id,
-            'title'      => 'Banned Owner Gallery',
-            'slug'       => 'banned-' . uniqid(),
-            'description'=> 'x',
-            'is_active'  => true,
+            'user_id' => $banned->id,
+            'title' => 'Banned Owner Gallery',
+            'slug' => 'banned-'.uniqid(),
+            'description' => 'x',
+            'is_active' => true,
         ]);
         $this->addUpcomingEvent($gallery);
 

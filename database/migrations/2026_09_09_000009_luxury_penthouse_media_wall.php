@@ -28,15 +28,18 @@ return new class extends Migration
     ];
 
     private const MEDIA_DESCRIPTOR_IDS = ['media-console', 'media-bezel'];
+
     private const MEDIA_DESCRIPTORS = [
         ['id' => 'media-console', 'primitive' => 'box', 'at' => ['from' => 'glazing', 'offset' => [-2.3, 0.225, 0.85]], 'turn' => 'in', 'rot' => [0, 0.7854, 0], 'size' => [1.8, 0.45, 0.5], 'material' => 'basalt', 'collide' => true],
         ['id' => 'media-bezel', 'primitive' => 'box', 'at' => ['from' => 'glazing', 'offset' => [-2.3, 0.94, 0.85]], 'turn' => 'in', 'rot' => [0, 0.7854, 0], 'size' => [1.66, 0.98, 0.08], 'material' => ['color' => '0x18130e', 'roughness' => 0.4, 'metalness' => 0.6], 'collide' => true],
     ];
 
     private const PICTURE_BAR_ID = 'art-wall-light-bar';
+
     private const PICTURE_BAR = ['id' => 'art-wall-light-bar', 'primitive' => 'emissive-strip', 'at' => ['from' => 'wall_left_high', 'offset' => [0, 3.72, 0.12]], 'turn' => 'in', 'size' => [1.6, 0.04, 0.1], 'material' => ['color' => '0x2a1c10', 'emissive' => '0xffd9a0', 'emissiveIntensity' => 1.4]];
 
     private const FIXTURE_IDS = ['art-wall-picture-light', 'media-glow'];
+
     private const NEW_FIXTURES = [
         ['id' => 'art-wall-picture-light', 'type' => 'point', 'anchor' => ['from' => 'wall_left_high', 'offset' => [0, 3.4, 0.8]], 'color' => '0xffd9a0', 'intensity' => 2.4, 'distance' => 5.5, 'decay' => 2.0, 'cast_shadow' => false],
         ['id' => 'media-glow', 'type' => 'point', 'anchor' => ['from' => 'glazing', 'offset' => [-1.85, 1.15, 1.65]], 'color' => '0xffe8c8', 'intensity' => 1.3, 'distance' => 4.5, 'decay' => 2.0, 'cast_shadow' => false],
@@ -47,13 +50,13 @@ return new class extends Migration
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
-        $visual   = json_decode((string) $row->visual_config, true) ?: [];
+        $visual = json_decode((string) $row->visual_config, true) ?: [];
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
-        $update   = [];
+        $update = [];
         $structure = $visual['structure'] ?? null;
 
         // ── M3/M4 — guarded per-descriptor swaps (lamp, bench, knot) ────
@@ -70,10 +73,12 @@ return new class extends Migration
                 $idx = $byId[$id] ?? null;
                 if ($idx === null || $expected === null) {
                     $this->log("descriptor '{$id}' absent — skipped.");
+
                     continue;
                 }
-                if (!self::sameValue($structure[$idx], $expected)) {
+                if (! self::sameValue($structure[$idx], $expected)) {
                     $this->log("descriptor '{$id}' is admin-customised (or from another chain state) — left untouched.");
+
                     continue;
                 }
                 $structure[$idx] = $newBody;
@@ -84,10 +89,12 @@ return new class extends Migration
             foreach (self::MEDIA_DESCRIPTORS as $d) {
                 if (isset($byId[$d['id']])) {
                     $this->log("descriptor '{$d['id']}' already present — no change.");
+
                     continue;
                 }
-                if (!$loungeOk) {
+                if (! $loungeOk) {
                     $this->log("lounge anchor context missing (no sofa-base) — '{$d['id']}' not added.");
+
                     continue;
                 }
                 $structure[] = $d;
@@ -96,15 +103,15 @@ return new class extends Migration
 
             // ── M2 — the picture bar (add when absent + panel present) ──
             if (isset($byId[self::PICTURE_BAR_ID])) {
-                $this->log("descriptor '" . self::PICTURE_BAR_ID . "' already present — no change.");
-            } elseif (!isset($byId['art-wall-panel'])) {
-                $this->log("art wall absent — '" . self::PICTURE_BAR_ID . "' not added.");
+                $this->log("descriptor '".self::PICTURE_BAR_ID."' already present — no change.");
+            } elseif (! isset($byId['art-wall-panel'])) {
+                $this->log("art wall absent — '".self::PICTURE_BAR_ID."' not added.");
             } else {
                 $structure[] = self::PICTURE_BAR;
-                $this->log("descriptor '" . self::PICTURE_BAR_ID . "' added (art-wall picture light).");
+                $this->log("descriptor '".self::PICTURE_BAR_ID."' added (art-wall picture light).");
             }
 
-            if (!self::sameValue($structure, $visual['structure'] ?? null)) {
+            if (! self::sameValue($structure, $visual['structure'] ?? null)) {
                 $visual['structure'] = $structure;
                 $update['visual_config'] = json_encode($visual);
             }
@@ -123,6 +130,7 @@ return new class extends Migration
         foreach (self::NEW_FIXTURES as $f) {
             if (isset($fixtureIds[$f['id']])) {
                 $this->log("fixture '{$f['id']}' already present — no change.");
+
                 continue;
             }
             $fixtures[] = $f;
@@ -130,11 +138,11 @@ return new class extends Migration
         }
         if ($addedFixtures) {
             $update['lighting_fixtures'] = json_encode($fixtures);
-            $this->log('fixtures added: ' . implode(', ', $addedFixtures) . '.');
+            $this->log('fixtures added: '.implode(', ', $addedFixtures).'.');
         }
 
         // ── The media_wall viewer declaration (absent-key union) ────────
-        if (!array_key_exists('media_wall', $visual)) {
+        if (! array_key_exists('media_wall', $visual)) {
             $visual['media_wall'] = self::MEDIA_WALL_CONFIG;
             $update['visual_config'] = json_encode($visual);
             $this->log('visual_config.media_wall declared (viewer draws the Now Showing screen).');
@@ -162,13 +170,13 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'lighting_fixtures', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
-        $visual   = json_decode((string) $row->visual_config, true) ?: [];
+        $visual = json_decode((string) $row->visual_config, true) ?: [];
         $fixtures = json_decode((string) $row->lighting_fixtures, true) ?: [];
-        $update   = [];
+        $update = [];
         $structure = $visual['structure'] ?? null;
 
         if (is_array($structure)) {
@@ -178,6 +186,7 @@ return new class extends Migration
             foreach ($structure as $d) {
                 if (is_array($d) && in_array($d['id'] ?? null, $removeIds, true)) {
                     $removed[] = $d['id'];
+
                     continue;
                 }
                 $kept[] = $d;
@@ -196,17 +205,18 @@ return new class extends Migration
                 if ($idx === null || $expected === null) {
                     continue;
                 }
-                if (!self::sameValue($kept[$idx], $newBody)) {
+                if (! self::sameValue($kept[$idx], $newBody)) {
                     $this->log("down(): descriptor '{$id}' is not at the v3.1.0 body — left untouched.");
+
                     continue;
                 }
                 $kept[$idx] = $expected;
             }
 
-            if (!self::sameValue($kept, $structure)) {
+            if (! self::sameValue($kept, $structure)) {
                 $visual['structure'] = $kept;
                 $update['visual_config'] = json_encode($visual);
-                $this->log('removed: ' . implode(', ', $removed) . ' ; descriptor swaps reversed.');
+                $this->log('removed: '.implode(', ', $removed).' ; descriptor swaps reversed.');
             }
         }
 
@@ -215,13 +225,14 @@ return new class extends Migration
         foreach ($fixtures as $f) {
             if (is_array($f) && in_array($f['id'] ?? null, self::FIXTURE_IDS, true)) {
                 $removedFixtures[] = $f['id'];
+
                 continue;
             }
             $keptFixtures[] = $f;
         }
         if ($removedFixtures) {
             $update['lighting_fixtures'] = json_encode($keptFixtures);
-            $this->log('fixtures removed: ' . implode(', ', $removedFixtures) . '.');
+            $this->log('fixtures removed: '.implode(', ', $removedFixtures).'.');
         }
 
         if (array_key_exists('media_wall', $visual)) {
@@ -248,34 +259,37 @@ return new class extends Migration
         if (is_array($a) && is_array($b)) {
             $isList = static fn ($v): bool => array_keys($v) === range(0, count($v) - 1);
             if ($isList($a) || $isList($b)) {
-                if (!$isList($a) || !$isList($b) || count($a) !== count($b)) {
+                if (! $isList($a) || ! $isList($b) || count($a) !== count($b)) {
                     return false;
                 }
                 foreach ($a as $i => $v) {
-                    if (!self::sameValue($v, $b[$i])) {
+                    if (! self::sameValue($v, $b[$i])) {
                         return false;
                     }
                 }
+
                 return true;
             }
             if (count($a) !== count($b)) {
                 return false;
             }
             foreach ($a as $k => $v) {
-                if (!array_key_exists($k, $b) || !self::sameValue($v, $b[$k])) {
+                if (! array_key_exists($k, $b) || ! self::sameValue($v, $b[$k])) {
                     return false;
                 }
             }
+
             return true;
         }
         if (is_int($a) || is_float($a)) {
             return (is_int($b) || is_float($b)) && abs((float) $a - (float) $b) < PHP_FLOAT_EPSILON;
         }
+
         return $a === $b;
     }
 
     private function log(string $message): void
     {
-        echo '[luxury-penthouse-media-wall] ' . $message . PHP_EOL;
+        echo '[luxury-penthouse-media-wall] '.$message.PHP_EOL;
     }
 };

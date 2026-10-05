@@ -17,13 +17,13 @@ return new class extends Migration
         }
         Schema::table('galleries', function (Blueprint $table) {
             $table->string('custom_domain_verification_token', 64)
-                  ->nullable()
-                  ->after('custom_domain');
+                ->nullable()
+                ->after('custom_domain');
 
             // Timestamp of successful DNS verification. NULL = pending.
             $table->timestamp('custom_domain_verified_at')
-                  ->nullable()
-                  ->after('custom_domain_verification_token');
+                ->nullable()
+                ->after('custom_domain_verification_token');
 
             $table->index('custom_domain_verified_at', 'galleries_pending_domain_idx');
         });

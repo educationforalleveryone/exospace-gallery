@@ -39,8 +39,8 @@ return new class extends Migration
         Schema::create('event_rsvps', function (Blueprint $table) {
             $table->id();
             $table->foreignId('schedule_event_id')
-                  ->constrained('gallery_schedule_events')
-                  ->onDelete('cascade');
+                ->constrained('gallery_schedule_events')
+                ->onDelete('cascade');
 
             $table->string('name', 100);
             $table->string('email', 255);

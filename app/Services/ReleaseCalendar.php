@@ -8,13 +8,21 @@ use Carbon\CarbonInterface;
 
 class ReleaseCalendar
 {
+    /**
+     * Keys of a release entry that the PUBLIC changelog is allowed to render.
+     * Anything else (team-only metadata such as rollout plans, rollback steps,
+     * embargo reminders) must live in internalNotes(), never here — the
+     * changelog contract test fails the build if an extra key sneaks in.
+     */
+    public const PUBLIC_KEYS = ['version', 'date', 'title', 'highlights', 'features', 'improvements', 'fixes'];
+
     public static function releases(): array
     {
         return [
             [
-                'version'   => 'v1.7',
-                'date'      => '2026-07-04',
-                'title'     => 'Subscriptions, Dunning & Invoicing',
+                'version' => 'v1.7',
+                'date' => '2026-07-04',
+                'title' => 'Subscriptions, Dunning & Invoicing',
                 'highlights' => ['Recurring billing', 'PDF invoices', 'Failed payment recovery'],
                 'features' => [
                     'Recurring subscription billing — choose between one-time purchase or monthly subscription',
@@ -42,9 +50,9 @@ class ReleaseCalendar
                 ],
             ],
             [
-                'version'   => 'v1.6',
-                'date'      => '2026-07-04',
-                'title'     => 'Performance, Scaling & Security',
+                'version' => 'v1.6',
+                'date' => '2026-07-04',
+                'title' => 'Performance, Scaling & Security',
                 'highlights' => ['DB read replicas', 'Cache tags', 'Partitioned transactions'],
                 'features' => [
                     'DB read/write splitting — SELECT queries route to read replicas',
@@ -71,9 +79,9 @@ class ReleaseCalendar
                 ],
             ],
             [
-                'version'   => 'v1.5',
-                'date'      => '2026-07-04',
-                'title'     => 'Security Hardening & Accessibility',
+                'version' => 'v1.5',
+                'date' => '2026-07-04',
+                'title' => 'Security Hardening & Accessibility',
                 'highlights' => ['Signed invitation URLs', 'PII removal', 'WCAG compliance'],
                 'features' => [
                     'Team invitations now use signed URLs (HMAC with APP_KEY)',
@@ -102,9 +110,9 @@ class ReleaseCalendar
                 ],
             ],
             [
-                'version'   => 'v1.0',
-                'date'      => '2026-06-30',
-                'title'     => 'Initial Launch',
+                'version' => 'v1.0',
+                'date' => '2026-06-30',
+                'title' => 'Initial Launch',
                 'highlights' => ['3D gallery viewer', '11 venues', '2Checkout billing'],
                 'features' => [
                     'Immersive 3D gallery viewer with WASD movement + guided tour',
@@ -140,6 +148,20 @@ class ReleaseCalendar
         );
     }
 
+    /**
+     * Team-only release metadata, keyed by version. Consumed by admin
+     * surfaces (Master Control) only — the public changelog projects each
+     * release onto PUBLIC_KEYS before rendering, so entries placed here can
+     * never reach the public page. Currently empty; add entries per version
+     * as the release calendar grows.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function internalNotes(): array
+    {
+        return [];
+    }
+
     public static function between(CarbonInterface $from, CarbonInterface $to): array
     {
         $byDate = [];
@@ -162,7 +184,7 @@ class ReleaseCalendar
         foreach ($byDate as $date => $versions) {
             $out[] = [
                 'version' => implode(' · ', $versions),
-                'date'    => $date,
+                'date' => $date,
             ];
         }
 

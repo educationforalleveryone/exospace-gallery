@@ -87,10 +87,10 @@ return new class extends Migration
     public function down(): void
     {
         foreach (['galleries', 'team_user', 'team_invitations', 'teams',
-                  'pending_upgrades', 'invoices', 'transactions',
-                  'newsletter_signups', 'gdpr_deletion_requests',
-                  'personal_access_tokens', 'password_histories',
-                  'user_notifications', 'user_feedback', 'survey_responses'] as $dependent) {
+            'pending_upgrades', 'invoices', 'transactions',
+            'newsletter_signups', 'gdpr_deletion_requests',
+            'personal_access_tokens', 'password_histories',
+            'user_notifications', 'user_feedback', 'survey_responses'] as $dependent) {
             Schema::dropIfExists($dependent);
         }
         Schema::dropIfExists('users');

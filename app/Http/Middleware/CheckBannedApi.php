@@ -30,7 +30,7 @@ class CheckBannedApi
         } catch (\Throwable $e) {
             Log::warning('CheckBannedApi: failed to revoke API tokens', [
                 'user_id' => $user->id,
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
 

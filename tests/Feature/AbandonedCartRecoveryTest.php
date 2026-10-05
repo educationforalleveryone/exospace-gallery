@@ -19,7 +19,7 @@ class AbandonedCartRecoveryTest extends TestCase
 
     private function abandonedCart(User $user, string $plan = 'pro', array $overrides = []): PendingUpgrade
     {
-        $pending = PendingUpgrade::createForUser($user, $plan, strtoupper($plan) . '-001');
+        $pending = PendingUpgrade::createForUser($user, $plan, strtoupper($plan).'-001');
         $pending->forceFill(array_merge(['created_at' => now()->subHours(25)], $overrides))->save();
 
         return $pending;

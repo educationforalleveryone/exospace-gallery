@@ -23,12 +23,12 @@ class DashboardController extends Controller
             : Gallery::where('user_id', $user->id)->whereNull('team_id');
 
         $galleriesCount = (clone $galleriesScope)->count();
-        $activeCount    = (clone $galleriesScope)->where('is_active', true)->count();
-        $draftCount     = $galleriesCount - $activeCount;
-        $totalViews     = (clone $galleriesScope)->sum('view_count');
+        $activeCount = (clone $galleriesScope)->where('is_active', true)->count();
+        $draftCount = $galleriesCount - $activeCount;
+        $totalViews = (clone $galleriesScope)->sum('view_count');
 
         $personalGalleriesCount = $team ? null : $galleriesCount;
-        $galleryQuotaPercent    = (!$team && $user->max_galleries > 0)
+        $galleryQuotaPercent = (! $team && $user->max_galleries > 0)
             ? min(100, (int) round(($galleriesCount / $user->max_galleries) * 100))
             : 0;
 
@@ -50,18 +50,18 @@ class DashboardController extends Controller
         $galleryIds = (clone $galleriesScope)->pluck('id');
 
         $viewsToday = 0;
-        $views7     = 0;
+        $views7 = 0;
         $viewsPrev7 = 0;
         $viewsChart = collect();
 
         if ($galleryIds->isNotEmpty()) {
-            $now    = now();
-            $today  = $now->toDateString();
-            $day6   = $now->copy()->subDays(6)->toDateString();
-            $day7   = $now->copy()->subDays(7)->toDateString();
-            $day13  = $now->copy()->subDays(13)->toDateString();
+            $now = now();
+            $today = $now->toDateString();
+            $day6 = $now->copy()->subDays(6)->toDateString();
+            $day7 = $now->copy()->subDays(7)->toDateString();
+            $day13 = $now->copy()->subDays(13)->toDateString();
 
-            $cacheKey = "dashboard:analytics:u{$user->id}:" . ($team ? "t{$team->id}" : 'personal');
+            $cacheKey = "dashboard:analytics:u{$user->id}:".($team ? "t{$team->id}" : 'personal');
 
             $cached = \App\Support\ResilientCache::flexible($cacheKey, [now()->addMinutes(5), now()->addMinutes(10)], function () use ($galleryIds, $now, $today, $day6, $day7, $day13) {
                 // Today's views from raw events (today is not yet in the rollup).
@@ -94,9 +94,10 @@ class DashboardController extends Controller
                     ->pluck('views', 'date');
 
                 $viewsChart = collect(range(6, 0))->mapWithKeys(function ($d) use ($rollupDays, $now, $viewsToday) {
-                    $date  = $now->copy()->subDays($d)->toDateString();
+                    $date = $now->copy()->subDays($d)->toDateString();
                     $label = $now->copy()->subDays($d)->format('D');
                     $count = $d === 0 ? $viewsToday : (int) ($rollupDays[$date] ?? 0);
+
                     return [$label => $count];
                 });
 
@@ -104,7 +105,7 @@ class DashboardController extends Controller
             });
 
             $viewsToday = $cached['viewsToday'];
-            $views7     = $cached['views7'];
+            $views7 = $cached['views7'];
             $viewsPrev7 = $cached['viewsPrev7'];
             $viewsChart = collect($cached['viewsChart']);
         }
@@ -117,7 +118,7 @@ class DashboardController extends Controller
 
         // ── Pending team invitations (for teams the user owns) ───────────────
         $pendingInvitations = collect();
-        if (!$team) {
+        if (! $team) {
             $ownedTeamIds = $user->ownedTeams()->pluck('id');
             if ($ownedTeamIds->isNotEmpty()) {
                 $pendingInvitations = TeamInvitation::whereIn('team_id', $ownedTeamIds)
@@ -129,18 +130,18 @@ class DashboardController extends Controller
             }
         }
 
-        $isNewUser          = !$team && $galleriesCount === 0 && $user->created_at->gt(now()->subHours(48));
-        $hasUnsharedGallery = !$team && $galleriesCount > 0 && $totalViews === 0 && $activeCount > 0;
+        $isNewUser = ! $team && $galleriesCount === 0 && $user->created_at->gt(now()->subHours(48));
+        $hasUnsharedGallery = ! $team && $galleriesCount > 0 && $totalViews === 0 && $activeCount > 0;
 
         // Onboarding checklist data
-        $totalImages = !$team ? \DB::table('gallery_images')
+        $totalImages = ! $team ? \DB::table('gallery_images')
             ->join('galleries', 'galleries.id', '=', 'gallery_images.gallery_id')
             ->where('galleries.user_id', $user->id)
             ->whereNull('galleries.team_id')
             ->whereNull('galleries.deleted_at')
             ->whereNull('gallery_images.deleted_at')
             ->count() : 0;
-        $hasPublishedGallery = !$team && $activeCount > 0;
+        $hasPublishedGallery = ! $team && $activeCount > 0;
 
         // ── Gallery health flags (for recent list) ───────────────────────────
         $staleLiveIds = (clone $galleriesScope)
@@ -180,26 +181,26 @@ class DashboardController extends Controller
         $alerts = [];
 
         // Plan expiry warning (7-day window)
-        if (!$team && $user->plan_expires_at) {
+        if (! $team && $user->plan_expires_at) {
             $daysLeft = now()->diffInDays($user->plan_expires_at, false);
             if ($daysLeft >= 0 && $daysLeft <= 7) {
                 $alerts[] = [
-                    'type'   => 'warning',
-                    'icon'   => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-                    'text'   => $daysLeft === 0
+                    'type' => 'warning',
+                    'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+                    'text' => $daysLeft === 0
                         ? 'Your plan expires today.'
-                        : "Your plan expires in {$daysLeft} day" . ($daysLeft === 1 ? '' : 's') . '.',
+                        : "Your plan expires in {$daysLeft} day".($daysLeft === 1 ? '' : 's').'.',
                     'action' => ['label' => 'Renew now', 'href' => '/pricing'],
                 ];
             }
         }
 
         // Quota near-full (free users, ≥80%)
-        if (!$team && !$user->isPro() && $quotaPercent >= 80) {
+        if (! $team && ! $user->isPro() && $quotaPercent >= 80) {
             $alerts[] = [
-                'type'   => $quotaPercent >= 100 ? 'error' : 'warning',
-                'icon'   => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
-                'text'   => $quotaPercent >= 100
+                'type' => $quotaPercent >= 100 ? 'error' : 'warning',
+                'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+                'text' => $quotaPercent >= 100
                     ? 'You\'ve reached your gallery limit.'
                     : "You've used {$quotaPercent}% of your gallery quota.",
                 'action' => ['label' => 'Upgrade to Pro', 'href' => '/pricing'],
@@ -207,16 +208,15 @@ class DashboardController extends Controller
         }
 
         // Draft galleries that have never been published (idle > 7 days)
-        $staleDrafts = $galleries->filter(fn($g) =>
-            !$g->is_active &&
+        $staleDrafts = $galleries->filter(fn ($g) => ! $g->is_active &&
             $g->created_at->lt(now()->subDays(7))
         )->count();
 
         if ($staleDrafts > 0) {
             $alerts[] = [
-                'type'   => 'info',
-                'icon'   => 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
-                'text'   => $staleDrafts === 1
+                'type' => 'info',
+                'icon' => 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
+                'text' => $staleDrafts === 1
                     ? 'You have a draft gallery sitting unpublished.'
                     : "You have {$staleDrafts} draft galleries sitting unpublished.",
                 'action' => ['label' => 'Go to Galleries', 'href' => route('admin.galleries.index')],
@@ -224,15 +224,14 @@ class DashboardController extends Controller
         }
 
         // Live galleries with 0 images
-        $emptyLive = $galleries->filter(fn($g) =>
-            $g->is_active && $g->images_count === 0
+        $emptyLive = $galleries->filter(fn ($g) => $g->is_active && $g->images_count === 0
         )->count();
 
         if ($emptyLive > 0) {
             $alerts[] = [
-                'type'   => 'error',
-                'icon'   => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-                'text'   => $emptyLive === 1
+                'type' => 'error',
+                'icon' => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
+                'text' => $emptyLive === 1
                     ? 'A live gallery has no images — visitors see an empty exhibition.'
                     : "{$emptyLive} live galleries have no images.",
                 'action' => ['label' => 'Fix now', 'href' => route('admin.galleries.index')],

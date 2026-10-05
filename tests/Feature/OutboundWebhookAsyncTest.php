@@ -14,14 +14,15 @@ class OutboundWebhookAsyncTest extends TestCase
     use RefreshDatabase;
 
     private const WEBHOOK = 'https://hooks.example.com/async';
-    private const SECRET  = 'async-secret-key';
+
+    private const SECRET = 'async-secret-key';
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->withoutVite();
         Http::fake();
-        config(['services.outbound_webhook.url'    => self::WEBHOOK]);
+        config(['services.outbound_webhook.url' => self::WEBHOOK]);
         config(['services.outbound_webhook.secret' => self::SECRET]);
     }
 
@@ -30,7 +31,10 @@ class OutboundWebhookAsyncTest extends TestCase
         OutboundWebhookService::dispatchAsync('gallery.published', ['gallery_id' => 42]);
 
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
-            if ($request->url() !== self::WEBHOOK) return false;
+            if ($request->url() !== self::WEBHOOK) {
+                return false;
+            }
+
             return $request->header('X-Exospace-Event')[0] === 'gallery.published';
         });
     }
@@ -51,7 +55,8 @@ class OutboundWebhookAsyncTest extends TestCase
 
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
             $body = json_decode($request->body(), true);
-            return $body['event']     === 'subscription.renewed'
+
+            return $body['event'] === 'subscription.renewed'
                 && $body['payload']['invoice_id'] === 'INV-9'
                 && isset($body['timestamp']);
         });
@@ -63,8 +68,11 @@ class OutboundWebhookAsyncTest extends TestCase
 
         Http::assertSent(function (\Illuminate\Http\Client\Request $request) {
             $signature = $request->header('X-Exospace-Signature')[0] ?? null;
-            if (! $signature) return false;
+            if (! $signature) {
+                return false;
+            }
             $expected = hash_hmac('sha256', $request->body(), self::SECRET);
+
             return hash_equals($expected, $signature);
         });
     }

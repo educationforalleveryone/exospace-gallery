@@ -4,36 +4,40 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class VenueLakeTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private const LAKE_MIGRATION = '2026_09_09_000013_mirror_lake_still_shore.php';
+
     private const V1_DESCRIPTION = 'A still, dark lake reflects the floating artworks and the moon. Mist drifts low. Quiet, spacious, meditative.';
 
     private const V3_DESCRIPTION = 'A gallery at dusk on the shore of a still lake. Works hover above the calm water along the shore, doubled by their reflection. Arrive on the stone landing, follow the shoreline walk, cross the timber pier to the lantern-lit viewing pavilion, and look back as the far shore fades into mist under a rising moon.';
 
     private const V3_LAKE = [
         'sky_environment' => true,
-        'assets_base'     => '/assets/venues/mirror-lake/',
-        'assets'          => [
-            'tree_large'  => 'tree_large_01.glb',
+        'assets_base' => '/assets/venues/mirror-lake/',
+        'assets' => [
+            'tree_large' => 'tree_large_01.glb',
             'tree_medium' => 'tree_medium_01.glb',
             'tree_accent' => 'tree_medium_02.glb',
-            'shrub'       => 'shrub_01.glb',
-            'grass'       => 'grass_clump_01.glb',
-            'boulder'     => 'boulder_01.glb',
-            'bench'       => 'bench_01.glb',
+            'shrub' => 'shrub_01.glb',
+            'grass' => 'grass_clump_01.glb',
+            'boulder' => 'boulder_01.glb',
+            'bench' => 'bench_01.glb',
         ],
     ];
 
     private const V3_POST_FX = [
-        'bloom'             => false,
-        'vignette'          => true,
+        'bloom' => false,
+        'vignette' => true,
         'vignette_darkness' => 0.5,
-        'vignette_offset'   => 1.15,
-        'vignette_blend'    => 'black',
+        'vignette_offset' => 1.15,
+        'vignette_blend' => 'black',
     ];
 
     public function test_the_seeded_row_declares_the_still_shore(): void
@@ -64,8 +68,8 @@ class VenueLakeTest extends TestCase
 
         $material = $this->materialConfig('mirror-lake');
         $this->assertSame('0x46523a', $material['floor_color'] ?? null, '[mirror-lake] the land is a dark lakeside meadow (the WATER is its own object).');
-        $this->assertSame(1.0, $material['floor_roughness'] ?? null, '[mirror-lake] the land is NOT a mirror-metal floor (the v1 roughness-0 / metalness-1 pretence is gone).');
-        $this->assertSame(0.0, $material['floor_metalness'] ?? null);
+        $this->assertSame(1.0, (float) ($material['floor_roughness'] ?? 0.0), '[mirror-lake] the land is NOT a mirror-metal floor (the v1 roughness-0 / metalness-1 pretence is gone).');
+        $this->assertSame(0.0, (float) ($material['floor_metalness'] ?? 0.0));
 
         $fixtures = json_decode((string) DB::table('venue_templates')->where('slug', 'mirror-lake')->value('lighting_fixtures'), true);
         $this->assertSame([], $fixtures, '[mirror-lake] carries no lighting fixtures — the moon is plan-built (position, streak, reflection).');
@@ -90,10 +94,10 @@ class VenueLakeTest extends TestCase
     {
         // The exact v1.0.0 seeded row (pre-migration production state).
         DB::table('venue_templates')->where('slug', 'mirror-lake')->update([
-            'version'           => '1.0.0',
-            'description'       => self::V1_DESCRIPTION,
-            'tags'              => json_encode(['mirror', 'reflection', 'moonlit', 'meditative']),
-            'visual_config'     => json_encode([
+            'version' => '1.0.0',
+            'description' => self::V1_DESCRIPTION,
+            'tags' => json_encode(['mirror', 'reflection', 'moonlit', 'meditative']),
+            'visual_config' => json_encode([
                 'wall_height' => 0, 'wall_depth' => 0, 'ceiling_type' => 'none', 'ceiling_height' => 0,
                 'background_color' => '0x0a0a18', 'fog_color' => '0x0a0a18', 'fog_near' => 15, 'fog_far' => 45,
                 'ambient_color' => '0xb0c8ff', 'ambient_intensity' => 0.18,
@@ -107,19 +111,31 @@ class VenueLakeTest extends TestCase
                 'layout_shape' => 'circular',
                 'void_lake' => true,
             ]),
-            'material_config'   => json_encode([
+            'material_config' => json_encode([
                 'wall_color' => null, 'wall_roughness' => 1.0, 'wall_metalness' => 0.0, 'wall_normal_strength' => 0.3,
                 'floor_color' => '0x202830', 'floor_roughness' => 0.0, 'floor_metalness' => 1.0, 'floor_normal_strength' => 0.1,
             ]),
             'lighting_fixtures' => json_encode([[
-                'id'          => 'moonlight',
-                'type'        => 'directional',
-                'position'    => [12, 22, -8],
-                'color'       => '0xb0c8ff',
-                'intensity'   => 0.6,
+                'id' => 'moonlight',
+                'type' => 'directional',
+                'position' => [12, 22, -8],
+                'color' => '0xb0c8ff',
+                'intensity' => 0.6,
                 'cast_shadow' => false,
             ]]),
         ]);
+    }
+
+    private function runLakeMigration(): void
+    {
+        $migration = require database_path('migrations/'.self::LAKE_MIGRATION);
+        $migration->up();
+    }
+
+    private function rollbackLakeMigration(): void
+    {
+        $migration = require database_path('migrations/'.self::LAKE_MIGRATION);
+        $migration->down();
     }
 
     public function test_the_migration_upgrades_a_v1_production_row(): void
@@ -127,7 +143,7 @@ class VenueLakeTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $this->v1ProductionRow();
 
-        Artisan::call('migrate', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
+        $this->runLakeMigration();
 
         $venue = DB::table('venue_templates')->where('slug', 'mirror-lake')->first();
         $config = json_decode((string) $venue->visual_config, true);
@@ -144,9 +160,9 @@ class VenueLakeTest extends TestCase
 
         $material = json_decode((string) $venue->material_config, true);
         $this->assertSame('0x46523a', $material['floor_color']);
-        $this->assertSame(1.0, $material['floor_roughness']);
-        $this->assertSame(0.0, $material['floor_metalness']);
-        $this->assertSame(3.0, $material['floor_tile_meters']);
+        $this->assertSame(1.0, (float) $material['floor_roughness']);
+        $this->assertSame(0.0, (float) $material['floor_metalness']);
+        $this->assertSame(3.0, (float) $material['floor_tile_meters']);
     }
 
     public function test_the_migration_is_idempotent(): void
@@ -154,10 +170,10 @@ class VenueLakeTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $this->v1ProductionRow();
 
-        Artisan::call('migrate', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
+        $this->runLakeMigration();
         $afterFirst = DB::table('venue_templates')->where('slug', 'mirror-lake')->first();
 
-        Artisan::call('migrate', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
+        $this->runLakeMigration();
         $afterSecond = DB::table('venue_templates')->where('slug', 'mirror-lake')->first();
 
         $this->assertSame($afterFirst->visual_config, $afterSecond->visual_config, '[mirror-lake] re-running the migration must rewrite nothing.');
@@ -172,12 +188,12 @@ class VenueLakeTest extends TestCase
         DB::table('venue_templates')->where('slug', 'mirror-lake')->update([
             'visual_config' => json_encode(array_merge(json_decode((string) DB::table('venue_templates')->where('slug', 'mirror-lake')->value('visual_config'), true), [
                 'tone_mapping_exposure' => 1.4,   // custom — not the v1 seeded 0.55
-                'fog_color'             => '0x05070a',
+                'fog_color' => '0x05070a',
             ])),
             'description' => 'My custom lake copy.',
         ]);
 
-        Artisan::call('migrate', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
+        $this->runLakeMigration();
 
         $config = $this->visualConfig('mirror-lake');
         $this->assertSame(1.4, $config['tone_mapping_exposure'], '[mirror-lake] a custom exposure is never overwritten.');
@@ -192,8 +208,8 @@ class VenueLakeTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $this->v1ProductionRow();
 
-        Artisan::call('migrate', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
-        Artisan::call('migrate:rollback', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
+        $this->runLakeMigration();
+        $this->rollbackLakeMigration();
 
         $venue = DB::table('venue_templates')->where('slug', 'mirror-lake')->first();
         $config = json_decode((string) $venue->visual_config, true);
@@ -209,8 +225,8 @@ class VenueLakeTest extends TestCase
 
         $material = json_decode((string) $venue->material_config, true);
         $this->assertSame('0x202830', $material['floor_color']);
-        $this->assertSame(0.0, $material['floor_roughness']);
-        $this->assertSame(1.0, $material['floor_metalness']);
+        $this->assertSame(0.0, (float) $material['floor_roughness']);
+        $this->assertSame(1.0, (float) $material['floor_metalness']);
 
         $fixtures = json_decode((string) $venue->lighting_fixtures, true);
         $this->assertSame('moonlight', $fixtures[0]['id'] ?? null, '[mirror-lake] down() restores the v1 moonlight fixture.');
@@ -221,7 +237,7 @@ class VenueLakeTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         $this->v1ProductionRow();
 
-        Artisan::call('migrate', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
+        $this->runLakeMigration();
 
         $config = $this->visualConfig('mirror-lake');
         $config['lake']['assets_base'] = '/assets/venues/mirror-lake/custom/';
@@ -229,7 +245,7 @@ class VenueLakeTest extends TestCase
             'visual_config' => json_encode($config),
         ]);
 
-        Artisan::call('migrate:rollback', ['--path' => 'database/migrations/2026_09_09_000013_mirror_lake_still_shore.php', '--force' => true]);
+        $this->rollbackLakeMigration();
 
         $after = $this->visualConfig('mirror-lake');
         $this->assertSame('/assets/venues/mirror-lake/custom/', $after['lake']['assets_base'] ?? null, '[mirror-lake] a custom lake block survives down().');
@@ -237,7 +253,7 @@ class VenueLakeTest extends TestCase
 
     public function test_the_waterfront_declaration_is_venue_owned(): void
     {
-        $exporter = new \App\Services\VenueConfigExporter();
+        $exporter = new \App\Services\VenueConfigExporter;
         $owned = $exporter::VENUE_OWNED_VISUAL_KEYS;
 
         $this->assertContains('lake', $owned, '[mirror-lake] the lake identity block must be venue-owned wholesale (a curator override cannot recompose the shoreline).');
@@ -251,7 +267,7 @@ class VenueLakeTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $venue = \App\Models\VenueTemplate::where('slug', 'mirror-lake')->firstOrFail();
-        $exporter = new \App\Services\VenueConfigExporter();
+        $exporter = new \App\Services\VenueConfigExporter;
         $payload = $exporter->forVenuePreview($venue);
 
         $vc = $payload['visual_config'] ?? [];

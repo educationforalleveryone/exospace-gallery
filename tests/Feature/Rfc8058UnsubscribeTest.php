@@ -94,8 +94,8 @@ class Rfc8058UnsubscribeTest extends TestCase
     public function plan_expiring_email_emits_rfc8058_headers(): void
     {
         $user = User::factory()->create([
-            'plan'             => 'pro',
-            'plan_expires_at'  => now()->addDays(5),
+            'plan' => 'pro',
+            'plan_expires_at' => now()->addDays(5),
         ]);
 
         $mail = new PlanExpiringSoon($user);

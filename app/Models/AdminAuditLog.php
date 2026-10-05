@@ -68,13 +68,13 @@ class AdminAuditLog extends Model
             static::query()->orderByDesc('id')->lockForUpdate()->first(['id']);
 
             return static::create([
-                'actor_id'    => $actorId ?? Auth::id(),
-                'action'      => $action,
+                'actor_id' => $actorId ?? Auth::id(),
+                'action' => $action,
                 'target_type' => get_class($target),
-                'target_id'   => $target->getKey(),
-                'payload'     => $payload ?: null,
-                'ip'          => Request::ip(),
-                'created_at'  => now(),
+                'target_id' => $target->getKey(),
+                'payload' => $payload ?: null,
+                'ip' => Request::ip(),
+                'created_at' => now(),
             ]);
         });
 
@@ -98,7 +98,7 @@ class AdminAuditLog extends Model
                 continue;
             }
             // Hash the value. Cast to string in case it's a non-string scalar.
-            $data[$key] = 'pii:' . substr(hash('sha256', $appId . (string) $value), 0, 16);
+            $data[$key] = 'pii:'.substr(hash('sha256', $appId.(string) $value), 0, 16);
         }
 
         return $data;

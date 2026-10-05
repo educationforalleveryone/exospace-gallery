@@ -16,8 +16,8 @@ use Illuminate\Queue\SerializesModels;
 
 class FirstGalleryCreatedEmail extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
     use HasMarketingUnsubscribe;
+    use Queueable, SerializesModels;
 
     public function __construct(
         public User $user,

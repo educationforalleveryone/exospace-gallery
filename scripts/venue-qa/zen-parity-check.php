@@ -4,36 +4,42 @@ require __DIR__.'/../../vendor/autoload.php';
 $app = require_once __DIR__.'/../../bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
-use App\Services\VenueConfigExporter;
 use App\Models\Gallery;
+use App\Services\VenueConfigExporter;
 
 $venue = DB::table('venue_templates')->where('slug', 'zen-gallery')->first();
-if (!$venue) { echo "FAIL: no zen-gallery row\n"; exit(1); }
+if (! $venue) {
+    echo "FAIL: no zen-gallery row\n";
+    exit(1);
+}
 
-if (!DB::table('users')->count()) {
+if (! DB::table('users')->count()) {
     \App\Models\User::factory()->create(['plan' => 'pro']);
 }
 $anyUser = DB::table('users')->first();
-if (!$anyUser) { echo "FAIL: no users\n"; exit(1); }
+if (! $anyUser) {
+    echo "FAIL: no users\n";
+    exit(1);
+}
 
 $makeGallery = fn (array $attrs) => Gallery::create(array_merge([
-    'user_id'           => $anyUser->id,
+    'user_id' => $anyUser->id,
     'venue_template_id' => $venue->id,
-    'name'              => 'Zen parity probe',
-    'title'             => 'Zen parity probe',
-    'slug'              => 'zen-parity-probe-'.uniqid(),
-    'wall_texture'      => 'plaster',
-    'floor_material'    => 'wood',
-    'frame_style'       => 'black',
-    'lighting_preset'   => 'bright',
-    'room_layout'       => 'square',
+    'name' => 'Zen parity probe',
+    'title' => 'Zen parity probe',
+    'slug' => 'zen-parity-probe-'.uniqid(),
+    'wall_texture' => 'plaster',
+    'floor_material' => 'wood',
+    'frame_style' => 'black',
+    'lighting_preset' => 'bright',
+    'room_layout' => 'square',
 ], $attrs));
 
 $gDefault = $makeGallery([]);
-$gCustom  = $makeGallery([
+$gCustom = $makeGallery([
     'wall_texture' => 'white',      // customer chose a different finish family…
-    'frame_style'  => 'natural',
-    'room_layout'  => 'corridor',
+    'frame_style' => 'natural',
+    'room_layout' => 'corridor',
 ]);
 
 $exporter = app(VenueConfigExporter::class);
@@ -41,7 +47,7 @@ $exporter = app(VenueConfigExporter::class);
 $venuePayload = $exporter->forVenuePreview(
     App\Models\VenueTemplate::query()->findOrFail($venue->id)
 );
-$pLive   = $exporter->forGalleryPreview($gDefault);
+$pLive = $exporter->forGalleryPreview($gDefault);
 $pPublic = $exporter->forGallery($gDefault);
 $pCustom = $exporter->forGallery($gCustom);
 
@@ -62,30 +68,40 @@ const MATERIAL_IDENTITY = [
     'floor_color', 'floor_roughness', 'floor_metalness', 'floor_normal_strength', 'floor_tile_meters',
 ];
 
-function pick(array $src, array $keys): array {
+function pick(array $src, array $keys): array
+{
     $out = [];
-    foreach ($keys as $k) $out[$k] = $src[$k] ?? '__ABSENT__';
+    foreach ($keys as $k) {
+        $out[$k] = $src[$k] ?? '__ABSENT__';
+    }
+
     return $out;
 }
 
 $failures = 0;
 $check = function (string $name, bool $cond, string $detail = '') use (&$failures): void {
-    if ($cond) { echo "  ✓ {$name}\n"; } else { $failures++; echo "  ✗ {$name} — {$detail}\n"; }
+    if ($cond) {
+        echo "  ✓ {$name}\n";
+    } else {
+        $failures++;
+        echo "  ✗ {$name} — {$detail}\n";
+    }
 };
 
 echo "── Zen §14 payload parity (venue preview / live preview / public gallery)\n";
-$venueId  = pick($venuePayload['visual_config'] ?? [], IDENTITY);
-$liveId   = pick($pLive['visual_config'] ?? [], IDENTITY);
+$venueId = pick($venuePayload['visual_config'] ?? [], IDENTITY);
+$liveId = pick($pLive['visual_config'] ?? [], IDENTITY);
 $publicId = pick($pPublic['visual_config'] ?? [], IDENTITY);
 $customId = pick($pCustom['visual_config'] ?? [], IDENTITY);
 
 $detail = function (array $a, array $b): string {
     $out = [];
     foreach ($b as $k => $v) {
-        if (( $a[$k] ?? null ) !== $v) {
+        if (($a[$k] ?? null) !== $v) {
             $out[] = $k.': '.substr(json_encode($a[$k] ?? null), 0, 60).' !== '.substr(json_encode($v), 0, 60);
         }
     }
+
     return implode(' | ', $out);
 };
 
@@ -96,8 +112,8 @@ $check('public gallery identity === venue preview identity', $publicId === $venu
 $check('custom-finish gallery identity === venue preview identity', $customId === $venueId,
     'customer finishes must not move venue identity');
 
-$venueMat  = pick($venuePayload['material_config'] ?? [], MATERIAL_IDENTITY);
-$liveMat   = pick($pLive['material_config'] ?? [], MATERIAL_IDENTITY);
+$venueMat = pick($venuePayload['material_config'] ?? [], MATERIAL_IDENTITY);
+$liveMat = pick($pLive['material_config'] ?? [], MATERIAL_IDENTITY);
 $publicMat = pick($pPublic['material_config'] ?? [], MATERIAL_IDENTITY);
 $check('live preview material identity === venue preview', $liveMat === $venueMat,
     $detail($liveMat, $venueMat));
@@ -119,7 +135,8 @@ $check('default gallery layout resolves to square', ($pPublic['effective_setting
 $check('payload advertises only linear layouts', ($pPublic['supported_layouts'] ?? []) === ['square', 'corridor', 'l-shape'],
     json_encode($pPublic['supported_layouts'] ?? []));
 
-$gDefault->delete(); $gCustom->delete();
+$gDefault->delete();
+$gCustom->delete();
 echo $failures === 0 ? "\n✅ ZEN §14 PAYLOAD PARITY: ALL SURFACES AGREE\n"
                      : "\n❌ {$failures} parity failure(s)\n";
 exit($failures === 0 ? 0 : 1);

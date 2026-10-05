@@ -25,23 +25,23 @@ class SitemapWarmTest extends TestCase
     private function seedPublicGallery(): Gallery
     {
         $gallery = Gallery::create([
-            'user_id'     => User::factory()->create()->id,
-            'title'       => 'Warmable Show',
-            'slug'        => 'warmable-show',
+            'user_id' => User::factory()->create()->id,
+            'title' => 'Warmable Show',
+            'slug' => 'warmable-show',
             'description' => 'A description long enough to pass the artwork quality gate comfortably.',
-            'is_active'   => true,
+            'is_active' => true,
         ]);
         GalleryImage::create([
-            'gallery_id'  => $gallery->id,
-            'path'        => 'artworks/warm.jpg',
+            'gallery_id' => $gallery->id,
+            'path' => 'artworks/warm.jpg',
             'original_name' => 'warm.jpg',
-            'filename'       => 'warm.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 12345,
-            'width'        => 800,
-            'height'       => 600,
-            'orientation'  => 'landscape',
-            'title'       => 'Warm Artwork',
+            'filename' => 'warm.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 12345,
+            'width' => 800,
+            'height' => 600,
+            'orientation' => 'landscape',
+            'title' => 'Warm Artwork',
             'description' => str_repeat('Substantive description. ', 10),
             'position_order' => 0,
         ]);
@@ -59,11 +59,11 @@ class SitemapWarmTest extends TestCase
 
         $version = (int) Cache::get('seo:sitemap:version', 1);
         $this->assertTrue(Cache::has("sitemap:index:v{$version}"));
-        $this->assertTrue(Cache::has('sitemap:count:galleries:v' . $version));
-        $this->assertTrue(Cache::has('sitemap:lastmod:galleries:v' . $version));
+        $this->assertTrue(Cache::has('sitemap:count:galleries:v'.$version));
+        $this->assertTrue(Cache::has('sitemap:lastmod:galleries:v'.$version));
         $this->assertTrue(Cache::has("sitemap:group:galleries:1:v{$version}"));
-        $this->assertTrue(Cache::has('sitemap:group:static:1:v' . $version));
-        $this->assertTrue(Cache::has('feed:galleries:v' . $version));
+        $this->assertTrue(Cache::has('sitemap:group:static:1:v'.$version));
+        $this->assertTrue(Cache::has('feed:galleries:v'.$version));
 
         // And the warmed content actually serves:
         $this->get('/sitemap-galleries-1.xml')->assertOk()->assertSee('warmable-show');
@@ -133,17 +133,17 @@ class SitemapWarmTest extends TestCase
         $this->assertTrue(Cache::has("sitemap:group:galleries:1:v{$v1}"));
 
         GalleryImage::create([
-            'gallery_id'    => Gallery::first()->id,
-            'path'          => 'artworks/warm2.jpg',
+            'gallery_id' => Gallery::first()->id,
+            'path' => 'artworks/warm2.jpg',
             'original_name' => 'warm2.jpg',
-            'filename'       => 'warm2.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 12345,
-            'width'        => 800,
-            'height'       => 600,
-            'orientation'  => 'landscape',
-            'title'         => 'Second Artwork',
-            'description'   => str_repeat('Another substantive description. ', 8),
+            'filename' => 'warm2.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 12345,
+            'width' => 800,
+            'height' => 600,
+            'orientation' => 'landscape',
+            'title' => 'Second Artwork',
+            'description' => str_repeat('Another substantive description. ', 8),
             'position_order' => 1,
         ]);
 

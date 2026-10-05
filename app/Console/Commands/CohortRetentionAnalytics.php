@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 class CohortRetentionAnalytics extends Command
 {
     protected $signature = 'exospace:cohort-retention {--weeks=8 : Number of weeks to analyze}';
+
     protected $description = 'Generate cohort retention analytics, persist the matrix history, and post the summary to the operational alert channel.';
 
     public function handle(CohortRetentionMetricsService $metrics, OperationalAlertService $alerts): int
@@ -25,14 +26,14 @@ class CohortRetentionAnalytics extends Command
         $this->info("Cohort retention (last {$weeks} weeks)");
         $this->newLine();
 
-        $this->info(str_pad('Cohort', 12) . str_pad('Size', 8) . implode('', array_map(fn ($w) => str_pad("W{$w}", 8), range(0, $weeks - 1))));
+        $this->info(str_pad('Cohort', 12).str_pad('Size', 8).implode('', array_map(fn ($w) => str_pad("W{$w}", 8), range(0, $weeks - 1))));
         $this->info(str_repeat('-', 12 + 8 + $weeks * 8));
 
         foreach ($data['cohorts'] as $cohort) {
-            $row = str_pad($cohort['label'], 12) . str_pad((string) $cohort['size'], 8);
+            $row = str_pad($cohort['label'], 12).str_pad((string) $cohort['size'], 8);
             foreach ($cohort['cells'] as $cell) {
-                $value = $cell['pct'] > 0 ? $cell['pct'] . '%' : '-';
-                $row .= str_pad($cell['complete'] ? $value : $value . '*', 8);
+                $value = $cell['pct'] > 0 ? $cell['pct'].'%' : '-';
+                $row .= str_pad($cell['complete'] ? $value : $value.'*', 8);
             }
             $this->info($row);
         }
@@ -43,9 +44,9 @@ class CohortRetentionAnalytics extends Command
         $this->info('Active = last_login_at in week OR gallery updated in week (both bounded).');
 
         Log::info('CohortRetentionAnalytics: report generated', [
-            'weeks'      => $weeks,
-            'cohorts'    => count($data['cohorts']),
-            'persisted'  => $persisted,
+            'weeks' => $weeks,
+            'cohorts' => count($data['cohorts']),
+            'persisted' => $persisted,
         ]);
 
         $alerts->alert(
@@ -80,7 +81,7 @@ class CohortRetentionAnalytics extends Command
                 $registered,
             ),
             $w1 !== null
-                ? sprintf("Week-1 retention: %s%% (cohort of %s) — login or gallery activity in their first follow-up week.", $w1['pct'], $w1['label'])
+                ? sprintf('Week-1 retention: %s%% (cohort of %s) — login or gallery activity in their first follow-up week.', $w1['pct'], $w1['label'])
                 : 'Week-1 retention: no complete W1 cell yet (needs cohorts ≥2 weeks old).',
             'Active = last_login_at in week OR gallery updated in week.',
             'Trend history: Master Control → Retention.',

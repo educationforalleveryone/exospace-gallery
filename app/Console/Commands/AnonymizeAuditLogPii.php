@@ -21,15 +21,15 @@ class AnonymizeAuditLogPii extends Command
     public function handle(): int
     {
         $retentionMonths = (int) $this->option('retention-months');
-        $dryRun          = (bool) $this->option('dry-run');
-        $batchSize       = (int) $this->option('batch-size');
+        $dryRun = (bool) $this->option('dry-run');
+        $batchSize = (int) $this->option('batch-size');
 
         $cutoff = now()->subMonths($retentionMonths);
 
         $this->info("Audit log PII scrubbing for records older than {$retentionMonths} months (before {$cutoff->toDateString()})");
-        $this->info("  Dry run: " . ($dryRun ? 'YES' : 'NO'));
+        $this->info('  Dry run: '.($dryRun ? 'YES' : 'NO'));
         $this->info("  Batch size: {$batchSize}");
-        $this->info("  PII keys: " . implode(', ', AdminAuditLog::piiKeys()));
+        $this->info('  PII keys: '.implode(', ', AdminAuditLog::piiKeys()));
         $this->newLine();
 
         // The ip column is PII in its own right — the payload scrubber never
@@ -59,13 +59,14 @@ class AnonymizeAuditLogPii extends Command
 
         if ($totalRows === 0) {
             $this->info("  No audit log rows older than {$retentionMonths} months have a payload. Nothing to scrub.");
+
             return self::SUCCESS;
         }
 
         $this->info("  Found {$totalRows} audit log rows with payloads in the retention window.");
 
         $scrubbed = 0;
-        $skipped  = 0;
+        $skipped = 0;
 
         DB::table('admin_audit_logs')
             ->where('created_at', '<', $cutoff)
@@ -76,16 +77,18 @@ class AnonymizeAuditLogPii extends Command
                     $payload = is_string($row->payload) ? json_decode($row->payload, true) : $row->payload;
                     if (! is_array($payload)) {
                         $skipped++;
+
                         continue;
                     }
 
                     $originalJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                    $payload      = $this->scrubArrayRecursive($payload);
-                    $newJson      = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    $payload = $this->scrubArrayRecursive($payload);
+                    $newJson = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
                     if ($originalJson === $newJson) {
                         // No PII to scrub in this row.
                         $skipped++;
+
                         continue;
                     }
 
@@ -108,12 +111,12 @@ class AnonymizeAuditLogPii extends Command
         }
 
         Log::info('AnonymizeAuditLogPii: complete', [
-            'scrubbed'         => $scrubbed,
-            'skipped'          => $skipped,
-            'ips_cleared'      => $dryRun ? 0 : $agedRowsWithIp,
+            'scrubbed' => $scrubbed,
+            'skipped' => $skipped,
+            'ips_cleared' => $dryRun ? 0 : $agedRowsWithIp,
             'retention_months' => $retentionMonths,
-            'cutoff'           => $cutoff->toDateString(),
-            'dry_run'          => $dryRun,
+            'cutoff' => $cutoff->toDateString(),
+            'dry_run' => $dryRun,
         ]);
 
         return self::SUCCESS;
@@ -131,6 +134,7 @@ class AnonymizeAuditLogPii extends Command
             if (is_array($value)) {
                 // Recurse into nested arrays (e.g. _changed).
                 $data[$key] = $this->scrubArrayRecursive($value);
+
                 continue;
             }
 
@@ -149,7 +153,7 @@ class AnonymizeAuditLogPii extends Command
                 continue;
             }
 
-            $data[$key] = 'pii:' . substr(hash('sha256', $appId . $strValue), 0, 16);
+            $data[$key] = 'pii:'.substr(hash('sha256', $appId.$strValue), 0, 16);
         }
 
         return $data;

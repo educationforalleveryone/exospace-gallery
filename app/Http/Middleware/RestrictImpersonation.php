@@ -43,8 +43,8 @@ class RestrictImpersonation
         if (! $request->isMethodSafe() && $admin) {
             AdminAuditLog::record('impersonation_request', $request->user(), [
                 'admin_id' => $admin->id,
-                'method'   => $request->method(),
-                'route'    => $request->route()?->getName() ?? $request->path(),
+                'method' => $request->method(),
+                'route' => $request->route()?->getName() ?? $request->path(),
             ], $admin->id);
         }
 

@@ -22,14 +22,14 @@ class UserFeedback extends Model
     ];
 
     public const CATEGORIES = [
-        'bug'             => '🐛 Bug Report',
+        'bug' => '🐛 Bug Report',
         'feature_request' => '💡 Feature Request',
-        'praise'          => '❤️ Praise',
-        'other'           => '💬 Other',
+        'praise' => '❤️ Praise',
+        'other' => '💬 Other',
     ];
 
     public const STATUSES = [
-        'new'      => 'New',
+        'new' => 'New',
         'reviewed' => 'Reviewed',
         'resolved' => 'Resolved',
     ];

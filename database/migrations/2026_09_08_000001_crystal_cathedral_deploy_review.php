@@ -8,12 +8,13 @@ return new class extends Migration
     private const SLUG = 'crystal-cathedral';
 
     private const OLD_VERSION = '2.0.0';
+
     private const NEW_VERSION = '2.1.0';
 
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
@@ -24,7 +25,7 @@ return new class extends Migration
             $visual['hemisphere_intensity'] = 0.30;
         }
 
-        if (is_array($visual['post_fx'] ?? null) && !array_key_exists('vignette_blend', $visual['post_fx'])) {
+        if (is_array($visual['post_fx'] ?? null) && ! array_key_exists('vignette_blend', $visual['post_fx'])) {
             $visual['post_fx']['vignette_blend'] = 'black';
         }
 
@@ -41,7 +42,7 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', self::SLUG)->first(['id', 'visual_config', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 

@@ -77,12 +77,12 @@ class QueueWorkerHeartbeatTest extends TestCase
         QueueWorkerHeartbeat::stamp();
 
         DB::table('jobs')->insert([
-            'queue'        => 'default',
-            'payload'      => json_encode(['job' => 'test']),
-            'attempts'     => 0,
-            'reserved_at'  => null,
+            'queue' => 'default',
+            'payload' => json_encode(['job' => 'test']),
+            'attempts' => 0,
+            'reserved_at' => null,
             'available_at' => now()->subMinutes(15)->timestamp,
-            'created_at'   => now()->subMinutes(15)->timestamp,
+            'created_at' => now()->subMinutes(15)->timestamp,
         ]);
 
         app(OperationalAlertService::class)->checkQueueWorkerHealth();

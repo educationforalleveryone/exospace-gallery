@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class VenueIndustrialLoftTest extends TestCase
@@ -12,26 +12,25 @@ class VenueIndustrialLoftTest extends TestCase
     use RefreshDatabase;
 
     public const DEEPENED_VISUAL = [
-        'fog_near'              => 14,
-        'fog_far'               => 55,
-        'ambient_intensity'     => 0.55,
-        'spot_intensity'        => 2.4,
-        'fill_intensity'        => 1.1,
+        'fog_near' => 14,
+        'fog_far' => 55,
+        'ambient_intensity' => 0.55,
+        'spot_intensity' => 2.4,
+        'fill_intensity' => 1.1,
         'tone_mapping_exposure' => 0.9,
-        'frame_override'        => 'black',
-        'corridor_width'        => 9,
-        'artwork_light_base'     => 0.22,
+        'frame_override' => 'black',
+        'corridor_width' => 9,
+        'artwork_light_base' => 0.22,
         'artwork_light_pool_cap' => 12,
-        'env_intensity'          => 0.25,
+        'env_intensity' => 0.25,
     ];
 
     public const DEEPENED_POST_FX = [
-        'bloom'             => false,
-        'vignette'          => true,
+        'bloom' => false,
+        'vignette' => true,
         'vignette_darkness' => 0.35,
-        'vignette_offset'   => 1.0,
+        'vignette_offset' => 1.0,
     ];
-
 
     private function assertPostFxMatches(array $expected, ?array $actual, string $message): void
     {
@@ -63,7 +62,7 @@ class VenueIndustrialLoftTest extends TestCase
     private function jsonCol(string $slug, string $col): array
     {
         $row = $this->venueRow($slug);
-        if (!$row) {
+        if (! $row) {
             return [];
         }
 
@@ -129,42 +128,42 @@ class VenueIndustrialLoftTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         DB::table('venue_templates')->where('slug', 'industrial-loft')->update([
-            'version'          => '1.0.0',
+            'version' => '1.0.0',
             'visual_config' => json_encode([
-                'wall_height'            => 7,
-                'wall_depth'             => 0.5,
-                'ceiling_type'           => 'beamed',
-                'ceiling_color'          => '0x1a1a18',
-                'ceiling_beams'          => true,
-                'ceiling_height'         => 7,
-                'background_color'       => '0x111008',
-                'fog_color'              => '0x111008',
-                'fog_near'               => 8,
-                'fog_far'                => 35,
-                'ambient_color'          => '0xffd9a8',
-                'structure_pass'         => 'loft',
-                'ambient_intensity'      => 0.18,
-                'spot_intensity'         => 0.5,
-                'fill_intensity'         => 0.15,
-                'tone_mapping_exposure'  => 0.55,
-                'frame_override'         => null,
+                'wall_height' => 7,
+                'wall_depth' => 0.5,
+                'ceiling_type' => 'beamed',
+                'ceiling_color' => '0x1a1a18',
+                'ceiling_beams' => true,
+                'ceiling_height' => 7,
+                'background_color' => '0x111008',
+                'fog_color' => '0x111008',
+                'fog_near' => 8,
+                'fog_far' => 35,
+                'ambient_color' => '0xffd9a8',
+                'structure_pass' => 'loft',
+                'ambient_intensity' => 0.18,
+                'spot_intensity' => 0.5,
+                'fill_intensity' => 0.15,
+                'tone_mapping_exposure' => 0.55,
+                'frame_override' => null,
             ]),
             'material_config' => json_encode([
-                'wall_color'            => null,
-                'wall_roughness'        => 1.0,
-                'wall_metalness'        => 0.0,
-                'wall_normal_strength'  => 0.8,
-                'floor_color'           => null,
-                'floor_roughness'       => 0.9,
-                'floor_metalness'       => 0.0,
+                'wall_color' => null,
+                'wall_roughness' => 1.0,
+                'wall_metalness' => 0.0,
+                'wall_normal_strength' => 0.8,
+                'floor_color' => null,
+                'floor_roughness' => 0.9,
+                'floor_metalness' => 0.0,
                 'floor_normal_strength' => 0.7,
             ]),
             'default_settings' => json_encode([
-                'wall_texture'    => 'concrete',
-                'floor_material'  => 'concrete',
+                'wall_texture' => 'concrete',
+                'floor_material' => 'concrete',
                 'lighting_preset' => 'dramatic',
-                'frame_style'     => 'modern',
-                'room_layout'     => 'corridor',
+                'frame_style' => 'modern',
+                'room_layout' => 'corridor',
             ]),
         ]);
 
@@ -196,9 +195,9 @@ class VenueIndustrialLoftTest extends TestCase
         // An admin hand-tuned the rig BEFORE this update ships.
         DB::table('venue_templates')->where('slug', 'industrial-loft')->update([
             'visual_config' => json_encode(array_merge($this->visualConfig('industrial-loft'), [
-                'ambient_intensity'     => 0.77,   // custom — must survive
+                'ambient_intensity' => 0.77,   // custom — must survive
                 'tone_mapping_exposure' => 1.3,    // custom — must survive
-                'post_fx'               => ['bloom' => true], // custom — must survive
+                'post_fx' => ['bloom' => true], // custom — must survive
             ])),
         ]);
 
@@ -263,7 +262,7 @@ class VenueIndustrialLoftTest extends TestCase
         $vc = $this->visualConfig('industrial-loft');
         foreach (['fog_near', 'fog_far', 'ambient_intensity', 'spot_intensity', 'fill_intensity', 'tone_mapping_exposure'] as $key) {
             $this->assertStringContainsString(
-                "{$key}: " . $vc[$key],
+                "{$key}: ".$vc[$key],
                 $body,
                 "[harness] industrial-loft {$key} must mirror the seeded row."
             );

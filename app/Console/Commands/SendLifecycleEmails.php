@@ -13,9 +13,11 @@ use Illuminate\Support\Facades\Mail;
 class SendLifecycleEmails extends Command
 {
     protected $signature = 'exospace:send-lifecycle-emails';
+
     protected $description = 'Send lifecycle nudge emails (inactive users + plan-expiring-soon).';
 
     private const LOCK_KEY = 'cmd:lifecycle-emails';
+
     private const LOCK_TTL = 300;
 
     public function handle(): int
@@ -31,6 +33,7 @@ class SendLifecycleEmails extends Command
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             $this->info('Another lifecycle-emails run is in progress — skipping.');
             Log::info('LifecycleEmails: lock busy, another run is in progress');
+
             return self::SUCCESS;
         }
 
@@ -56,6 +59,7 @@ class SendLifecycleEmails extends Command
 
         if ($users->isEmpty()) {
             $this->info('No inactive users to nudge.');
+
             return;
         }
 
@@ -79,7 +83,7 @@ class SendLifecycleEmails extends Command
             } catch (\Throwable $e) {
                 Log::warning('LifecycleEmail: inactive nudge failed', [
                     'user_id' => $user->id,
-                    'error'   => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -112,6 +116,7 @@ class SendLifecycleEmails extends Command
 
         if ($users->isEmpty()) {
             $this->info('No plan-expiry reminders to send.');
+
             return;
         }
 
@@ -130,13 +135,13 @@ class SendLifecycleEmails extends Command
                 $sent++;
 
                 Log::info('LifecycleEmail: sent plan-expiry reminder', [
-                    'user_id'    => $user->id,
+                    'user_id' => $user->id,
                     'expires_at' => $user->plan_expires_at?->toDateString(),
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('LifecycleEmail: plan-expiry reminder failed', [
                     'user_id' => $user->id,
-                    'error'   => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }

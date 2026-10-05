@@ -15,6 +15,7 @@ class TeamPolicy
         if ($user->is_super_admin) {
             return true;
         }
+
         return null;
     }
 

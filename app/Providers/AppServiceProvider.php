@@ -112,11 +112,11 @@ class AppServiceProvider extends ServiceProvider
     {
         if (empty($trustedProxies) || $trustedProxies === '*') {
             $message = sprintf(
-                "FATAL: TRUSTED_PROXIES is set to '%s' in production. " .
-                "This enables host-header spoofing and rate-limit bypass attacks. " .
-                "Set TRUSTED_PROXIES to your Coolify Traefik subnet " .
-                "(find via: docker network inspect coolify-network | grep Subnet). " .
-                "Typical value: 172.16.0.0/12",
+                "FATAL: TRUSTED_PROXIES is set to '%s' in production. ".
+                'This enables host-header spoofing and rate-limit bypass attacks. '.
+                'Set TRUSTED_PROXIES to your Coolify Traefik subnet '.
+                '(find via: docker network inspect coolify-network | grep Subnet). '.
+                'Typical value: 172.16.0.0/12',
                 $trustedProxies ?: '(empty)',
             );
 

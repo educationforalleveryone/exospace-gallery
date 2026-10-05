@@ -30,12 +30,12 @@ class DigestRecipientManagementTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -43,6 +43,7 @@ class DigestRecipientManagementTest extends TestCase
     private function actingAsRegularUser()
     {
         $user = User::factory()->create(['email_verified_at' => now()]);
+
         return $this->actingAs($user);
     }
 
@@ -64,12 +65,12 @@ class DigestRecipientManagementTest extends TestCase
     public function test_add_recipient_creates_row_and_audits(): void
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         $response = $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ])->post(route('super.billing.recipients.store'), [
             'email' => 'Finance@Example.com',  // mixed-case → normalized
@@ -274,7 +275,7 @@ class DigestRecipientManagementTest extends TestCase
         BillingDigestRecipient::creating(function ($r) {
             BillingDigestRecipient::withoutEvents(function () use ($r) {
                 BillingDigestRecipient::create([
-                    'email'   => $r->email,
+                    'email' => $r->email,
                     'added_by' => 1,  // system-actor for the test
                 ]);
             });

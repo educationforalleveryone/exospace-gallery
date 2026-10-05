@@ -25,12 +25,12 @@ class RetentionCohortDrilldownTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -115,33 +115,33 @@ class RetentionCohortDrilldownTest extends TestCase
         $periodEnd = $periodStart->copy()->addWeek();
 
         $active1 = User::factory()->create([
-            'email'        => 'active1@example.com',
-            'created_at'   => $weekStart->copy()->addDays(1),
-            'last_login_at'=> $periodStart->copy()->addDays(2),
-            'plan'         => 'free',
+            'email' => 'active1@example.com',
+            'created_at' => $weekStart->copy()->addDays(1),
+            'last_login_at' => $periodStart->copy()->addDays(2),
+            'plan' => 'free',
         ]);
         $active2 = User::factory()->create([
-            'email'        => 'active2@example.com',
-            'created_at'   => $weekStart->copy()->addDays(2),
-            'last_login_at'=> null,  // no login
-            'plan'         => 'pro',
+            'email' => 'active2@example.com',
+            'created_at' => $weekStart->copy()->addDays(2),
+            'last_login_at' => null,  // no login
+            'plan' => 'pro',
         ]);
         \App\Models\Gallery::factory()->create([
-            'user_id'    => $active2->id,
-            'is_active'  => true,
+            'user_id' => $active2->id,
+            'is_active' => true,
             'updated_at' => $periodStart->copy()->addDays(3),
         ]);
         $inactive = User::factory()->create([
-            'email'        => 'inactive@example.com',
-            'created_at'   => $weekStart->copy()->addDays(3),
-            'last_login_at'=> null,
-            'plan'         => 'studio',
+            'email' => 'inactive@example.com',
+            'created_at' => $weekStart->copy()->addDays(3),
+            'last_login_at' => null,
+            'plan' => 'studio',
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()
             ->get(route('super.retention.cohort', [
                 'cohort' => $weekStart->toDateString(),
-                'week'   => 1,
+                'week' => 1,
             ]));
 
         $response->assertStatus(200);
@@ -169,7 +169,7 @@ class RetentionCohortDrilldownTest extends TestCase
         $response = $this->actingAsMfaSuperAdmin()
             ->get(route('super.retention.cohort', [
                 'cohort' => $weekStart->toDateString(),
-                'week'   => 0,
+                'week' => 0,
             ]));
 
         $response->assertStatus(200);
@@ -182,7 +182,7 @@ class RetentionCohortDrilldownTest extends TestCase
         // Create a user in this week's cohort so the cell has someone to drill into.
         $weekStart = $this->thisMonday()->subWeeks(1);
         User::factory()->create([
-            'created_at'   => $weekStart->copy()->addDays(1),
+            'created_at' => $weekStart->copy()->addDays(1),
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()->get(route('super.index'));
@@ -191,7 +191,7 @@ class RetentionCohortDrilldownTest extends TestCase
         // The drill-down route should appear as a cell href.
         $response->assertSee(route('super.retention.cohort', [
             'cohort' => $weekStart->toDateString(),
-            'week'   => 0,
+            'week' => 0,
         ]), false);
     }
 
@@ -206,7 +206,7 @@ class RetentionCohortDrilldownTest extends TestCase
         // The drill-down URL for that week must NOT appear (size-0).
         $response->assertDontSee(route('super.retention.cohort', [
             'cohort' => $weekStart->toDateString(),
-            'week'   => 0,
+            'week' => 0,
         ]), false);
     }
 }

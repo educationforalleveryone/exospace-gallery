@@ -21,18 +21,19 @@ class AnonymizeFeedbackPii extends Command
     public function handle(): int
     {
         $retentionMonths = (int) $this->option('retention-months');
-        $dryRun          = (bool) $this->option('dry-run');
-        $batchSize       = (int) $this->option('batch-size');
+        $dryRun = (bool) $this->option('dry-run');
+        $batchSize = (int) $this->option('batch-size');
 
         $cutoff = now()->subMonths($retentionMonths);
 
         $this->info("Feedback PII anonymization for records older than {$retentionMonths} months (before {$cutoff->toDateString()})");
-        $this->info("  Dry run: " . ($dryRun ? 'YES' : 'NO'));
+        $this->info('  Dry run: '.($dryRun ? 'YES' : 'NO'));
         $this->info("  Batch size: {$batchSize}");
         $this->newLine();
 
         if (! Schema::hasTable('user_feedback')) {
-            $this->warn("  user_feedback table does not exist — skipping.");
+            $this->warn('  user_feedback table does not exist — skipping.');
+
             return self::SUCCESS;
         }
 
@@ -40,14 +41,15 @@ class AnonymizeFeedbackPii extends Command
             ->where('created_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('message', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('page_url')
-                  ->orWhereNotNull('user_agent')
-                  ->orWhereNotNull('user_id');
+                    ->orWhereNotNull('page_url')
+                    ->orWhereNotNull('user_agent')
+                    ->orWhereNotNull('user_id');
             })
             ->count();
 
         if ($needsAnonymization === 0) {
-            $this->info("  No feedback rows need anonymization (all old rows already anonymized).");
+            $this->info('  No feedback rows need anonymization (all old rows already anonymized).');
+
             return self::SUCCESS;
         }
 
@@ -55,6 +57,7 @@ class AnonymizeFeedbackPii extends Command
 
         if ($dryRun) {
             $this->warn("  [DRY-RUN] Would anonymize {$needsAnonymization} feedback rows. No changes made.");
+
             return self::SUCCESS;
         }
 
@@ -65,9 +68,9 @@ class AnonymizeFeedbackPii extends Command
             ->where('created_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('message', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('page_url')
-                  ->orWhereNotNull('user_agent')
-                  ->orWhereNotNull('user_id');
+                    ->orWhereNotNull('page_url')
+                    ->orWhereNotNull('user_agent')
+                    ->orWhereNotNull('user_id');
             })
             ->orderBy('id')
             ->chunkById($batchSize, function ($rows) use ($appId, &$anonymized) {
@@ -75,10 +78,10 @@ class AnonymizeFeedbackPii extends Command
                     DB::table('user_feedback')
                         ->where('id', $row->id)
                         ->update([
-                            'message'    => 'anonymized:' . substr(hash('sha256', $appId . $row->message), 0, 16),
-                            'page_url'   => null,
+                            'message' => 'anonymized:'.substr(hash('sha256', $appId.$row->message), 0, 16),
+                            'page_url' => null,
                             'user_agent' => null,
-                            'user_id'    => null,
+                            'user_id' => null,
                             'updated_at' => now(),
                         ]);
                     $anonymized++;
@@ -90,9 +93,9 @@ class AnonymizeFeedbackPii extends Command
         $this->info("  Anonymized {$anonymized} feedback rows.");
 
         Log::info('AnonymizeFeedbackPii: complete', [
-            'anonymized'        => $anonymized,
-            'retention_months'  => $retentionMonths,
-            'cutoff'            => $cutoff->toDateString(),
+            'anonymized' => $anonymized,
+            'retention_months' => $retentionMonths,
+            'cutoff' => $cutoff->toDateString(),
         ]);
 
         return self::SUCCESS;

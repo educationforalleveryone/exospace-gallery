@@ -129,7 +129,7 @@ class AccessibilityAndLayoutTest extends TestCase
 
         $this->assertStringContainsString("@extends('layouts.public')", $source, 'H-2: discover page must extend layouts.public');
         $this->assertStringContainsString("@section('content')", $source, 'H-2: discover page must define content section');
-        $this->assertStringContainsString("@endsection", $source, 'H-2: discover page must end with @endsection');
+        $this->assertStringContainsString('@endsection', $source, 'H-2: discover page must end with @endsection');
 
         // The old <x-guest-layout> pattern must be gone.
         $this->assertStringNotContainsString('<x-guest-layout>', $source, 'H-2: <x-guest-layout> removed');

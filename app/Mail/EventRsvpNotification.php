@@ -32,12 +32,12 @@ class EventRsvpNotification extends Mailable implements ShouldQueue
             markdown: 'emails.event-rsvp',
             with: [
                 'galleryName' => $this->gallery->title,
-                'eventTitle'  => $this->event->title,
+                'eventTitle' => $this->event->title,
                 'eventStarts' => $this->event->startsAtInEventTimezone(),
-                'name'        => $this->rsvp['name'],
-                'email'       => $this->rsvp['email'],
-                'galleryUrl'  => $this->gallery->public_url,
-                'eventsUrl'   => route('admin.galleries.events.index', $this->gallery),
+                'name' => $this->rsvp['name'],
+                'email' => $this->rsvp['email'],
+                'galleryUrl' => $this->gallery->public_url,
+                'eventsUrl' => route('admin.galleries.events.index', $this->gallery),
             ],
         );
     }

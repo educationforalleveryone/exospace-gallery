@@ -49,13 +49,13 @@ class TrendAnomalies
 
             if (abs($z) > 2) {
                 $anomalies[] = [
-                    'index'      => $i,
-                    'value'       => (float) $x,
-                    'mean'        => round($mean, 2),
-                    'sigma'       => round($sigma, 2),
-                    'sigma_eff'   => round($sigmaEff, 2),
-                    'z'           => round($z, 1),
-                    'direction'   => $x > $mean ? 'high' : 'low',
+                    'index' => $i,
+                    'value' => (float) $x,
+                    'mean' => round($mean, 2),
+                    'sigma' => round($sigma, 2),
+                    'sigma_eff' => round($sigmaEff, 2),
+                    'z' => round($z, 1),
+                    'direction' => $x > $mean ? 'high' : 'low',
                 ];
             }
         }

@@ -16,23 +16,24 @@ class GalleryApiController extends Controller
 
         $query = Gallery::publiclyViewable()
             ->with(['coverImage', 'venueTemplate', 'user'])
+            ->withCount('images')
             ->has('images', '>=', 1)
-            ->whereDoesntHave('user', fn($q) => $q->whereNotNull('banned_at'));
+            ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'));
 
-        $query->when($sort === 'views', fn($q) => $q->orderByDesc('view_count'))
-              ->when($sort === 'newest', fn($q) => $q->orderByDesc('created_at'))
-              ->unless(in_array($sort, ['views', 'newest']), fn($q) => $q->orderByDesc('is_featured')->orderByDesc('view_count'));
+        $query->when($sort === 'views', fn ($q) => $q->orderByDesc('view_count'))
+            ->when($sort === 'newest', fn ($q) => $q->orderByDesc('created_at'))
+            ->unless(in_array($sort, ['views', 'newest']), fn ($q) => $q->orderByDesc('is_featured')->orderByDesc('view_count'));
 
         $galleries = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $galleries->map(fn($g) => $this->formatGallery($g)),
+            'data' => $galleries->map(fn ($g) => $this->formatGallery($g)),
             'meta' => [
                 'pagination' => [
-                    'total'        => $galleries->total(),
-                    'per_page'     => $galleries->perPage(),
+                    'total' => $galleries->total(),
+                    'per_page' => $galleries->perPage(),
                     'current_page' => $galleries->currentPage(),
-                    'last_page'    => $galleries->lastPage(),
+                    'last_page' => $galleries->lastPage(),
                 ],
             ],
         ]);
@@ -42,7 +43,7 @@ class GalleryApiController extends Controller
     {
         $gallery = Gallery::publiclyViewable()
             ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'))
-            ->with(['images' => fn($q) => $q->orderBy('position_order'), 'venueTemplate', 'user'])
+            ->with(['images' => fn ($q) => $q->orderBy('position_order'), 'venueTemplate', 'user'])
             ->where('slug', $slug)
             ->first();
 
@@ -52,7 +53,7 @@ class GalleryApiController extends Controller
 
         return response()->json([
             'data' => $this->formatGallery($gallery),
-            'images' => $gallery->images->map(fn($img) => $this->formatImage($img)),
+            'images' => $gallery->images->map(fn ($img) => $this->formatImage($img)),
         ]);
     }
 
@@ -72,13 +73,13 @@ class GalleryApiController extends Controller
         $images = $gallery->images()->orderBy('position_order')->paginate($perPage);
 
         return response()->json([
-            'data' => $images->map(fn($img) => $this->formatImage($img)),
+            'data' => $images->map(fn ($img) => $this->formatImage($img)),
             'meta' => [
                 'pagination' => [
-                    'total'        => $images->total(),
-                    'per_page'     => $images->perPage(),
+                    'total' => $images->total(),
+                    'per_page' => $images->perPage(),
                     'current_page' => $images->currentPage(),
-                    'last_page'    => $images->lastPage(),
+                    'last_page' => $images->lastPage(),
                 ],
             ],
         ]);
@@ -88,20 +89,21 @@ class GalleryApiController extends Controller
     {
         $galleries = $request->user()->galleries()
             ->with(['coverImage', 'venueTemplate'])
+            ->withCount('images')
             ->latest()
             ->paginate(20);
 
         return response()->json([
-            'data' => $galleries->map(fn($g) => array_merge($this->formatGallery($g), [
+            'data' => $galleries->map(fn ($g) => array_merge($this->formatGallery($g), [
                 'is_active' => $g->is_active,
                 'view_count' => $g->view_count,
             ])),
             'meta' => [
                 'pagination' => [
-                    'total'        => $galleries->total(),
-                    'per_page'     => $galleries->perPage(),
+                    'total' => $galleries->total(),
+                    'per_page' => $galleries->perPage(),
                     'current_page' => $galleries->currentPage(),
-                    'last_page'    => $galleries->lastPage(),
+                    'last_page' => $galleries->lastPage(),
                 ],
             ],
         ]);
@@ -110,29 +112,31 @@ class GalleryApiController extends Controller
     private function formatGallery(Gallery $g): array
     {
         return [
-            'id'            => $g->id,
-            'title'         => $g->title,
-            'slug'          => $g->slug,
-            'description'   => $g->description,
-            'view_count'    => $g->view_count,
-            'is_featured'   => $g->is_featured ?? false,
-            'public_url'    => $g->public_url,
-            'cover_image'   => $g->coverImage ? [
-                'url'    => asset($g->coverImage->path),
-                'width'  => $g->coverImage->width,
+            'id' => $g->id,
+            'title' => $g->title,
+            'slug' => $g->slug,
+            'description' => $g->description,
+            'view_count' => $g->view_count,
+            'is_featured' => $g->is_featured ?? false,
+            'public_url' => $g->public_url,
+            'cover_image' => $g->coverImage ? [
+                'url' => asset($g->coverImage->path),
+                'width' => $g->coverImage->width,
                 'height' => $g->coverImage->height,
             ] : null,
-            'venue'         => $g->venueTemplate ? [
-                'id'   => $g->venueTemplate->id,
+            'venue' => $g->venueTemplate ? [
+                'id' => $g->venueTemplate->id,
                 'name' => $g->venueTemplate->name,
             ] : null,
-            'curator'       => $g->user ? [
-                'id'   => $g->user->id,
+            'curator' => $g->user ? [
+                'id' => $g->user->id,
                 'name' => $g->user->name,
             ] : null,
-            'image_count'   => $g->images->count(),
-            'created_at'    => $g->created_at?->toIso8601String(),
-            'updated_at'    => $g->updated_at?->toIso8601String(),
+            'image_count' => array_key_exists('images_count', $g->getAttributes())
+                ? (int) $g->images_count
+                : $g->images->count(),
+            'created_at' => $g->created_at?->toIso8601String(),
+            'updated_at' => $g->updated_at?->toIso8601String(),
         ];
     }
 
@@ -149,21 +153,21 @@ class GalleryApiController extends Controller
         }
 
         return [
-            'id'             => $img->id,
-            'title'          => $img->title,
-            'description'    => $img->description,
-            'url'            => asset($img->path),
-            'thumbnail_url'  => $thumbUrl,
-            'original_name'  => $img->original_name,
-            'width'          => $img->width,
-            'height'         => $img->height,
-            'orientation'    => $img->orientation,
+            'id' => $img->id,
+            'title' => $img->title,
+            'description' => $img->description,
+            'url' => asset($img->path),
+            'thumbnail_url' => $thumbUrl,
+            'original_name' => $img->original_name,
+            'width' => $img->width,
+            'height' => $img->height,
+            'orientation' => $img->orientation,
             'position_order' => $img->position_order,
-            'price'          => $img->price,
-            'currency'       => $img->currency,
-            'for_sale'       => $img->for_sale,
-            'medium'         => $img->medium,
-            'year'           => $img->year,
+            'price' => $img->price,
+            'currency' => $img->currency,
+            'for_sale' => $img->for_sale,
+            'medium' => $img->medium,
+            'year' => $img->year,
         ];
     }
 }

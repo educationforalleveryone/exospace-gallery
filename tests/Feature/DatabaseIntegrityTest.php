@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Console\Commands\AnonymizeTransactionPii;
-use App\Console\Commands\PruneTransactionsByPartition;
 use App\Models\AnalyticsEvent;
 use App\Models\Gallery;
 use App\Models\Invoice;
@@ -23,7 +21,7 @@ class DatabaseIntegrityTest extends TestCase
 
     public function test_analytics_event_fillable_does_not_include_country(): void
     {
-        $this->assertNotContains('country', (new AnalyticsEvent())->getFillable(),
+        $this->assertNotContains('country', (new AnalyticsEvent)->getFillable(),
             'AnalyticsEvent::$fillable must not include "country" (the column was dropped).');
     }
 

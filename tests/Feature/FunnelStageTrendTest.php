@@ -28,12 +28,12 @@ class FunnelStageTrendTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -49,19 +49,19 @@ class FunnelStageTrendTest extends TestCase
         int $window = 30,
     ): void {
         OnboardingSnapshot::create([
-            'window_days'    => $window,
-            'registered'     => $registered,
-            'created_gallery'=> $createdGallery,
+            'window_days' => $window,
+            'registered' => $registered,
+            'created_gallery' => $createdGallery,
             'uploaded_image' => $uploadedImage,
-            'published'      => $published,
-            'got_views'      => $gotViews,
-            'ttfg_min'       => $ttfeAvg !== null ? $ttfeAvg - 1.0 : null,
-            'ttfg_avg'       => $ttfeAvg,
-            'ttfg_max'       => $ttfeAvg !== null ? $ttfeAvg + 1.0 : null,
-            'ttfe_min'       => $ttfeAvg !== null ? $ttfeAvg - 0.5 : null,
-            'ttfe_avg'       => $ttfeAvg,
-            'ttfe_max'       => $ttfeAvg !== null ? $ttfeAvg + 0.5 : null,
-            'captured_at'    => $captured,
+            'published' => $published,
+            'got_views' => $gotViews,
+            'ttfg_min' => $ttfeAvg !== null ? $ttfeAvg - 1.0 : null,
+            'ttfg_avg' => $ttfeAvg,
+            'ttfg_max' => $ttfeAvg !== null ? $ttfeAvg + 1.0 : null,
+            'ttfe_min' => $ttfeAvg !== null ? $ttfeAvg - 0.5 : null,
+            'ttfe_avg' => $ttfeAvg,
+            'ttfe_max' => $ttfeAvg !== null ? $ttfeAvg + 0.5 : null,
+            'captured_at' => $captured,
         ]);
     }
 

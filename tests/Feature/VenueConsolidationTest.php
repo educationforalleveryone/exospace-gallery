@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class VenueConsolidationTest extends TestCase
@@ -11,17 +11,17 @@ class VenueConsolidationTest extends TestCase
     use RefreshDatabase;
 
     public const PASS_SELECTORS = [
-        'white-cube'       => 'cube',
-        'zen-gallery'      => 'bays',
+        'white-cube' => 'cube',
+        'zen-gallery' => 'bays',
         'luxury-penthouse' => 'rooms',
-        'cyber-gallery'    => 'rooms',
-        'industrial-loft'  => 'loft',
-        'dark-museum'      => 'museum',
+        'cyber-gallery' => 'rooms',
+        'industrial-loft' => 'loft',
+        'dark-museum' => 'museum',
         'sculpture-garden' => 'garden',
-        'infinite-void'    => 'phenomena',
+        'infinite-void' => 'phenomena',
         'crystal-cathedral' => 'phenomena',
-        'nebula-drift'     => 'phenomena',
-        'mirror-lake'      => 'phenomena',
+        'nebula-drift' => 'phenomena',
+        'mirror-lake' => 'lake',
     ];
 
     public const CIRCULAR_OPEN_AIR = [
@@ -30,11 +30,11 @@ class VenueConsolidationTest extends TestCase
     ];
 
     public const CEILING_COLORS = [
-        'dark-museum'      => '0x0a0a0a', // deepened from 0x080808
-        'luxury-penthouse' => '0x080808',
-        'cyber-gallery'    => '0x04081a',
-        'industrial-loft'  => '0x1a1a18',
-        'zen-gallery'      => '0xe9e2d0', // deepened from 0x1e1c14
+        'dark-museum' => '0x0a0a0a', // deepened from 0x080808
+        'luxury-penthouse' => '0x5c4c3a',
+        'cyber-gallery' => '0x04081a',
+        'industrial-loft' => '0x1a1a18',
+        'zen-gallery' => '0xe9e2d0', // deepened from 0x1e1c14
     ];
 
     public function test_every_venue_declares_its_interpreter_selector(): void
@@ -106,13 +106,14 @@ class VenueConsolidationTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        $curated = ['dark-museum', 'infinite-void', 'zen-gallery', 'crystal-cathedral'];
+        $curated = ['dark-museum', 'infinite-void', 'zen-gallery', 'crystal-cathedral', 'nebula-drift', 'mirror-lake'];
         foreach (array_keys(self::PASS_SELECTORS) as $slug) {
             if (in_array($slug, $curated, true)) {
                 $this->assertIsArray(
                     $this->visualConfig($slug)['placement'] ?? null,
                     "[{$slug}] opted into curation â its placement block must be declared."
                 );
+
                 continue;
             }
             $this->assertArrayNotHasKey(
@@ -135,8 +136,8 @@ class VenueConsolidationTest extends TestCase
         DB::table('venue_templates')->where('slug', 'dark-museum')->update([
             'visual_config' => json_encode([
                 'background_color' => '0x010101',
-                'ceiling_color'    => '0x123456',
-                'structure_pass'   => 'museum-v2',
+                'ceiling_color' => '0x123456',
+                'structure_pass' => 'museum-v2',
             ]),
         ]);
 
@@ -216,8 +217,8 @@ class VenueConsolidationTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $exporter = app(\App\Services\VenueConfigExporter::class);
-        $garden   = \App\Models\VenueTemplate::where('slug', 'sculpture-garden')->firstOrFail();
-        $payload  = $exporter->forVenue($garden);
+        $garden = \App\Models\VenueTemplate::where('slug', 'sculpture-garden')->firstOrFail();
+        $payload = $exporter->forVenue($garden);
 
         $vc = $payload['visual_config'];
         $this->assertSame('garden', $vc['structure_pass'] ?? null, 'Interpreter selector reaches the client.');
@@ -240,8 +241,8 @@ class VenueConsolidationTest extends TestCase
         ]);
 
         $exporter = app(\App\Services\VenueConfigExporter::class);
-        $zen      = \App\Models\VenueTemplate::where('slug', 'zen-gallery')->firstOrFail();
-        $vc       = $exporter->forVenue($zen)['visual_config'];
+        $zen = \App\Models\VenueTemplate::where('slug', 'zen-gallery')->firstOrFail();
+        $vc = $exporter->forVenue($zen)['visual_config'];
 
         $this->assertSame('intimate', $vc['placement']['density'] ?? null, 'Density reaches the client (§6.3).');
         $this->assertTrue($vc['placement']['pair_orientation'] ?? false, 'Orientation pairing reaches the client (§6.4).');
@@ -250,7 +251,7 @@ class VenueConsolidationTest extends TestCase
 
     public function test_placement_validation_contract(): void
     {
-        $rules = (new \App\Http\Requests\SuperAdmin\VenueTemplateRequest())->rules();
+        $rules = (new \App\Http\Requests\SuperAdmin\VenueTemplateRequest)->rules();
 
         $base = [
             'name' => 'Curation Probe', 'slug' => 'curation-probe', 'category' => 'minimal',

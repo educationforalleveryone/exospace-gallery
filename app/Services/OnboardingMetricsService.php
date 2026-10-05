@@ -65,14 +65,14 @@ class OnboardingMetricsService
             ->count();
 
         return [
-            'days'             => $days,
-            'registered'       => $registered,
-            'created_gallery'  => $createdGallery,
-            'uploaded_image'   => $uploadedImage,
-            'published'        => $published,
-            'got_views'        => $gotViews,
-            'ttfg_hours'       => $this->firstEventDiffHours($cutoff, 'galleries.created_at', true),
-            'ttfe_hours'       => $this->firstEventDiffHours($cutoff, 'galleries.published_at', true),
+            'days' => $days,
+            'registered' => $registered,
+            'created_gallery' => $createdGallery,
+            'uploaded_image' => $uploadedImage,
+            'published' => $published,
+            'got_views' => $gotViews,
+            'ttfg_hours' => $this->firstEventDiffHours($cutoff, 'galleries.created_at', true),
+            'ttfe_hours' => $this->firstEventDiffHours($cutoff, 'galleries.published_at', true),
         ];
     }
 
@@ -119,17 +119,17 @@ class OnboardingMetricsService
         return OnboardingSnapshot::updateOrCreate(
             ['window_days' => $days, 'captured_at' => $capturedAt],
             [
-                'registered'      => $data['registered'],
+                'registered' => $data['registered'],
                 'created_gallery' => $data['created_gallery'],
-                'uploaded_image'  => $data['uploaded_image'],
-                'published'       => $data['published'],
-                'got_views'       => $data['got_views'],
-                'ttfg_min'        => $data['ttfg_hours']['min'] ?? null,
-                'ttfg_avg'        => $data['ttfg_hours']['avg'] ?? null,
-                'ttfg_max'        => $data['ttfg_hours']['max'] ?? null,
-                'ttfe_min'        => $data['ttfe_hours']['min'] ?? null,
-                'ttfe_avg'        => $data['ttfe_hours']['avg'] ?? null,
-                'ttfe_max'        => $data['ttfe_hours']['max'] ?? null,
+                'uploaded_image' => $data['uploaded_image'],
+                'published' => $data['published'],
+                'got_views' => $data['got_views'],
+                'ttfg_min' => $data['ttfg_hours']['min'] ?? null,
+                'ttfg_avg' => $data['ttfg_hours']['avg'] ?? null,
+                'ttfg_max' => $data['ttfg_hours']['max'] ?? null,
+                'ttfe_min' => $data['ttfe_hours']['min'] ?? null,
+                'ttfe_avg' => $data['ttfe_hours']['avg'] ?? null,
+                'ttfe_max' => $data['ttfe_hours']['max'] ?? null,
             ],
         );
     }
@@ -142,15 +142,15 @@ class OnboardingMetricsService
             ->trend($days, $limit)
             ->get()
             ->map(fn (OnboardingSnapshot $row) => [
-                'captured_at'    => $row->captured_at?->format('M j'),
-                'captured_on'    => $row->captured_at?->toDateString(),
-                'registered'     => (int) $row->registered,
-                'created_gallery'=> (int) $row->created_gallery,
+                'captured_at' => $row->captured_at?->format('M j'),
+                'captured_on' => $row->captured_at?->toDateString(),
+                'registered' => (int) $row->registered,
+                'created_gallery' => (int) $row->created_gallery,
                 'uploaded_image' => (int) $row->uploaded_image,
-                'published'      => (int) $row->published,
-                'got_views'       => (int) $row->got_views,
-                'ttfe_avg'        => $row->ttfe_avg !== null ? (float) $row->ttfe_avg : null,
-                'ttfg_avg'        => $row->ttfg_avg !== null ? (float) $row->ttfg_avg : null,
+                'published' => (int) $row->published,
+                'got_views' => (int) $row->got_views,
+                'ttfe_avg' => $row->ttfe_avg !== null ? (float) $row->ttfe_avg : null,
+                'ttfg_avg' => $row->ttfg_avg !== null ? (float) $row->ttfg_avg : null,
             ])
             ->all();
     }

@@ -58,28 +58,28 @@ class ControlCenterUiTest extends TestCase
 
     public function test_overview_lists_all_profiles_with_latest_status(): void
     {
-        $user  = \App\Models\User::factory()->create(['email' => $this->admin]);
+        $user = \App\Models\User::factory()->create(['email' => $this->admin]);
         QaTestRun::factory()->create(['profile' => 'seo', 'status' => 'failed', 'failure_class' => 'infrastructure']);
         // Pinned-commit run created LAST so it is the "latest activity" source.
         QaTestRun::factory()->state(fn () => [
             'profile' => 'billing',
-            'status'  => 'passed',
-            'total'   => 248, 'passed' => 248,
+            'status' => 'passed',
+            'total' => 248, 'passed' => 248,
             'git_commit' => str_repeat('a', 40), 'git_branch' => 'main',
         ])->create();
 
         $view = $this->actingAs($user)->get('/control-center');
 
         $view->assertOk()
-             ->assertSee('Status Wall')
-             ->assertSee('Quick Check')
-             ->assertSee('Pre-Release')
-             ->assertSee('Release Readiness')
-             ->assertSee('PASSED')
-             ->assertSee('FAILED')
-             ->assertSee(substr(str_repeat('a', 40), 0, 7))
+            ->assertSee('Status Wall')
+            ->assertSee('Quick Check')
+            ->assertSee('Pre-Release')
+            ->assertSee('Release Readiness')
+            ->assertSee('PASSED')
+            ->assertSee('FAILED')
+            ->assertSee(substr(str_repeat('a', 40), 0, 7))
              // safety labels visible per card
-             ->assertSee('prod-safe-read', false);
+            ->assertSee('prod-safe-read', false);
     }
 
     public function test_runs_index_filters_by_profile_and_status(): void
@@ -100,7 +100,7 @@ class ControlCenterUiTest extends TestCase
     {
         $user = \App\Models\User::factory()->create(['email' => $this->admin]);
 
-        $green  = QaTestRun::factory()->create(['profile' => 'security', 'status' => 'passed']);
+        $green = QaTestRun::factory()->create(['profile' => 'security', 'status' => 'passed']);
         $broken = QaTestRun::factory()->create([
             'profile' => 'security', 'status' => 'failed', 'failure_class' => 'infrastructure',
         ]);
@@ -108,45 +108,45 @@ class ControlCenterUiTest extends TestCase
         // A previously-green test that now fails with an infra-flavored error.
         $identifier = 'Tests\Feature\MfaReplayProtectionTest::test_valid_code_verifies';
         QaTestCaseResult::query()->create([
-            'qa_test_run_id'  => $green->id,
+            'qa_test_run_id' => $green->id,
             'test_identifier' => $identifier,
-            'classname'       => 'Tests\Feature\MfaReplayProtectionTest',
-            'method_name'     => 'test_valid_code_verifies',
-            'status'          => 'passed',
+            'classname' => 'Tests\Feature\MfaReplayProtectionTest',
+            'method_name' => 'test_valid_code_verifies',
+            'status' => 'passed',
         ]);
         QaTestCaseResult::query()->create([
-            'qa_test_run_id'  => $broken->id,
+            'qa_test_run_id' => $broken->id,
             'test_identifier' => $identifier,
-            'classname'       => 'Tests\Feature\MfaReplayProtectionTest',
-            'method_name'     => 'test_valid_code_verifies',
-            'status'          => 'error',
-            'message'         => "SQLSTATE[HY000] connection refused\n\nat bootstrap…",
-            'detail'          => 'PDO Exception: connection refused (mysql://…)',
+            'classname' => 'Tests\Feature\MfaReplayProtectionTest',
+            'method_name' => 'test_valid_code_verifies',
+            'status' => 'error',
+            'message' => "SQLSTATE[HY000] connection refused\n\nat bootstrap…",
+            'detail' => 'PDO Exception: connection refused (mysql://…)',
             'exception_class' => 'PDOException',
         ]);
 
         $html = $this->actingAs($user)->get("/control-center/runs/{$broken->id}");
 
         $html->assertOk()
-             ->assertSee('Test infrastructure failure', false)
-             ->assertSee($identifier)
-             ->assertSee('connection refused', false)
-             ->assertSee('pass rate')
-             ->assertSee('last green');
+            ->assertSee('Test infrastructure failure', false)
+            ->assertSee($identifier)
+            ->assertSee('connection refused', false)
+            ->assertSee('pass rate')
+            ->assertSee('last green');
     }
 
     public function test_first_ever_failure_is_flagged_as_new(): void
     {
-        $user   = \App\Models\User::factory()->create(['email' => $this->admin]);
+        $user = \App\Models\User::factory()->create(['email' => $this->admin]);
         $broken = QaTestRun::factory()->create(['profile' => 'billing', 'status' => 'failed']);
 
         QaTestCaseResult::query()->create([
-            'qa_test_run_id'  => $broken->id,
+            'qa_test_run_id' => $broken->id,
             'test_identifier' => 'Tests\X::test_brand_new_regression',
-            'classname'       => 'Tests\X',
-            'method_name'     => 'test_brand_new_regression',
-            'status'          => 'failed',
-            'message'         => 'Failed asserting tax rate.',
+            'classname' => 'Tests\X',
+            'method_name' => 'test_brand_new_regression',
+            'status' => 'failed',
+            'message' => 'Failed asserting tax rate.',
         ]);
 
         $this->actingAs($user)->get("/control-center/runs/{$broken->id}")
@@ -156,8 +156,8 @@ class ControlCenterUiTest extends TestCase
 
     public function test_artifact_downloads_when_stored_and_404s_otherwise(): void
     {
-        $user  = \App\Models\User::factory()->create(['email' => $this->admin]);
-        $with  = QaTestRun::factory()->create(['meta' => ['artifact_path' => 'control-center/test/run.xml']]);
+        $user = \App\Models\User::factory()->create(['email' => $this->admin]);
+        $with = QaTestRun::factory()->create(['meta' => ['artifact_path' => 'control-center/test/run.xml']]);
         $without = QaTestRun::factory()->create();
 
         \Illuminate\Support\Facades\Storage::disk('local')->put('control-center/test/run.xml', '<?xml version="1.0"?><testsuites/>');

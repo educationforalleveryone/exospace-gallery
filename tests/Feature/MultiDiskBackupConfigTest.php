@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Services\OperationalAlertService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -93,9 +92,9 @@ class MultiDiskBackupConfigTest extends TestCase
 
         // Ensure the local disk has a fresh backup (so no alert fires for local).
         $disk = Storage::disk('local');
-        $backupName = config('backup.backup.name', config('app.name') . ' Backup');
-        $disk->put($backupName . '/healthy-backup.zip', 'fake-zip-content');
-        $fullPath = $disk->path($backupName . '/healthy-backup.zip');
+        $backupName = config('backup.backup.name', config('app.name').' Backup');
+        $disk->put($backupName.'/healthy-backup.zip', 'fake-zip-content');
+        $fullPath = $disk->path($backupName.'/healthy-backup.zip');
         touch($fullPath, now()->subHour()->timestamp);
 
         $service = app(OperationalAlertService::class);
@@ -111,7 +110,7 @@ class MultiDiskBackupConfigTest extends TestCase
         $service->checkBackupHealth();
 
         // Cleanup.
-        $disk->delete($backupName . '/healthy-backup.zip');
+        $disk->delete($backupName.'/healthy-backup.zip');
     }
 
     public function test_audit_p19_1_per_disk_dedup_keys_are_distinct(): void
@@ -120,12 +119,12 @@ class MultiDiskBackupConfigTest extends TestCase
 
         // The per-disk dedup key pattern should be present in the source.
         $this->assertStringContainsString(
-            "backup_none_found:{\$diskName}",
+            'backup_none_found:{$diskName}',
             $source,
             'checkBackupHealth should use per-disk dedup key: backup_none_found:{diskName}'
         );
         $this->assertStringContainsString(
-            "backup_stale:{\$diskName}",
+            'backup_stale:{$diskName}',
             $source,
             'checkBackupHealth should use per-disk dedup key: backup_stale:{diskName}'
         );

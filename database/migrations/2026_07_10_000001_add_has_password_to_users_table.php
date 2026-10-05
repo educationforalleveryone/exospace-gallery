@@ -20,7 +20,7 @@ return new class extends Migration
         DB::table('users')
             ->whereNotNull('password')
             ->update([
-                'has_password'    => true,
+                'has_password' => true,
                 'password_set_at' => DB::raw('created_at'),
             ]);
     }

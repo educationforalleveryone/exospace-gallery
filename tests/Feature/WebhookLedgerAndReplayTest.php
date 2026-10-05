@@ -17,7 +17,9 @@ class WebhookLedgerAndReplayTest extends TestCase
     use RefreshDatabase;
 
     private const SECRET_WORD = 'ledger-secret-word';
+
     private const PRODUCT_ID_PRO = 'PRO-1001';
+
     private const VENDOR_ID = 'V12345';
 
     protected function setUp(): void
@@ -33,27 +35,27 @@ class WebhookLedgerAndReplayTest extends TestCase
 
     private function validIpnPayload(array $overrides = []): array
     {
-        $saleId = $overrides['sale_id'] ?? 'SALE-' . uniqid();
-        $invoiceId = $overrides['invoice_id'] ?? 'INV-' . uniqid();
+        $saleId = $overrides['sale_id'] ?? 'SALE-'.uniqid();
+        $invoiceId = $overrides['invoice_id'] ?? 'INV-'.uniqid();
         $vendorId = $overrides['vendor_id'] ?? self::VENDOR_ID;
 
         $stringToHash = $saleId
-                      . $vendorId
-                      . $invoiceId
-                      . self::SECRET_WORD;
+                      .$vendorId
+                      .$invoiceId
+                      .self::SECRET_WORD;
 
         return array_merge([
-            'message_type'      => 'ORDER_CREATED',
-            'message_id'        => 'MSG-' . uniqid(),
-            'sale_id'           => $saleId,
-            'vendor_id'         => $vendorId,
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => strtoupper(md5($stringToHash)),
-            'customer_email'    => 'buyer@example.com',
-            'customer_name'     => 'Test Buyer',
-            'item_id_1'         => self::PRODUCT_ID_PRO,
-            'item_list_amount_1'=> '29.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'ORDER_CREATED',
+            'message_id' => 'MSG-'.uniqid(),
+            'sale_id' => $saleId,
+            'vendor_id' => $vendorId,
+            'invoice_id' => $invoiceId,
+            'md5_hash' => strtoupper(md5($stringToHash)),
+            'customer_email' => 'buyer@example.com',
+            'customer_name' => 'Test Buyer',
+            'item_id_1' => self::PRODUCT_ID_PRO,
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
         ], $overrides);
     }
 
@@ -73,14 +75,14 @@ class WebhookLedgerAndReplayTest extends TestCase
     private function superAdminMfaSession(): array
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return [
             'user' => $admin,
             'acting' => fn () => $this->actingAs($admin)->withSession([
-                'mfa_verified'    => true,
+                'mfa_verified' => true,
                 'mfa_verified_at' => now()->timestamp,
                 // password.confirm middleware: confirmed recently enough
                 'auth.password_confirmed_at' => now()->timestamp,
@@ -188,8 +190,8 @@ class WebhookLedgerAndReplayTest extends TestCase
         $order = $this->validIpnPayload();
         $refund = $this->validIpnPayload([
             'message_type' => 'REFUND_ISSUED',
-            'sale_id'      => $order['sale_id'],
-            'invoice_id'   => $order['invoice_id'],
+            'sale_id' => $order['sale_id'],
+            'invoice_id' => $order['invoice_id'],
         ]);
 
         // Refund overtakes the order: nothing to refund yet, so it must not be acknowledged.
@@ -230,12 +232,12 @@ class WebhookLedgerAndReplayTest extends TestCase
 
         // Simulate a crashed worker: row stuck in 'processing' for 11 min.
         DB::table('processed_webhooks')->insert([
-            'message_id'   => $payload['message_id'],
+            'message_id' => $payload['message_id'],
             'message_type' => 'ORDER_CREATED',
-            'invoice_id'   => $payload['invoice_id'],
-            'status'       => 'processing',
+            'invoice_id' => $payload['invoice_id'],
+            'status' => 'processing',
             'processed_at' => now()->subMinutes(11),
-            'updated_at'   => now()->subMinutes(11),
+            'updated_at' => now()->subMinutes(11),
         ]);
 
         $this->postWebhook($payload)->assertOk();
@@ -246,12 +248,12 @@ class WebhookLedgerAndReplayTest extends TestCase
         $payload2 = $this->validIpnPayload();
         User::where('email', 'buyer@example.com')->update(['plan' => 'free']);
         DB::table('processed_webhooks')->insert([
-            'message_id'   => $payload2['message_id'],
+            'message_id' => $payload2['message_id'],
             'message_type' => 'ORDER_CREATED',
-            'invoice_id'   => $payload2['invoice_id'],
-            'status'       => 'processing',
+            'invoice_id' => $payload2['invoice_id'],
+            'status' => 'processing',
             'processed_at' => now(),
-            'updated_at'   => now(),
+            'updated_at' => now(),
         ]);
 
         $this->postWebhook($payload2)->assertOk();
@@ -263,19 +265,19 @@ class WebhookLedgerAndReplayTest extends TestCase
         $user = User::factory()->create(['email' => 'buyer@example.com', 'plan' => 'pro']);
         $payload = $this->validIpnPayload();
         Transaction::create([
-            'user_id'        => $user->id,
-            'invoice_id'     => $payload['invoice_id'],
-            'plan'           => 'pro',
-            'amount'         => 29.00,
-            'currency'       => 'USD',
+            'user_id' => $user->id,
+            'invoice_id' => $payload['invoice_id'],
+            'plan' => 'pro',
+            'amount' => 29.00,
+            'currency' => 'USD',
             'customer_email' => $user->email,
-            'status'         => 'completed',
+            'status' => 'completed',
         ]);
 
         $refund = $this->validIpnPayload([
-            'message_type'      => 'REFUND_ISSUED',
-            'invoice_id'        => $payload['invoice_id'],
-            'item_list_amount_1'=> '29.00',
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => $payload['invoice_id'],
+            'item_list_amount_1' => '29.00',
         ]);
 
         $this->postWebhook($refund)->assertOk();
@@ -290,7 +292,7 @@ class WebhookLedgerAndReplayTest extends TestCase
 
     public function test_webhook_audit_actions_never_email_super_admins(): void
     {
-        $listener = new \App\Listeners\SendSuperAdminActionAlert();
+        $listener = new \App\Listeners\SendSuperAdminActionAlert;
         $source = file_get_contents((new \ReflectionClass($listener))->getFileName());
 
         $this->assertStringNotContainsString("'webhook.", $source,
@@ -313,20 +315,20 @@ class WebhookLedgerAndReplayTest extends TestCase
         $session = $this->superAdminMfaSession();
         $buyer = User::factory()->create(['plan' => 'pro']);
         Transaction::create([
-            'user_id'        => $buyer->id,
-            'invoice_id'     => 'INV-VISIBLE-1',
-            'plan'           => 'pro',
-            'amount'         => 29.00,
-            'currency'       => 'USD',
+            'user_id' => $buyer->id,
+            'invoice_id' => 'INV-VISIBLE-1',
+            'plan' => 'pro',
+            'amount' => 29.00,
+            'currency' => 'USD',
             'customer_email' => $buyer->email,
-            'status'         => 'refunded',
+            'status' => 'refunded',
         ]);
         ProcessedWebhook::create([
-            'message_id'   => 'MSG-REVIEW-1',
+            'message_id' => 'MSG-REVIEW-1',
             'message_type' => 'REFUND_ISSUED',
-            'invoice_id'   => 'INV-VISIBLE-1',
-            'payload'      => json_encode(['invoice_id' => 'INV-VISIBLE-1', 'customer_email' => $buyer->email]),
-            'status'       => 'processed',
+            'invoice_id' => 'INV-VISIBLE-1',
+            'payload' => json_encode(['invoice_id' => 'INV-VISIBLE-1', 'customer_email' => $buyer->email]),
+            'status' => 'processed',
             'processed_at' => now(),
         ]);
 
@@ -345,13 +347,13 @@ class WebhookLedgerAndReplayTest extends TestCase
         $buyer = User::factory()->create();
         foreach ([['completed', 'INV-C-1'], ['refunded', 'INV-R-1']] as [$status, $invoice]) {
             Transaction::create([
-                'user_id'        => $buyer->id,
-                'invoice_id'     => $invoice,
-                'plan'           => 'pro',
-                'amount'         => 29.00,
-                'currency'       => 'USD',
+                'user_id' => $buyer->id,
+                'invoice_id' => $invoice,
+                'plan' => 'pro',
+                'amount' => 29.00,
+                'currency' => 'USD',
                 'customer_email' => $buyer->email,
-                'status'         => $status,
+                'status' => $status,
             ]);
         }
 
@@ -388,36 +390,36 @@ class WebhookLedgerAndReplayTest extends TestCase
 
         $buyer = User::factory()->create(['plan' => 'pro']);
         Transaction::create([
-            'user_id'        => $buyer->id,
-            'invoice_id'     => 'INV-REPLAY-1',
-            'plan'           => 'pro',
-            'amount'         => 29.00,
-            'currency'       => 'USD',
+            'user_id' => $buyer->id,
+            'invoice_id' => 'INV-REPLAY-1',
+            'plan' => 'pro',
+            'amount' => 29.00,
+            'currency' => 'USD',
             'customer_email' => $buyer->email,
-            'status'         => 'completed',
+            'status' => 'completed',
         ]);
 
         $saleId = 'SALE-REPLAY-1';
         $invoiceId = 'INV-REPLAY-1';
-        $stringToHash = $saleId . self::VENDOR_ID
-                      . $invoiceId . self::SECRET_WORD;
+        $stringToHash = $saleId.self::VENDOR_ID
+                      .$invoiceId.self::SECRET_WORD;
 
         $row = ProcessedWebhook::create([
-            'message_id'   => 'MSG-REPLAY-1',
+            'message_id' => 'MSG-REPLAY-1',
             'message_type' => 'REFUND_ISSUED',
-            'invoice_id'   => $invoiceId,
-            'payload'      => json_encode([
-                'message_type'      => 'REFUND_ISSUED',
-                'message_id'        => 'MSG-REPLAY-1',
-                'sale_id'           => $saleId,
-                'vendor_id'         => self::VENDOR_ID,
-                'invoice_id'        => $invoiceId,
-                'md5_hash'          => strtoupper(md5($stringToHash)),
-                'customer_email'    => $buyer->email,
-                'item_list_amount_1'=> '29.00',
-                'list_currency'     => 'USD',
+            'invoice_id' => $invoiceId,
+            'payload' => json_encode([
+                'message_type' => 'REFUND_ISSUED',
+                'message_id' => 'MSG-REPLAY-1',
+                'sale_id' => $saleId,
+                'vendor_id' => self::VENDOR_ID,
+                'invoice_id' => $invoiceId,
+                'md5_hash' => strtoupper(md5($stringToHash)),
+                'customer_email' => $buyer->email,
+                'item_list_amount_1' => '29.00',
+                'list_currency' => 'USD',
             ]),
-            'status'       => 'failed',
+            'status' => 'failed',
             'processed_at' => now(),
         ]);
 

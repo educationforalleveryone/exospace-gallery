@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Notifications\Auth\VerifyEmail; // branded subclass of the framework notification
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -349,9 +348,9 @@ class RegistrationTest extends TestCase
     public function test_registration_normalises_email_case_and_whitespace(): void
     {
         $this->post('/register', [
-            'name'                  => 'Mixed Case',
-            'email'                 => '  Mixed.Case@Example.COM ',
-            'password'              => 'GoodPass123',
+            'name' => 'Mixed Case',
+            'email' => '  Mixed.Case@Example.COM ',
+            'password' => 'GoodPass123',
             'password_confirmation' => 'GoodPass123',
         ])->assertSessionHasNoErrors();
 
@@ -363,9 +362,9 @@ class RegistrationTest extends TestCase
         User::factory()->create(['email' => 'taken@example.com']);
 
         $this->from('/register')->post('/register', [
-            'name'                  => 'Second User',
-            'email'                 => 'Taken@Example.com',
-            'password'              => 'GoodPass123',
+            'name' => 'Second User',
+            'email' => 'Taken@Example.com',
+            'password' => 'GoodPass123',
             'password_confirmation' => 'GoodPass123',
         ])->assertSessionHasErrors('email');
 
@@ -375,9 +374,9 @@ class RegistrationTest extends TestCase
     public function test_registration_rejects_invalid_email_addresses(): void
     {
         $response = $this->from('/register')->post('/register', [
-            'name'                 => 'Bad Email',
-            'email'                => 'not-an-email',
-            'password'             => 'GoodPass123',
+            'name' => 'Bad Email',
+            'email' => 'not-an-email',
+            'password' => 'GoodPass123',
             'password_confirmation' => 'GoodPass123',
         ]);
 
@@ -389,9 +388,9 @@ class RegistrationTest extends TestCase
     public function test_registration_rejects_passwords_below_the_minimum_length(): void
     {
         $response = $this->from('/register')->post('/register', [
-            'name'                 => 'Short Pass',
-            'email'                => 'shortpass@example.com',
-            'password'             => 'Short1!',
+            'name' => 'Short Pass',
+            'email' => 'shortpass@example.com',
+            'password' => 'Short1!',
             'password_confirmation' => 'Short1!',
         ]);
 
@@ -403,9 +402,9 @@ class RegistrationTest extends TestCase
     public function test_registration_with_a_mismatched_confirmation_creates_no_account(): void
     {
         $response = $this->from('/register')->post('/register', [
-            'name'                 => 'Mismatch',
-            'email'                => 'mismatch@example.com',
-            'password'             => 'GoodPass123',
+            'name' => 'Mismatch',
+            'email' => 'mismatch@example.com',
+            'password' => 'GoodPass123',
             'password_confirmation' => 'Different999',
         ]);
 
@@ -433,26 +432,26 @@ class RegistrationTest extends TestCase
 
         $owner = User::factory()->create();
         $team = Team::create([
-            'name'     => 'Dup Team',
-            'slug'     => 'dup-team',
+            'name' => 'Dup Team',
+            'slug' => 'dup-team',
             'owner_id' => $owner->id,
         ]);
 
         $plaintext = TeamInvitation::generateToken();
         $invitation = TeamInvitation::create([
-            'team_id'    => $team->id,
-            'email'      => 'already@example.com',
-            'role'       => 'viewer',
-            'token'      => TeamInvitation::hashToken($plaintext),
+            'team_id' => $team->id,
+            'email' => 'already@example.com',
+            'role' => 'viewer',
+            'token' => TeamInvitation::hashToken($plaintext),
             'expires_at' => now()->addDays(7),
         ]);
 
         $response = $this->from('/register')->post('/register', [
-            'name'                 => 'Late Joiner',
-            'email'                => 'posted@example.com',
-            'password'             => 'GoodPass123',
+            'name' => 'Late Joiner',
+            'email' => 'posted@example.com',
+            'password' => 'GoodPass123',
             'password_confirmation' => 'GoodPass123',
-            'invitation_token'     => $plaintext,
+            'invitation_token' => $plaintext,
         ]);
 
         $response->assertRedirect('/register');
@@ -466,17 +465,17 @@ class RegistrationTest extends TestCase
     {
         $owner = User::factory()->create();
         $team = Team::create([
-            'name'     => 'Atomic Team',
-            'slug'     => 'atomic-team',
+            'name' => 'Atomic Team',
+            'slug' => 'atomic-team',
             'owner_id' => $owner->id,
         ]);
 
         $plaintext = TeamInvitation::generateToken();
         $invitation = TeamInvitation::create([
-            'team_id'    => $team->id,
-            'email'      => 'atomic@example.com',
-            'role'       => 'editor',
-            'token'      => TeamInvitation::hashToken($plaintext),
+            'team_id' => $team->id,
+            'email' => 'atomic@example.com',
+            'role' => 'editor',
+            'token' => TeamInvitation::hashToken($plaintext),
             'expires_at' => now()->addDays(7),
         ]);
 
@@ -492,11 +491,11 @@ class RegistrationTest extends TestCase
 
         try {
             $response = $this->post('/register', [
-                'name'                 => 'Atomic User',
-                'email'                => 'posted@example.com',
-                'password'             => 'GoodPass123',
+                'name' => 'Atomic User',
+                'email' => 'posted@example.com',
+                'password' => 'GoodPass123',
                 'password_confirmation' => 'GoodPass123',
-                'invitation_token'     => $plaintext,
+                'invitation_token' => $plaintext,
             ]);
         } catch (\Throwable) {
             $threw = true;

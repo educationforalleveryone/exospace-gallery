@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use App\Models\AdminAuditLog;
 use App\Models\Transaction;
-use App\Models\User;
 use App\Services\ArtisanCommandRunner;
 use App\Services\BackupArtifactReport;
 use App\Services\BackupArtifactVerifier;
@@ -32,10 +31,11 @@ class MonitoredBackupTest extends TestCase
 
     private function fakeRunner(int $exitCode): object
     {
-        return new class ($exitCode) extends ArtisanCommandRunner {
+        return new class($exitCode) extends ArtisanCommandRunner
+        {
             /**
- * @var list<array{0:string, 1:array}>
- */
+             * @var list<array{0:string, 1:array}>
+             */
             public array $calls = [];
 
             public function __construct(private readonly int $exitCode)
@@ -46,6 +46,7 @@ class MonitoredBackupTest extends TestCase
             public function __invoke(string $command, array $parameters = []): int
             {
                 $this->calls[] = [$command, $parameters];
+
                 return $this->exitCode;
             }
         };
@@ -53,10 +54,9 @@ class MonitoredBackupTest extends TestCase
 
     private function fakeVerifier(bool $passes): BackupArtifactVerifier
     {
-        return new class ($passes) extends BackupArtifactVerifier {
-            public function __construct(private readonly bool $passes)
-            {
-            }
+        return new class($passes) extends BackupArtifactVerifier
+        {
+            public function __construct(private readonly bool $passes) {}
 
             public function verifyNewestOnDisk(string $diskName): BackupArtifactReport
             {
@@ -296,7 +296,8 @@ class MonitoredBackupTest extends TestCase
 
     public function test_spatie_diagnostic_appended_to_alert_message(): void
     {
-        $fake = new class (1, 'mysqldump: command not found — aborting after 3 retries') extends ArtisanCommandRunner {
+        $fake = new class(1, 'mysqldump: command not found — aborting after 3 retries') extends ArtisanCommandRunner
+        {
             public function __construct(
                 private readonly int $exitCode,
                 private readonly string $output,
@@ -325,6 +326,7 @@ class MonitoredBackupTest extends TestCase
 
         Http::assertSent(function ($request) {
             $body = (string) $request->body();
+
             return str_contains($body, 'Daily database backup')
                 && str_contains($body, 'mysqldump: command not found')
                 && str_contains($body, 'Underlying spatie output');

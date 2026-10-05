@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
@@ -61,10 +61,10 @@ class WebhookSecurityTest extends TestCase
 
         $payload = [
             'message_type' => 'ORDER_CREATED',
-            'message_id'   => 'msg-formula-vector',
-            'sale_id'      => '4838212958',
-            'vendor_id'    => '1817037',
-            'invoice_id'   => '4838212967',
+            'message_id' => 'msg-formula-vector',
+            'sale_id' => '4838212958',
+            'vendor_id' => '1817037',
+            'invoice_id' => '4838212967',
         ];
 
         // UPPER(MD5(sale_id . vendor_id . invoice_id . secret_word)), precomputed.
@@ -75,7 +75,7 @@ class WebhookSecurityTest extends TestCase
         // UPPER(MD5(UPPER(MD5(sale_id)) . vendor_id . invoice_id . secret_word)), precomputed.
         $this->postJson('/webhooks/2checkout', array_merge($payload, [
             'message_id' => 'msg-formula-vector-double-md5',
-            'md5_hash'   => '9485077812EDC3F7A4A740D28C3C1A1F',
+            'md5_hash' => '9485077812EDC3F7A4A740D28C3C1A1F',
         ]))->assertStatus(403);
     }
 
@@ -85,7 +85,7 @@ class WebhookSecurityTest extends TestCase
         config()->set('services.2checkout.buy_link_secret_word', null);
         $this->app['env'] = 'testing';
 
-        $messageId = 'msg-duplicate-' . uniqid();
+        $messageId = 'msg-duplicate-'.uniqid();
         $payload = $this->signedPayload('dup-', $messageId);
 
         $response1 = $this->postJson('/webhooks/2checkout', $payload);
@@ -111,27 +111,27 @@ class WebhookSecurityTest extends TestCase
 
         $refundUser = User::factory()->create();
         DB::table('transactions')->insertGetId([
-            'user_id'        => $refundUser->id,
-            'invoice_id'     => 'INV-2CO5-TEST',
-            'sale_id'        => 'SALE-2CO5',
-            'product_id'     => 'PRO-PRODUCT',
-            'plan'           => 'pro',
-            'amount'         => 29.00,
-            'currency'       => 'USD',
+            'user_id' => $refundUser->id,
+            'invoice_id' => 'INV-2CO5-TEST',
+            'sale_id' => 'SALE-2CO5',
+            'product_id' => 'PRO-PRODUCT',
+            'plan' => 'pro',
+            'amount' => 29.00,
+            'currency' => 'USD',
             'customer_email' => 'test@example.com',
-            'customer_name'  => 'Test User',
-            'status'         => 'completed',
-            'created_at'     => now(),
-            'updated_at'     => now(),
+            'customer_name' => 'Test User',
+            'status' => 'completed',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         $response = $this->postJson('/webhooks/2checkout', [
-            'message_type'      => 'REFUND_ISSUED',
-            'message_id'        => 'msg-refund-' . uniqid(),
-            'sale_id'           => 'SALE-2CO5',
-            'vendor_id'         => 'VENDOR-2CO5',
-            'invoice_id'        => 'INV-2CO5-TEST',
-            'md5_hash'          => $this->md5HashFor('SALE-2CO5', 'VENDOR-2CO5', 'INV-2CO5-TEST'),
+            'message_type' => 'REFUND_ISSUED',
+            'message_id' => 'msg-refund-'.uniqid(),
+            'sale_id' => 'SALE-2CO5',
+            'vendor_id' => 'VENDOR-2CO5',
+            'invoice_id' => 'INV-2CO5-TEST',
+            'md5_hash' => $this->md5HashFor('SALE-2CO5', 'VENDOR-2CO5', 'INV-2CO5-TEST'),
             'item_list_amount_1' => 29.00, // full refund
         ]);
 
@@ -152,23 +152,23 @@ class WebhookSecurityTest extends TestCase
     private function md5HashFor(string $saleId, string $vendorId, string $invoiceId, string $secretWord = 'TESTSECRET'): string
     {
         return strtoupper(md5(
-            $saleId . $vendorId . $invoiceId . $secretWord
+            $saleId.$vendorId.$invoiceId.$secretWord
         ));
     }
 
     private function signedPayload(string $prefix, ?string $messageId = null): array
     {
-        $saleId = 'SALE-' . uniqid($prefix);
-        $vendorId = 'VENDOR-' . $prefix;
-        $invoiceId = 'INV-' . uniqid($prefix);
+        $saleId = 'SALE-'.uniqid($prefix);
+        $vendorId = 'VENDOR-'.$prefix;
+        $invoiceId = 'INV-'.uniqid($prefix);
 
         return [
             'message_type' => 'ORDER_CREATED',
-            'message_id'   => $messageId ?? ('msg-' . uniqid($prefix)),
-            'sale_id'      => $saleId,
-            'vendor_id'    => $vendorId,
-            'invoice_id'   => $invoiceId,
-            'md5_hash'     => $this->md5HashFor($saleId, $vendorId, $invoiceId),
+            'message_id' => $messageId ?? ('msg-'.uniqid($prefix)),
+            'sale_id' => $saleId,
+            'vendor_id' => $vendorId,
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5HashFor($saleId, $vendorId, $invoiceId),
         ];
     }
 

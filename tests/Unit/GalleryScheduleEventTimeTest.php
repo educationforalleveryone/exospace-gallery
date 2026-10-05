@@ -42,8 +42,8 @@ class GalleryScheduleEventTimeTest extends TestCase
     {
         $event = new GalleryScheduleEvent([
             'starts_at' => '2026-07-01 22:00:00',
-            'ends_at'   => '2026-07-02 01:00:00',
-            'timezone'  => 'America/New_York',
+            'ends_at' => '2026-07-02 01:00:00',
+            'timezone' => 'America/New_York',
         ]);
 
         $start = $event->startsAtInEventTimezone();
@@ -58,8 +58,8 @@ class GalleryScheduleEventTimeTest extends TestCase
     {
         $event = new GalleryScheduleEvent([
             'starts_at' => '2026-07-01 22:00:00', // 6:00 PM EDT
-            'ends_at'   => '2026-07-02 01:00:00', // 9:00 PM EDT, same day
-            'timezone'  => 'America/New_York',
+            'ends_at' => '2026-07-02 01:00:00', // 9:00 PM EDT, same day
+            'timezone' => 'America/New_York',
         ]);
 
         $label = $event->scheduleLabel();
@@ -71,8 +71,8 @@ class GalleryScheduleEventTimeTest extends TestCase
     {
         $event = new GalleryScheduleEvent([
             'starts_at' => '2026-07-02 03:00:00', // 11:00 PM EDT on July 1
-            'ends_at'   => '2026-07-03 04:00:00', // 12:00 AM EDT on July 3
-            'timezone'  => 'America/New_York',
+            'ends_at' => '2026-07-03 04:00:00', // 12:00 AM EDT on July 3
+            'timezone' => 'America/New_York',
         ]);
 
         $this->assertSame(
@@ -85,7 +85,7 @@ class GalleryScheduleEventTimeTest extends TestCase
     {
         $event = new GalleryScheduleEvent([
             'starts_at' => '2026-07-01 18:00:00',
-            'timezone'  => 'Not/AZone',
+            'timezone' => 'Not/AZone',
         ]);
 
         $this->assertSame('Wednesday, July 1, 2026 at 6:00 PM UTC', $event->scheduleLabel());

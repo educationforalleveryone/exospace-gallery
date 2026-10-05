@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class VenueWhiteCubePolishTest extends TestCase
@@ -11,13 +11,13 @@ class VenueWhiteCubePolishTest extends TestCase
     use RefreshDatabase;
 
     public const POLISHED = [
-        'background_color'      => '0xf2f1ee',
-        'fog_color'             => '0xf2f1ee',
-        'fog_near'              => 16,
-        'fog_far'               => 60,
-        'ambient_intensity'     => 0.55,
-        'spot_intensity'        => 3.2,
-        'fill_intensity'        => 2.6,
+        'background_color' => '0xf2f1ee',
+        'fog_color' => '0xf2f1ee',
+        'fog_near' => 16,
+        'fog_far' => 60,
+        'ambient_intensity' => 0.55,
+        'spot_intensity' => 3.2,
+        'fill_intensity' => 2.6,
         'tone_mapping_exposure' => 1.05,
     ];
 
@@ -68,10 +68,10 @@ class VenueWhiteCubePolishTest extends TestCase
 
         // Post-processing restraint: bloom OFF (calm identity), softened vignette.
         $this->assertSame([
-            'bloom'             => false,
-            'vignette'          => true,
+            'bloom' => false,
+            'vignette' => true,
             'vignette_darkness' => 0.28,
-            'vignette_offset'   => 1.05,
+            'vignette_offset' => 1.05,
         ], $vc['post_fx'] ?? null, '[white-cube] must declare its post-fx identity explicitly.');
 
         // Material identity: sealed polished concrete, not wet cement.
@@ -105,39 +105,39 @@ class VenueWhiteCubePolishTest extends TestCase
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
         DB::table('venue_templates')->where('slug', 'white-cube')->update([
             'visual_config' => json_encode([
-                'wall_height'            => 4,
-                'wall_depth'             => 0.3,
-                'ceiling_type'           => 'flat',
-                'ceiling_height'         => 4,
-                'background_color'       => '0x0f0f0f',
-                'fog_color'              => '0x0f0f0f',
-                'fog_near'               => 10,
-                'fog_far'                => 30,
-                'ambient_color'          => '0xffffff',
-                'ambient_intensity'      => 0.2,
-                'spot_intensity'         => 0.45,
-                'fill_intensity'         => 0.12,
-                'tone_mapping_exposure'  => 0.5,
-                'frame_override'         => null,
-                'structure_pass'         => 'cube',
+                'wall_height' => 4,
+                'wall_depth' => 0.3,
+                'ceiling_type' => 'flat',
+                'ceiling_height' => 4,
+                'background_color' => '0x0f0f0f',
+                'fog_color' => '0x0f0f0f',
+                'fog_near' => 10,
+                'fog_far' => 30,
+                'ambient_color' => '0xffffff',
+                'ambient_intensity' => 0.2,
+                'spot_intensity' => 0.45,
+                'fill_intensity' => 0.12,
+                'tone_mapping_exposure' => 0.5,
+                'frame_override' => null,
+                'structure_pass' => 'cube',
             ]),
             'material_config' => json_encode([
-                'wall_color'            => null,
-                'wall_roughness'        => 0.9,
-                'wall_metalness'        => 0.0,
-                'wall_normal_strength'  => 0.3,
-                'floor_color'           => null,
-                'floor_roughness'       => 0.7,
-                'floor_metalness'       => 0.0,
+                'wall_color' => null,
+                'wall_roughness' => 0.9,
+                'wall_metalness' => 0.0,
+                'wall_normal_strength' => 0.3,
+                'floor_color' => null,
+                'floor_roughness' => 0.7,
+                'floor_metalness' => 0.0,
                 'floor_normal_strength' => 0.4,
-                'floor_tile_meters'     => 2.0,
+                'floor_tile_meters' => 2.0,
             ]),
             'default_settings' => json_encode([
-                'wall_texture'   => 'white',
+                'wall_texture' => 'white',
                 'floor_material' => 'concrete',
                 'lighting_preset' => 'bright',
-                'frame_style'    => 'minimal',
-                'room_layout'    => 'square',
+                'frame_style' => 'minimal',
+                'room_layout' => 'square',
             ]),
         ]);
 
@@ -169,13 +169,13 @@ class VenueWhiteCubePolishTest extends TestCase
 
         DB::table('venue_templates')->where('slug', 'white-cube')->update([
             'visual_config' => json_encode([
-                'fog_color'             => '0xe8e4da',
+                'fog_color' => '0xe8e4da',
                 'tone_mapping_exposure' => 1.25,
-                'post_fx'               => ['bloom' => true],
-                'structure_pass'        => 'cube',
+                'post_fx' => ['bloom' => true],
+                'structure_pass' => 'cube',
             ]),
             'material_config' => json_encode([
-                'floor_color'     => '0xa8a49c',
+                'floor_color' => '0xa8a49c',
                 'floor_roughness' => 0.4,
             ]),
             'default_settings' => json_encode([
@@ -201,15 +201,15 @@ class VenueWhiteCubePolishTest extends TestCase
         // Give the row the pre-polish values, apply up(), then down().
         DB::table('venue_templates')->where('slug', 'white-cube')->update([
             'visual_config' => json_encode([
-                'background_color'      => '0x0f0f0f',
-                'fog_color'             => '0x0f0f0f',
-                'fog_near'              => 10,
-                'fog_far'               => 30,
-                'ambient_intensity'     => 0.2,
-                'spot_intensity'        => 0.45,
-                'fill_intensity'        => 0.12,
+                'background_color' => '0x0f0f0f',
+                'fog_color' => '0x0f0f0f',
+                'fog_near' => 10,
+                'fog_far' => 30,
+                'ambient_intensity' => 0.2,
+                'spot_intensity' => 0.45,
+                'fill_intensity' => 0.12,
                 'tone_mapping_exposure' => 0.5,
-                'structure_pass'        => 'cube',
+                'structure_pass' => 'cube',
             ]),
         ]);
 

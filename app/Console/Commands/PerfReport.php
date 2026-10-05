@@ -25,6 +25,7 @@ class PerfReport extends Command
         if ($events->isEmpty()) {
             $this->info("No perf beacons in the last {$days} day(s).");
             $this->line('Beacons appear after visitors press Enter and stay ~15 s.');
+
             return self::SUCCESS;
         }
 
@@ -70,14 +71,14 @@ class PerfReport extends Command
         return [
             $tier,
             $rows->count(),
-            $avg('fps')          ?? '—',
-            $p10                  ?? '—',
-            $avg('fps_min')      ?? '—',
-            $avg('draws')        ?? '—',
-            $avg('pr')           ?? '—',
-            $avg('heap')         ?? '—',
+            $avg('fps') ?? '—',
+            $p10 ?? '—',
+            $avg('fps_min') ?? '—',
+            $avg('draws') ?? '—',
+            $avg('pr') ?? '—',
+            $avg('heap') ?? '—',
             $avg('ms', 0) === 0 && $rows->pluck('ms')->filter()->isEmpty() ? '—' : $avg('ms'),
-            $avg('partial')      ?? '—',
+            $avg('partial') ?? '—',
         ];
     }
 }

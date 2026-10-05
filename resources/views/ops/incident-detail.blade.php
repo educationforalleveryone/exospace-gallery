@@ -69,6 +69,7 @@
 
         <section class="rounded-lg border border-slate-800 bg-slate-900/40 p-5">
             <h2 class="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-3">Likely cause</h2>
+            <p class="text-xs text-slate-500 mb-2">Root cause candidate — ranked by the correlation engine, never a certainty.</p>
             <p class="text-sm text-slate-200 font-medium">{{ $incident->rootCauseStatement() }}</p>
             @if($incident->confidence === 'high')
                 <p class="text-xs text-slate-400 mt-2">A causal event (deployment / build / migration) demonstrably preceded these symptoms — strong evidence for a change-triggered failure.</p>

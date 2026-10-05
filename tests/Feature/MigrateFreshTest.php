@@ -51,7 +51,7 @@ class MigrateFreshTest extends TestCase
             // Marketing consent
             'marketing_consent',
             // Lifecycle
-                        'inactive_nudged_at',
+            'inactive_nudged_at',
             'plan_expiry_reminded_at',
             // Admin
             'is_super_admin',
@@ -174,9 +174,9 @@ class MigrateFreshTest extends TestCase
 
         if (! empty($missing)) {
             $this->fail(
-                "Table '{$table}' is missing columns: " . implode(', ', $missing) . "\n" .
-                'This likely means a consolidated migration is incomplete.' . "\n" .
-                'Found columns: ' . implode(', ', Schema::getColumnListing($table))
+                "Table '{$table}' is missing columns: ".implode(', ', $missing)."\n".
+                'This likely means a consolidated migration is incomplete.'."\n".
+                'Found columns: '.implode(', ', Schema::getColumnListing($table))
             );
         }
 

@@ -10,8 +10,6 @@ use App\Models\GalleryImage;
 use App\Models\User;
 use App\Models\VenueTemplate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class SeoEntityPagesTest extends TestCase
@@ -32,26 +30,26 @@ class SeoEntityPagesTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'    => $user->id,
-            'title'      => 'Echoes of the Void',
-            'slug'       => 'echoes-of-the-void',
-            'description'=> 'A survey of new digital works exploring light and space.',
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'title' => 'Echoes of the Void',
+            'slug' => 'echoes-of-the-void',
+            'description' => 'A survey of new digital works exploring light and space.',
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 
@@ -59,7 +57,7 @@ class SeoEntityPagesTest extends TestCase
     {
         $artist = Artist::create([
             'name' => 'Maya Chen',
-            'bio'  => 'Berlin-based artist working with light and space.',
+            'bio' => 'Berlin-based artist working with light and space.',
             'location' => 'Berlin, Germany',
         ]);
         $gallery = $this->makePublicGallery();
@@ -138,12 +136,12 @@ class SeoEntityPagesTest extends TestCase
         $artist = Artist::create(['name' => 'Maya Chen']);
         $gallery = $this->makePublicGallery();
         $artwork = $this->addArtwork($gallery, [
-            'artist_id'   => $artist->id,
-            'title'       => 'Light Study #4',
+            'artist_id' => $artist->id,
+            'title' => 'Light Study #4',
             'description' => 'An exploration of light through layered glass panels, part of an ongoing series.',
-            'medium'      => 'Mixed media on glass',
-            'year'        => 2024,
-            'dimensions'  => '120 × 80 cm',
+            'medium' => 'Mixed media on glass',
+            'year' => 2024,
+            'dimensions' => '120 × 80 cm',
         ]);
 
         $response = $this->get("/gallery/{$gallery->slug}/artwork/{$artwork->id}");
@@ -154,7 +152,7 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringNotContainsString('noindex', $html);
         $this->assertStringContainsString('<title>Light Study #4 by Maya Chen</title>', $html);
         $this->assertStringContainsString(
-            '<link rel="canonical" href="https://exospace.gallery/gallery/echoes-of-the-void/artwork/' . $artwork->id . '">',
+            '<link rel="canonical" href="https://exospace.gallery/gallery/echoes-of-the-void/artwork/'.$artwork->id.'">',
             $html,
         );
         $this->assertStringContainsString('"@type":"VisualArtwork"', $html);
@@ -220,7 +218,7 @@ class SeoEntityPagesTest extends TestCase
         $this->assertStringContainsString('Artworks in this exhibition', $html);
         $this->assertStringContainsString('Work One', $html);
         $this->assertStringContainsString('href="https://exospace.gallery/artist/maya-chen"', $html, 'Crawlable artist link in semantic layer.');
-        $this->assertStringContainsString("/artwork/", $html, 'Crawlable artwork links in semantic layer.');
+        $this->assertStringContainsString('/artwork/', $html, 'Crawlable artwork links in semantic layer.');
     }
 
     public function test_gallery_view_embed_mode_is_noindex(): void

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ResilientCache;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use App\Support\ResilientCache;
 
 class StatusController extends Controller
 {
@@ -18,9 +18,9 @@ class StatusController extends Controller
         });
 
         return view('pages.status', [
-            'checks'    => $checks['checks'],
+            'checks' => $checks['checks'],
             'allHealthy' => $checks['allHealthy'],
-            'checkedAt'  => $checks['timestamp'],
+            'checkedAt' => $checks['timestamp'],
         ]);
     }
 
@@ -40,12 +40,14 @@ class StatusController extends Controller
 
         // Cache
         try {
-            $testKey = 'status:check:' . uniqid();
+            $testKey = 'status:check:'.uniqid();
             Cache::put($testKey, 'ok', 10);
             $val = Cache::get($testKey);
             Cache::forget($testKey);
             $checks['cache'] = $val === 'ok' ? 'operational' : 'degraded';
-            if ($val !== 'ok') $allHealthy = false;
+            if ($val !== 'ok') {
+                $allHealthy = false;
+            }
         } catch (\Throwable $e) {
             $checks['cache'] = 'down';
             $allHealthy = false;
@@ -55,7 +57,9 @@ class StatusController extends Controller
         try {
             $failedCount = DB::table('failed_jobs')->count();
             $checks['queue'] = $failedCount > 100 ? 'degraded' : 'operational';
-            if ($failedCount > 100) $allHealthy = false;
+            if ($failedCount > 100) {
+                $allHealthy = false;
+            }
         } catch (\Throwable $e) {
             $checks['queue'] = 'down';
             $allHealthy = false;
@@ -65,7 +69,9 @@ class StatusController extends Controller
         try {
             $disk = Storage::disk('public');
             $checks['storage'] = $disk->exists('.') ? 'operational' : 'down';
-            if (!$disk->exists('.')) $allHealthy = false;
+            if (! $disk->exists('.')) {
+                $allHealthy = false;
+            }
         } catch (\Throwable $e) {
             $checks['storage'] = 'down';
             $allHealthy = false;

@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('location', 255)->nullable();  // e.g. "Berlin, Germany"
 
             $table->foreignId('created_by')->nullable()
-                  ->constrained('users')->nullOnDelete();
+                ->constrained('users')->nullOnDelete();
 
             $table->timestamps();
 
@@ -32,8 +32,8 @@ return new class extends Migration
         // Add artist_id to gallery_images
         Schema::table('gallery_images', function (Blueprint $table) {
             $table->foreignId('artist_id')->nullable()
-                  ->after('gallery_id')
-                  ->constrained('artists')->nullOnDelete();
+                ->after('gallery_id')
+                ->constrained('artists')->nullOnDelete();
             $table->index('artist_id');
         });
     }

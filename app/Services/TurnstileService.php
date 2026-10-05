@@ -28,7 +28,7 @@ class TurnstileService
             $response = Http::asForm()
                 ->timeout(5)
                 ->post(self::VERIFY_URL, [
-                    'secret'   => $secretKey,
+                    'secret' => $secretKey,
                     'response' => $token,
                     'remoteip' => $remoteIp,
                 ]);
@@ -38,16 +38,18 @@ class TurnstileService
             if (! is_array($body) || ! isset($body['success'])) {
                 Log::warning('TurnstileService: unexpected response shape', [
                     'status' => $response->status(),
-                    'body'   => $body,
+                    'body' => $body,
                 ]);
+
                 return false;
             }
 
             if (! $body['success']) {
                 Log::info('TurnstileService: verification failed', [
-                    'errors'   => $body['error-codes'] ?? [],
+                    'errors' => $body['error-codes'] ?? [],
                     'remoteip' => $remoteIp,
                 ]);
+
                 return false;
             }
 
@@ -56,6 +58,7 @@ class TurnstileService
             Log::warning('TurnstileService: siteverify call failed (fail-open)', [
                 'error' => $e->getMessage(),
             ]);
+
             return true;
         }
     }

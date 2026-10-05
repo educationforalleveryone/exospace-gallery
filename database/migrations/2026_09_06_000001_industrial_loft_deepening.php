@@ -13,32 +13,34 @@ return new class extends Migration
         if (is_string($from)) {
             return is_string($current) && $current === $from;
         }
+
         return is_numeric($current) && (float) $current === (float) $from;
     }
 
     public function up(): void
     {
         $row = DB::table('venue_templates')->where('slug', 'industrial-loft')->first(['id', 'visual_config', 'material_config', 'default_settings']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
-            'fog_near'              => ['from' => 8,     'to' => 14],
-            'fog_far'               => ['from' => 35,    'to' => 55],
-            'ambient_intensity'     => ['from' => 0.18,  'to' => 0.55],
-            'spot_intensity'        => ['from' => 0.5,   'to' => 2.4],
-            'fill_intensity'        => ['from' => 0.15,  'to' => 1.1],
+            'fog_near' => ['from' => 8,     'to' => 14],
+            'fog_far' => ['from' => 35,    'to' => 55],
+            'ambient_intensity' => ['from' => 0.18,  'to' => 0.55],
+            'spot_intensity' => ['from' => 0.5,   'to' => 2.4],
+            'fill_intensity' => ['from' => 0.15,  'to' => 1.1],
             'tone_mapping_exposure' => ['from' => 0.55,  'to' => 0.9],
-            'frame_override'        => ['from' => null,  'to' => 'black'],
+            'frame_override' => ['from' => null,  'to' => 'black'],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($from === null) {
-                if (!array_key_exists($key, $vc) || $vc[$key] === null) {
+                if (! array_key_exists($key, $vc) || $vc[$key] === null) {
                     $vc[$key] = $to;
                 }
+
                 continue;
             }
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -47,24 +49,24 @@ return new class extends Migration
         }
 
         // Key adds — only when absent (an admin's declared value wins).
-        if (!array_key_exists('post_fx', $vc)) {
+        if (! array_key_exists('post_fx', $vc)) {
             $vc['post_fx'] = [
-                'bloom'             => false,
-                'vignette'          => true,
+                'bloom' => false,
+                'vignette' => true,
                 'vignette_darkness' => 0.35,
-                'vignette_offset'   => 1.0,
+                'vignette_offset' => 1.0,
             ];
         }
-        if (!array_key_exists('artwork_light_base', $vc)) {
+        if (! array_key_exists('artwork_light_base', $vc)) {
             $vc['artwork_light_base'] = 0.22;
         }
-        if (!array_key_exists('artwork_light_pool_cap', $vc)) {
+        if (! array_key_exists('artwork_light_pool_cap', $vc)) {
             $vc['artwork_light_pool_cap'] = 12;
         }
-        if (!array_key_exists('env_intensity', $vc)) {
+        if (! array_key_exists('env_intensity', $vc)) {
             $vc['env_intensity'] = 0.25;
         }
-        if (!array_key_exists('corridor_width', $vc)) {
+        if (! array_key_exists('corridor_width', $vc)) {
             $vc['corridor_width'] = 9;
         }
 
@@ -82,7 +84,7 @@ return new class extends Migration
         if ($this->guardedEquals($mc['floor_normal_strength'] ?? null, 0.7)) {
             $mc['floor_normal_strength'] = 0.6;
         }
-        if (!array_key_exists('floor_tile_meters', $mc)) {
+        if (! array_key_exists('floor_tile_meters', $mc)) {
             $mc['floor_tile_meters'] = 3.0;
         }
         DB::table('venue_templates')
@@ -101,19 +103,19 @@ return new class extends Migration
     public function down(): void
     {
         $row = DB::table('venue_templates')->where('slug', 'industrial-loft')->first(['id', 'visual_config', 'material_config', 'default_settings']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
         $vcRewrites = [
-            'fog_near'              => ['from' => 14,    'to' => 8],
-            'fog_far'               => ['from' => 55,    'to' => 35],
-            'ambient_intensity'     => ['from' => 0.55,  'to' => 0.18],
-            'spot_intensity'        => ['from' => 2.4,   'to' => 0.5],
-            'fill_intensity'        => ['from' => 1.1,   'to' => 0.15],
+            'fog_near' => ['from' => 14,    'to' => 8],
+            'fog_far' => ['from' => 55,    'to' => 35],
+            'ambient_intensity' => ['from' => 0.55,  'to' => 0.18],
+            'spot_intensity' => ['from' => 2.4,   'to' => 0.5],
+            'fill_intensity' => ['from' => 1.1,   'to' => 0.15],
             'tone_mapping_exposure' => ['from' => 0.9,   'to' => 0.55],
-            'frame_override'        => ['from' => 'black', 'to' => null],
+            'frame_override' => ['from' => 'black', 'to' => null],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -122,10 +124,10 @@ return new class extends Migration
         }
         // Remove the added keys only while they still equal what up() wrote.
         if (($vc['post_fx'] ?? null) === [
-            'bloom'             => false,
-            'vignette'          => true,
+            'bloom' => false,
+            'vignette' => true,
             'vignette_darkness' => 0.35,
-            'vignette_offset'   => 1.0,
+            'vignette_offset' => 1.0,
         ]) {
             unset($vc['post_fx']);
         }
@@ -166,10 +168,10 @@ return new class extends Migration
         $fresh = DB::table('venue_templates')->where('id', $row->id)->first(['id', 'visual_config']);
         $vc = json_decode((string) $fresh->visual_config, true) ?: [];
         $addedPostFx = [
-            'bloom'             => false,
-            'vignette'          => true,
+            'bloom' => false,
+            'vignette' => true,
             'vignette_darkness' => 0.35,
-            'vignette_offset'   => 1.0,
+            'vignette_offset' => 1.0,
         ];
         if (isset($vc['post_fx']) && is_array($vc['post_fx'])
             && count($vc['post_fx']) === count($addedPostFx)
@@ -180,7 +182,7 @@ return new class extends Migration
                 ->update(['visual_config' => json_encode($vc)]);
         }
         foreach ([
-            'artwork_light_base'     => 0.22,
+            'artwork_light_base' => 0.22,
             'artwork_light_pool_cap' => 12,
         ] as $key => $added) {
             if (isset($vc[$key]) && $this->guardedEquals($vc[$key], $added)) {
@@ -195,7 +197,7 @@ return new class extends Migration
     private function arrayEqualsNumeric(array $a, array $b): bool
     {
         foreach ($b as $k => $v) {
-            if (!array_key_exists($k, $a)) {
+            if (! array_key_exists($k, $a)) {
                 return false;
             }
             if (is_bool($v)) {
@@ -206,10 +208,11 @@ return new class extends Migration
                 if ($a[$k] !== $v) {
                     return false;
                 }
-            } elseif (!is_numeric($a[$k]) || (float) $a[$k] !== (float) $v) {
+            } elseif (! is_numeric($a[$k]) || (float) $a[$k] !== (float) $v) {
                 return false;
             }
         }
+
         return true;
     }
 };

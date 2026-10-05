@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\VenueTemplate;
 use App\Models\Gallery;
+use App\Models\VenueTemplate;
 use App\Support\ResilientCache;
 
 class VenueConfigExporter
@@ -54,7 +54,7 @@ class VenueConfigExporter
     public static function ownedKeyPayload(): array
     {
         return [
-            'venue_owned_visual'   => array_values(self::VENUE_OWNED_VISUAL_KEYS),
+            'venue_owned_visual' => array_values(self::VENUE_OWNED_VISUAL_KEYS),
             'venue_owned_material' => array_values(self::VENUE_OWNED_MATERIAL_KEYS),
         ];
     }
@@ -66,8 +66,11 @@ class VenueConfigExporter
      * ships to the viewer.
      */
     public const GALLERY_OVERRIDE_BUCKETS = ['visual_config', 'material_config', 'post_fx'];
+
     private const GALLERY_OVERRIDE_MAX_KEYS = 40;
+
     private const GALLERY_OVERRIDE_MAX_KEY_LENGTH = 64;
+
     private const GALLERY_OVERRIDE_MAX_VALUE_LENGTH = 255;
 
     public static function sanitizeGalleryOverrides(array $overrides): array
@@ -111,10 +114,10 @@ class VenueConfigExporter
 
     public function layoutForGallery(Gallery $gallery): string
     {
-        $layout  = $gallery->room_layout ?: 'square';
-        $venue   = $gallery->venueTemplate;
+        $layout = $gallery->room_layout ?: 'square';
+        $venue = $gallery->venueTemplate;
 
-        if (!$venue) {
+        if (! $venue) {
             return $layout;
         }
 
@@ -122,6 +125,7 @@ class VenueConfigExporter
             ? $layout
             : ($venue->default_settings['room_layout'] ?? 'square');
     }
+
     public function forGallery(Gallery $gallery): ?array
     {
         // Fresh read at entry: a venue save (or owner plan change) must be
@@ -131,7 +135,7 @@ class VenueConfigExporter
         $venueTs = $venue?->updated_at?->timestamp ?? '0';
         $venueSig = $this->venueSignature($venue);
         $plan = $gallery->user()->value('plan') ?? 'free';
-        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:{$venueSig}:p{$plan}:" . self::SCHEMA;
+        $cacheKey = "venue_config:{$gallery->id}:{$gallery->updated_at?->timestamp}:v{$venueTs}:{$venueSig}:p{$plan}:".self::SCHEMA;
 
         return ResilientCache::flexible($cacheKey, [now()->addHour(), now()->addHours(2)], function () use ($gallery, $venue, $plan) {
             return $this->buildConfig($gallery, $venue, $plan);
@@ -140,7 +144,7 @@ class VenueConfigExporter
 
     private function venueSignature(?VenueTemplate $venue): string
     {
-        if (!$venue) {
+        if (! $venue) {
             return 'nov';
         }
 
@@ -162,7 +166,7 @@ class VenueConfigExporter
 
     private function buildConfig(Gallery $gallery, ?VenueTemplate $venue, string $plan): ?array
     {
-        if (!$venue) {
+        if (! $venue) {
             return null;
         }
 
@@ -173,24 +177,24 @@ class VenueConfigExporter
         $config['effective_settings'] = array_merge(
             $venue->default_settings ?? [],
             array_filter([
-                'wall_texture'    => $gallery->wall_texture,
-                'floor_material'  => $gallery->floor_material,
-                'frame_style'     => $gallery->frame_style,
+                'wall_texture' => $gallery->wall_texture,
+                'floor_material' => $gallery->floor_material,
+                'frame_style' => $gallery->frame_style,
                 'lighting_preset' => $this->presetForGallery($gallery),
-                'room_layout'     => $this->layoutForGallery($gallery),
-            ], fn ($v) => !is_null($v))
+                'room_layout' => $this->layoutForGallery($gallery),
+            ], fn ($v) => ! is_null($v))
         );
 
         $overrides = $gallery->visualOverridesArray();
 
-        $overrideVisual = array_filter($overrides['visual_config'] ?? [], fn ($v) => !is_null($v));
+        $overrideVisual = array_filter($overrides['visual_config'] ?? [], fn ($v) => ! is_null($v));
         foreach (array_keys($overrideVisual) as $key) {
             if (self::isVenueOwnedKey((string) $key)) {
                 unset($overrideVisual[$key]);
             }
         }
 
-        if (!empty($overrideVisual)) {
+        if (! empty($overrideVisual)) {
             $config['visual_config'] = array_merge(
                 $config['visual_config'] ?? [],
                 $overrideVisual
@@ -204,17 +208,17 @@ class VenueConfigExporter
             }
         }
         foreach (array_keys($config['visual_config'] ?? []) as $key) {
-            if (str_starts_with((string) $key, 'void_') && !array_key_exists($key, $venueVisual)) {
+            if (str_starts_with((string) $key, 'void_') && ! array_key_exists($key, $venueVisual)) {
                 unset($config['visual_config'][$key]); // a venue that never declared a void effect can never grow one from an override
             }
         }
 
-        if (!empty($overrides['material_config'])) {
-            $overrideMaterial = array_filter($overrides['material_config'], fn ($v) => !is_null($v));
+        if (! empty($overrides['material_config'])) {
+            $overrideMaterial = array_filter($overrides['material_config'], fn ($v) => ! is_null($v));
             foreach (self::VENUE_OWNED_MATERIAL_KEYS as $owned) {
                 unset($overrideMaterial[$owned]);
             }
-            if (!empty($overrideMaterial)) {
+            if (! empty($overrideMaterial)) {
                 $config['material_config'] = array_merge(
                     $config['material_config'] ?? [],
                     $overrideMaterial
@@ -236,14 +240,15 @@ class VenueConfigExporter
             $config['decorations'] ?? [],
             function ($dec) use ($visitorPlan) {
                 $required = $dec['plan_required'] ?? 'free';
+
                 return $this->planSees($visitorPlan, $required);
             }
         ));
 
         // Resolve decoration model paths to absolute URLs.
         foreach ($config['decorations'] as &$dec) {
-            if (!empty($dec['model_path'])) {
-                $dec['model_url'] = asset('storage/' . ltrim($dec['model_path'], '/'));
+            if (! empty($dec['model_path'])) {
+                $dec['model_url'] = asset('storage/'.ltrim($dec['model_path'], '/'));
             }
         }
         unset($dec);
@@ -273,8 +278,8 @@ class VenueConfigExporter
         ));
 
         foreach ($config['decorations'] as &$dec) {
-            if (!empty($dec['model_path'])) {
-                $dec['model_url'] = asset('storage/' . ltrim($dec['model_path'], '/'));
+            if (! empty($dec['model_path'])) {
+                $dec['model_url'] = asset('storage/'.ltrim($dec['model_path'], '/'));
             }
         }
         unset($dec);
@@ -285,22 +290,24 @@ class VenueConfigExporter
     public function forGalleryPreview(Gallery $gallery, array $runtimeOverrides = []): ?array
     {
         $config = $this->forGallery($gallery);
-        if (!$config) return null;
+        if (! $config) {
+            return null;
+        }
 
-        $runtimeVisual = array_filter($runtimeOverrides['visual_config'] ?? [], fn ($v) => !is_null($v));
+        $runtimeVisual = array_filter($runtimeOverrides['visual_config'] ?? [], fn ($v) => ! is_null($v));
         foreach (array_keys($runtimeVisual) as $key) {
             if (self::isVenueOwnedKey((string) $key)) {
                 unset($runtimeVisual[$key]);
             }
         }
 
-        $runtimeMaterial = array_filter($runtimeOverrides['material_config'] ?? [], fn ($v) => !is_null($v));
+        $runtimeMaterial = array_filter($runtimeOverrides['material_config'] ?? [], fn ($v) => ! is_null($v));
         foreach (self::VENUE_OWNED_MATERIAL_KEYS as $owned) {
             unset($runtimeMaterial[$owned]);
         }
 
-        $config['visual_config']   = array_merge(
-            $config['visual_config']   ?? [],
+        $config['visual_config'] = array_merge(
+            $config['visual_config'] ?? [],
             $runtimeVisual
         );
         $config['material_config'] = array_merge(
@@ -314,19 +321,19 @@ class VenueConfigExporter
     private function planSees(string $visitorPlan, string $requiredPlan): bool
     {
         return match ($requiredPlan) {
-            'free'    => true,
-            'pro'     => in_array($visitorPlan, ['pro', 'studio']),
-            'studio'  => $visitorPlan === 'studio',
-            default   => true,
+            'free' => true,
+            'pro' => in_array($visitorPlan, ['pro', 'studio']),
+            'studio' => $visitorPlan === 'studio',
+            default => true,
         };
     }
 
     private function planRank(string $plan): int
     {
         return match ($plan) {
-            'pro'    => 1,
+            'pro' => 1,
             'studio' => 2,
-            default  => 0,
+            default => 0,
         };
     }
 }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\TeamInvitation;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -49,7 +48,7 @@ class TeamInvitationController extends Controller
 
         if (! Auth::check()) {
             return redirect()
-                ->to(route('login') . '?redirect=' . urlencode(route('team-invitations.show', $token)))
+                ->to(route('login').'?redirect='.urlencode(route('team-invitations.show', $token)))
                 ->with('status', 'Please log in to accept the team invitation.');
         }
 
@@ -57,7 +56,7 @@ class TeamInvitationController extends Controller
 
         if (strtolower($user->email) !== strtolower($invitation->email)) {
             return redirect()->route('team-invitations.show', $token)
-                             ->withErrors(['email' => "This invitation was sent to {$invitation->email}. Please log in with that account."]);
+                ->withErrors(['email' => "This invitation was sent to {$invitation->email}. Please log in with that account."]);
         }
 
         $team = $invitation->team;
@@ -75,6 +74,7 @@ class TeamInvitationController extends Controller
 
             if ($team->hasMember($user)) {
                 $fresh->delete();
+
                 return 'member';
             }
 
@@ -93,12 +93,12 @@ class TeamInvitationController extends Controller
 
         if ($outcome === 'joined') {
             return redirect()->route('admin.teams.show', $team)
-                             ->with('status', "Welcome to {$team->name}! You've joined as {$invitation->role}.");
+                ->with('status', "Welcome to {$team->name}! You've joined as {$invitation->role}.");
         }
 
         if ($outcome === 'member') {
             return redirect()->route('admin.teams.show', $team)
-                             ->with('status', "You're already a member of {$team->name}.");
+                ->with('status', "You're already a member of {$team->name}.");
         }
 
         $message = $outcome === 'expired'
@@ -106,7 +106,7 @@ class TeamInvitationController extends Controller
             : 'This invitation is no longer valid.';
 
         return redirect()->route('admin.teams.index')
-                         ->withErrors(['invitation' => $message]);
+            ->withErrors(['invitation' => $message]);
     }
 
     public function decline(Request $request, string $token): RedirectResponse
@@ -121,7 +121,7 @@ class TeamInvitationController extends Controller
         // Require auth — guests can't decline (they'd need to log in first)
         if (! Auth::check()) {
             return redirect()
-                ->to(route('login') . '?redirect=' . urlencode(route('team-invitations.show', $token)))
+                ->to(route('login').'?redirect='.urlencode(route('team-invitations.show', $token)))
                 ->with('status', 'Please log in to decline the team invitation.');
         }
 
@@ -130,12 +130,12 @@ class TeamInvitationController extends Controller
         // Only the invited recipient can decline
         if (strtolower($user->email) !== strtolower($invitation->email)) {
             return redirect()->route('admin.dashboard')
-                             ->withErrors(['invitation' => 'This invitation was sent to a different email address.']);
+                ->withErrors(['invitation' => 'This invitation was sent to a different email address.']);
         }
 
         $invitation->delete();
 
         return redirect()->route('admin.dashboard')
-                         ->with('status', 'Invitation declined.');
+            ->with('status', 'Invitation declined.');
     }
 }

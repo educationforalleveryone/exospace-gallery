@@ -31,6 +31,7 @@ return new class extends Migration
             ->diff($drop)->values()->all();
         if ($remaining === []) {
             Schema::dropIfExists('galleries');
+
             return;
         }
         Schema::table('galleries', function (Blueprint $table) use ($drop) {

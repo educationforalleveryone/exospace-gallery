@@ -7,7 +7,6 @@ namespace App\Http\Controllers;
 use App\Models\SeoPage;
 use App\Services\Seo\SeoPageRenderer;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 
 class SeoPageController extends Controller
 {
@@ -17,7 +16,7 @@ class SeoPageController extends Controller
 
     public function __invoke(Request $request)
     {
-        if (!$request->isMethod('get') && !$request->isMethod('head')) {
+        if (! $request->isMethod('get') && ! $request->isMethod('head')) {
             abort(405);
         }
 
@@ -38,7 +37,7 @@ class SeoPageController extends Controller
             }
         } else {
             $page = SeoPage::query()->whereKey($pageId)->first();
-            if (!$page) {
+            if (! $page) {
                 abort(404);
             }
 
@@ -58,11 +57,11 @@ class SeoPageController extends Controller
         $breadcrumbs = $this->renderer->breadcrumbsFor($page);
 
         return view('seo.pages.show', [
-            'page'        => $page,
-            'seoData'     => $seo,
+            'page' => $page,
+            'seoData' => $seo,
             'breadcrumbs' => $breadcrumbs,
-            'content'     => $this->renderer->renderBlocks($page),
-            'isPreview'   => $isPreview,
+            'content' => $this->renderer->renderBlocks($page),
+            'isPreview' => $isPreview,
         ]);
     }
 
@@ -80,7 +79,7 @@ class SeoPageController extends Controller
         }
 
         // Landing path must be a single lowercase segment.
-        if (!preg_match('/^[a-z0-9-]+$/', $path)) {
+        if (! preg_match('/^[a-z0-9-]+$/', $path)) {
             return null;
         }
 

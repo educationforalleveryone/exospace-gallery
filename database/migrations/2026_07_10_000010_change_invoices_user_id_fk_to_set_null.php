@@ -63,6 +63,7 @@ return new class extends Migration
                     ->on('users')
                     ->onDelete('set null');
             });
+
             return;
         }
 
@@ -94,7 +95,7 @@ return new class extends Migration
         return DB::table('information_schema.KEY_COLUMN_USAGE as kcu')
             ->join('information_schema.REFERENTIAL_CONSTRAINTS as rc', function ($join) {
                 $join->on('rc.CONSTRAINT_SCHEMA', '=', 'kcu.CONSTRAINT_SCHEMA')
-                     ->on('rc.CONSTRAINT_NAME', '=', 'kcu.CONSTRAINT_NAME');
+                    ->on('rc.CONSTRAINT_NAME', '=', 'kcu.CONSTRAINT_NAME');
             })
             ->where('kcu.TABLE_SCHEMA', DB::connection()->getDatabaseName())
             ->where('kcu.TABLE_NAME', $table)

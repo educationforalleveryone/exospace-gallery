@@ -12,13 +12,16 @@ use Illuminate\Support\Facades\Mail;
 class SendDunningEmails extends Command
 {
     protected $signature = 'exospace:send-dunning';
+
     protected $description = 'Send dunning emails (steps 2 + 3) for subscriptions with failed payments.';
 
     private const LOCK_KEY = 'cmd:dunning';
+
     private const LOCK_TTL = 300; // 5 minutes
 
     // Days after step 1 to send each subsequent step
     private const STEP_2_DELAY_DAYS = 3;
+
     private const STEP_3_DELAY_DAYS = 7;
 
     public function handle(): int
@@ -32,6 +35,7 @@ class SendDunningEmails extends Command
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             $this->info('Another dunning run is in progress — skipping.');
+
             return self::SUCCESS;
         }
 
@@ -52,6 +56,7 @@ class SendDunningEmails extends Command
 
         if ($users->isEmpty()) {
             $this->info('No step-2 dunning emails to send.');
+
             return;
         }
 
@@ -61,19 +66,19 @@ class SendDunningEmails extends Command
                 Mail::to($user->email)->send(new DunningEmail($user, 2));
 
                 $user->forceFill([
-                    'dunning_step'         => 2,
+                    'dunning_step' => 2,
                     'dunning_last_sent_at' => now(),
                 ])->save();
 
                 $sent++;
                 Log::info('Dunning: sent step 2 email', [
                     'user_id' => $user->id,
-                    'email'   => $user->email,
+                    'email' => $user->email,
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('Dunning: step 2 email send failed', [
                     'user_id' => $user->id,
-                    'error'   => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -95,6 +100,7 @@ class SendDunningEmails extends Command
 
         if ($users->isEmpty()) {
             $this->info('No step-3 dunning emails to send.');
+
             return;
         }
 
@@ -104,19 +110,19 @@ class SendDunningEmails extends Command
                 Mail::to($user->email)->send(new DunningEmail($user, 3));
 
                 $user->forceFill([
-                    'dunning_step'         => 3,
+                    'dunning_step' => 3,
                     'dunning_last_sent_at' => now(),
                 ])->save();
 
                 $sent++;
                 Log::info('Dunning: sent step 3 email (final notice)', [
                     'user_id' => $user->id,
-                    'email'   => $user->email,
+                    'email' => $user->email,
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('Dunning: step 3 email send failed', [
                     'user_id' => $user->id,
-                    'error'   => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }

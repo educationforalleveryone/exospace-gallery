@@ -8,7 +8,6 @@ use Tests\TestCase;
 
 class SculptureGardenAndCspTest extends TestCase
 {
-
     public function test_csp_connect_src_allows_blob_for_glb_embedded_textures(): void
     {
         $this->app['env'] = 'production';
@@ -76,17 +75,17 @@ class SculptureGardenAndCspTest extends TestCase
     public function test_every_garden_manifest_role_ships_its_glb(): void
     {
         $manifest = [
-            'tree_large'  => 'tree_large_01.glb',
+            'tree_large' => 'tree_large_01.glb',
             'tree_medium' => 'tree_medium_01.glb',
             'tree_accent' => 'tree_medium_02.glb',
-            'shrub'       => 'shrub_01.glb',
-            'grass'       => 'grass_clump_01.glb',
-            'boulder'     => 'boulder_01.glb',
-            'bench'       => 'bench_01.glb',
+            'shrub' => 'shrub_01.glb',
+            'grass' => 'grass_clump_01.glb',
+            'boulder' => 'boulder_01.glb',
+            'bench' => 'bench_01.glb',
         ];
         foreach ($manifest as $role => $file) {
             $this->assertFileExists(
-                public_path('assets/venues/sculpture-garden/' . $file),
+                public_path('assets/venues/sculpture-garden/'.$file),
                 "Garden asset role [{$role}] ships its GLB ({$file}) — a missing file is a recurring production 404."
             );
         }

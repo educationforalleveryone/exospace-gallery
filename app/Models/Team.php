@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 class Team extends Model
 {
     use HasFactory;
+
     protected $fillable = ['owner_id', 'name', 'slug', 'description'];
 
     protected static function boot(): void
@@ -19,7 +20,7 @@ class Team extends Model
         parent::boot();
         static::creating(function (Team $team) {
             if (empty($team->slug)) {
-                $team->slug = Str::slug($team->name) . '-' . Str::random(6);
+                $team->slug = Str::slug($team->name).'-'.Str::random(6);
             }
         });
     }
@@ -32,8 +33,8 @@ class Team extends Model
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'team_user')
-                    ->withPivot('role')
-                    ->withTimestamps();
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function invitations(): HasMany
@@ -69,6 +70,7 @@ class Team extends Model
             return true;
         }
         $role = $this->memberRole($user);
+
         return in_array($role, ['editor']);
     }
 }

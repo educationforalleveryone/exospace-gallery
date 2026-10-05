@@ -14,14 +14,14 @@ class VenueTemplate extends Model
     use HasFactory;
 
     public const CATEGORIES = [
-        'gallery'     => 'Gallery',
-        'museum'      => 'Museum',
-        'warehouse'   => 'Warehouse',
-        'outdoor'     => 'Outdoor',
-        'futuristic'  => 'Futuristic',
-        'minimal'     => 'Minimal',
-        'luxury'      => 'Luxury',
-        'abstract'    => 'Abstract',
+        'gallery' => 'Gallery',
+        'museum' => 'Museum',
+        'warehouse' => 'Warehouse',
+        'outdoor' => 'Outdoor',
+        'futuristic' => 'Futuristic',
+        'minimal' => 'Minimal',
+        'luxury' => 'Luxury',
+        'abstract' => 'Abstract',
     ];
 
     public const PLANS = ['free', 'pro', 'studio'];
@@ -79,36 +79,36 @@ class VenueTemplate extends Model
     ];
 
     protected $casts = [
-        'default_settings'  => 'array',
-        'tags'              => 'array',
-        'visual_config'     => 'array',
-        'material_config'   => 'array',
-        'decorations'       => 'array',
+        'default_settings' => 'array',
+        'tags' => 'array',
+        'visual_config' => 'array',
+        'material_config' => 'array',
+        'decorations' => 'array',
         'lighting_fixtures' => 'array',
         'supported_layouts' => 'array',
 
-        'is_active'     => 'boolean',
-        'is_featured'   => 'boolean',
-        'is_draft'      => 'boolean',
+        'is_active' => 'boolean',
+        'is_featured' => 'boolean',
+        'is_draft' => 'boolean',
 
         'capacity_min' => 'integer',
         'capacity_max' => 'integer',
-        'view_count'   => 'integer',
+        'view_count' => 'integer',
 
         'published_at' => 'datetime',
-        'archived_at'  => 'datetime',
+        'archived_at' => 'datetime',
     ];
 
     protected $attributes = [
-        'category'         => 'gallery',
-        'plan_required'    => 'free',
-        'capacity_min'     => 10,
-        'is_active'        => true,
-        'is_featured'      => false,
-        'is_draft'         => false,
-        'view_count'       => 0,
-        'sort_order'       => 0,
-        'version'          => '1.0.0',
+        'category' => 'gallery',
+        'plan_required' => 'free',
+        'capacity_min' => 10,
+        'is_active' => true,
+        'is_featured' => false,
+        'is_draft' => false,
+        'view_count' => 0,
+        'sort_order' => 0,
+        'version' => '1.0.0',
         'supported_layouts' => '["square","corridor","l-shape","rotunda"]',
     ];
 
@@ -121,14 +121,14 @@ class VenueTemplate extends Model
                 $venue->slug = Str::slug($venue->name);
             }
 
-            if (!$venue->is_draft && !$venue->published_at) {
+            if (! $venue->is_draft && ! $venue->published_at) {
                 $venue->published_at = now();
             }
         });
 
         static::updating(function (self $venue) {
             // When a draft is published, stamp published_at.
-            if (!$venue->is_draft && !$venue->published_at) {
+            if (! $venue->is_draft && ! $venue->published_at) {
                 $venue->published_at = now();
             }
         });
@@ -169,9 +169,10 @@ class VenueTemplate extends Model
         // Free users see free venues; Pro users see free+pro; Studio sees all.
         $allowed = match ($plan) {
             'studio' => ['free', 'pro', 'studio'],
-            'pro'    => ['free', 'pro'],
-            default  => ['free'],
+            'pro' => ['free', 'pro'],
+            default => ['free'],
         };
+
         return $q->whereIn('plan_required', $allowed);
     }
 
@@ -197,10 +198,10 @@ class VenueTemplate extends Model
     public function isAccessibleBy(User $user): bool
     {
         return match ($this->plan_required) {
-            'free'   => true,
-            'pro'    => $user->isPro(),
+            'free' => true,
+            'pro' => $user->isPro(),
             'studio' => $user->plan === 'studio',
-            default  => false,
+            default => false,
         };
     }
 
@@ -209,6 +210,7 @@ class VenueTemplate extends Model
         if (is_null($this->capacity_max)) {
             return 'Any exhibition size';
         }
+
         return "Up to {$this->capacity_max} artworks";
     }
 
@@ -220,32 +222,33 @@ class VenueTemplate extends Model
     public function getThumbnailUrlAttribute(): ?string
     {
         if ($this->thumbnail_path) {
-            return asset('storage/' . $this->thumbnail_path);
+            return asset('storage/'.$this->thumbnail_path);
         }
         if ($this->thumbnail) {
             return asset($this->thumbnail);
         }
+
         return null;
     }
 
     public function getPreviewModelUrlAttribute(): ?string
     {
         return $this->preview_model_path
-            ? asset('storage/' . $this->preview_model_path)
+            ? asset('storage/'.$this->preview_model_path)
             : null;
     }
 
     public function getHdriUrlAttribute(): ?string
     {
         return $this->hdri_path
-            ? asset('storage/' . $this->hdri_path)
+            ? asset('storage/'.$this->hdri_path)
             : null;
     }
 
     public function getDefaultAudioUrlAttribute(): ?string
     {
         return $this->default_audio_path
-            ? asset('storage/' . $this->default_audio_path)
+            ? asset('storage/'.$this->default_audio_path)
             : null;
     }
 
@@ -254,6 +257,7 @@ class VenueTemplate extends Model
         if (empty($this->supported_layouts)) {
             return true;
         }
+
         return in_array($layout, $this->supported_layouts, true);
     }
 
@@ -274,17 +278,17 @@ class VenueTemplate extends Model
     public function toViewerConfig(): array
     {
         return [
-            'id'              => $this->id,
-            'slug'            => $this->slug,
-            'version'         => $this->version,
-            'name'            => $this->name,
-            'category'        => $this->category,
-            'visual_config'   => $this->visual_config ?? [],
+            'id' => $this->id,
+            'slug' => $this->slug,
+            'version' => $this->version,
+            'name' => $this->name,
+            'category' => $this->category,
+            'visual_config' => $this->visual_config ?? [],
             'material_config' => $this->material_config ?? [],
-            'decorations'     => $this->decorations ?? [],
+            'decorations' => $this->decorations ?? [],
             'lighting_fixtures' => $this->lighting_fixtures ?? [],
             'supported_layouts' => $this->supported_layouts ?? self::LAYOUTS,
-            'hdri_url'        => $this->hdri_url,
+            'hdri_url' => $this->hdri_url,
             'default_audio_url' => $this->default_audio_url,
             'default_settings' => $this->default_settings ?? [],
         ];

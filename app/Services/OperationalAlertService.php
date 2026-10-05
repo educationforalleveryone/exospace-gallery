@@ -12,9 +12,9 @@ class OperationalAlertService
 {
     private const DEDUP_TTL_SECONDS = [
         'critical' => 1800,  // 30 min
-        'error'    => 3600,  // 1 hour
-        'warning'  => 7200,  // 2 hours
-        'info'     => 21600, // 6 hours
+        'error' => 3600,  // 1 hour
+        'warning' => 7200,  // 2 hours
+        'info' => 21600, // 6 hours
     ];
 
     public function __construct(
@@ -25,6 +25,7 @@ class OperationalAlertService
     {
         if ($dedupKey !== null && $this->isRecentlyAlerted($dedupKey)) {
             Log::debug("OperationalAlertService: suppressed duplicate alert '{$title}' (dedupKey='{$dedupKey}')");
+
             return;
         }
 
@@ -32,10 +33,10 @@ class OperationalAlertService
 
         $emoji = match ($severity) {
             'critical' => '🔴',
-            'error'    => '🟠',
-            'warning'  => '🟡',
-            'info'     => '🔵',
-            default    => '⚪',
+            'error' => '🟠',
+            'warning' => '🟡',
+            'info' => '🔵',
+            default => '⚪',
         };
 
         $payload = [
@@ -48,10 +49,10 @@ class OperationalAlertService
                 $message
             ),
 
-            'title'    => $title,
-            'message'  => $message,
+            'title' => $title,
+            'message' => $message,
             'severity' => $severity,
-            'source'   => 'exospace',
+            'source' => 'exospace',
             'environment' => app()->environment(),
             'timestamp' => now()->toIso8601String(),
         ];
@@ -72,9 +73,9 @@ class OperationalAlertService
                 // Transport errors embed the full request URL — the webhook
                 // token lives in the URL path, so it must not reach the logs.
                 Log::critical('OperationalAlertService: failed to send webhook alert', [
-                    'title'   => $title,
+                    'title' => $title,
                     'message' => $message,
-                    'error'   => $this->redactor->redactString($e->getMessage()),
+                    'error' => $this->redactor->redactString($e->getMessage()),
                 ]);
             }
         }
@@ -90,14 +91,14 @@ class OperationalAlertService
         // Always log at the appropriate level (Sentry picks this up)
         $level = match ($severity) {
             'critical' => 'critical',
-            'error'    => 'error',
-            'warning'  => 'warning',
-            'info'     => 'info',
-            default    => 'warning',
+            'error' => 'error',
+            'warning' => 'warning',
+            'info' => 'info',
+            default => 'warning',
         };
 
         Log::{$level}("OperationalAlert: {$title}", [
-            'message'  => $message,
+            'message' => $message,
             'severity' => $severity,
         ]);
     }
@@ -136,7 +137,7 @@ class OperationalAlertService
         } catch (\Throwable $e) {
             Log::debug('OperationalAlertService: cache unavailable for dedup tracking', [
                 'dedupKey' => $dedupKey,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -151,10 +152,10 @@ class OperationalAlertService
         // Map severity → config key for the per-severity webhook.
         $severityConfigKey = match ($severity) {
             'critical' => 'critical_webhook_url',
-            'error'    => 'error_webhook_url',
-            'warning'   => 'warning_webhook_url',
-            'info'     => 'info_webhook_url',
-            default    => null,
+            'error' => 'error_webhook_url',
+            'warning' => 'warning_webhook_url',
+            'info' => 'info_webhook_url',
+            default => null,
         };
 
         // Try the per-severity webhook first.
@@ -167,6 +168,7 @@ class OperationalAlertService
 
         // Fall back to the default webhook.
         $defaultUrl = config('services.operational_alerts.webhook_url');
+
         return is_string($defaultUrl) && $defaultUrl !== '' ? $defaultUrl : null;
     }
 
@@ -199,14 +201,15 @@ class OperationalAlertService
                 $this->alert(
                     'Scheduled job missed its cadence',
                     "{$job} last completed {$ageHours}h ago (expected at least every {$maxAgeHours}h). "
-                    . 'The scheduler itself may be healthy — check this job\'s schedule entry, container logs '
-                    . 'and whether an exception is thrown before it can report. '
-                    . ($job === 'exospace:reconcile-subscriptions'
+                    .'The scheduler itself may be healthy — check this job\'s schedule entry, container logs '
+                    .'and whether an exception is thrown before it can report. '
+                    .($job === 'exospace:reconcile-subscriptions'
                         ? 'This job is the safety net for missed 2Checkout webhooks — billing drift accumulates while it is down.'
                         : ''),
                     'critical',
                     "job_heartbeat_stale:{$job}"
                 );
+
                 continue;
             }
 
@@ -218,9 +221,9 @@ class OperationalAlertService
                 $this->alert(
                     'Scheduled job has never completed',
                     "{$job} has recorded no successful run since monitoring began "
-                    . round($since->diffInHours(now()), 1) . "h ago (expected at least every {$maxAgeHours}h). "
-                    . 'Verify the schedule entry exists in routes/console.php and check the container '
-                    . 'logs for a start-time crash.',
+                    .round($since->diffInHours(now()), 1)."h ago (expected at least every {$maxAgeHours}h). "
+                    .'Verify the schedule entry exists in routes/console.php and check the container '
+                    .'logs for a start-time crash.',
                     'warning',
                     "job_heartbeat_missing:{$job}"
                 );
@@ -434,7 +437,7 @@ class OperationalAlertService
         try {
             $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
 
-            $backupName = config('backup.backup.name', config('APP_NAME', 'Laravel') . ' Backup');
+            $backupName = config('backup.backup.name', config('APP_NAME', 'Laravel').' Backup');
             $backupPath = $backupName;
 
             // List all files in the backup directory.
@@ -449,6 +452,7 @@ class OperationalAlertService
                     'critical',
                     "backup_none_found:{$diskName}" // per-disk dedup key
                 );
+
                 return;
             }
 

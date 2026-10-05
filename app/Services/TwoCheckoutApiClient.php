@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Log;
 class TwoCheckoutApiClient
 {
     private const SANDBOX_BASE_URL = 'https://api-sandbox.2checkout.com';
+
     private const PRODUCTION_BASE_URL = 'https://api.2checkout.com';
 
     public function __construct(
@@ -44,6 +45,7 @@ class TwoCheckoutApiClient
     public function getSubscription(string $subscriptionId): Response
     {
         $endpoint = "/rest/6.0/subscriptions/{$subscriptionId}";
+
         return $this->send('GET', $endpoint);
     }
 
@@ -62,14 +64,14 @@ class TwoCheckoutApiClient
     private function send(string $method, string $endpoint, array $payload = []): Response
     {
         $baseUrl = $this->sandbox ? self::SANDBOX_BASE_URL : self::PRODUCTION_BASE_URL;
-        $url = rtrim($baseUrl, '/') . $endpoint;
+        $url = rtrim($baseUrl, '/').$endpoint;
 
         $payloadJson = empty($payload) ? '' : json_encode($payload, JSON_UNESCAPED_SLASHES);
 
         // The authentication hash covers the raw request payload, so the
         // transmitted body must be exactly $payloadJson — not a re-encoded copy.
-        $authHash = hash('sha1', $payloadJson . $this->secretWord);
-        $authHeader = base64_encode($this->merchantCode . ':' . $authHash);
+        $authHash = hash('sha1', $payloadJson.$this->secretWord);
+        $authHeader = base64_encode($this->merchantCode.':'.$authHash);
 
         $headers = [
             'Content-Type' => 'application/json',

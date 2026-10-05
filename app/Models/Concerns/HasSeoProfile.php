@@ -32,7 +32,7 @@ trait HasSeoProfile
     {
         $profile = $this->seoProfile()->first();
 
-        if (!$profile) {
+        if (! $profile) {
             return $automatic;
         }
 
@@ -43,7 +43,7 @@ trait HasSeoProfile
     {
         $profile = $this->seoProfile()->first();
 
-        if (!$profile) {
+        if (! $profile) {
             return $automatic;
         }
 

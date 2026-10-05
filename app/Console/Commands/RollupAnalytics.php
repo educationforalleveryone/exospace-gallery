@@ -31,6 +31,7 @@ class RollupAnalytics extends Command
         $this->info('Invalidated analytics cache tag.');
 
         $this->info('Analytics rollup complete.');
+
         return self::SUCCESS;
     }
 
@@ -43,6 +44,7 @@ class RollupAnalytics extends Command
             $earliestEvent = AnalyticsEvent::min('created_at');
             if (! $earliestEvent) {
                 $this->info('No events to roll up.');
+
                 return;
             }
             $startDate = date('Y-m-d', strtotime($earliestEvent));
@@ -91,6 +93,7 @@ class RollupAnalytics extends Command
 
         if ($count === 0) {
             $this->info("No events to prune (retention: {$retentionDays} days).");
+
             return;
         }
 
@@ -103,7 +106,7 @@ class RollupAnalytics extends Command
             });
 
         Log::info('RollupAnalytics: pruned old events', [
-            'count'  => $count,
+            'count' => $count,
             'cutoff' => $cutoff->toDateString(),
         ]);
         $this->info("Pruned {$count} old events.");

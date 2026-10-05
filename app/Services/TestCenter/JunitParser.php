@@ -55,18 +55,18 @@ class JunitParser
     private function parseNode(\SimpleXMLElement $root): array
     {
         $totals = [
-            'tests'      => 0,
+            'tests' => 0,
             'assertions' => 0,
-            'failures'   => 0,
-            'errors'     => 0,
-            'skipped'    => 0,
-            'warnings'   => 0,
-            'time'       => 0.0,
+            'failures' => 0,
+            'errors' => 0,
+            'skipped' => 0,
+            'warnings' => 0,
+            'time' => 0.0,
         ];
 
         /**
- * @var list<array> $cases
- */
+         * @var list<array> $cases
+         */
         $cases = [];
 
         $suites = $root->getName() === 'testsuites'
@@ -74,13 +74,13 @@ class JunitParser
             : [$root];
 
         foreach ($suites as $suite) {
-            $totals['tests']      += (int) ($suite['tests'] ?? 0);
+            $totals['tests'] += (int) ($suite['tests'] ?? 0);
             $totals['assertions'] += (int) ($suite['assertions'] ?? 0);
-            $totals['failures']   += (int) ($suite['failures'] ?? 0);
-            $totals['errors']     += (int) ($suite['errors'] ?? 0);
-            $totals['skipped']    += (int) ($suite['skipped'] ?? 0);
-            $totals['warnings']   += (int) ($suite['warnings'] ?? 0);
-            $totals['time']       += (float) ($suite['time'] ?? 0);
+            $totals['failures'] += (int) ($suite['failures'] ?? 0);
+            $totals['errors'] += (int) ($suite['errors'] ?? 0);
+            $totals['skipped'] += (int) ($suite['skipped'] ?? 0);
+            $totals['warnings'] += (int) ($suite['warnings'] ?? 0);
+            $totals['time'] += (float) ($suite['time'] ?? 0);
 
             foreach ($suite->xpath('.//testcase') ?: [] as $case) {
                 $cases[] = $this->normalizeCase($case);
@@ -94,9 +94,9 @@ class JunitParser
 
     private function normalizeCase(\SimpleXMLElement $case): array
     {
-        $name       = (string) $case['name'];
-        $classAttr  = (string) ($case['class'] ?? '');
-        $classNice  = str_replace('.', '\\', (string) ($case['classname'] ?? $classAttr));
+        $name = (string) $case['name'];
+        $classAttr = (string) ($case['class'] ?? '');
+        $classNice = str_replace('.', '\\', (string) ($case['classname'] ?? $classAttr));
 
         // PHPUnit emits `test_x with data set "set1" (#1)` — split cleanly.
         $dataSet = null;
@@ -107,14 +107,14 @@ class JunitParser
         [$status, $message, $detail, $exceptionClass] = $this->extractOutcome($case);
 
         return [
-            'identifier'      => $this->identifier($classNice, $name),
-            'classname'       => $classNice,
-            'name'            => $name,
-            'data_set'        => $dataSet,
-            'status'          => $status,
-            'time_ms'         => isset($case['time']) ? (int) round(((float) $case['time']) * 1000) : null,
-            'message'         => $message !== null ? mb_substr($message, 0, 2000) : null,
-            'detail'          => $detail !== null ? mb_substr($detail, 0, 60000) : null,
+            'identifier' => $this->identifier($classNice, $name),
+            'classname' => $classNice,
+            'name' => $name,
+            'data_set' => $dataSet,
+            'status' => $status,
+            'time_ms' => isset($case['time']) ? (int) round(((float) $case['time']) * 1000) : null,
+            'message' => $message !== null ? mb_substr($message, 0, 2000) : null,
+            'detail' => $detail !== null ? mb_substr($detail, 0, 60000) : null,
             'exception_class' => $exceptionClass,
         ];
     }
@@ -124,8 +124,8 @@ class JunitParser
         $outcome = $case->xpath('./failure');
         if ($outcome !== [] && count($outcome)) {
             /**
- * @var \SimpleXMLElement $f
- */
+             * @var \SimpleXMLElement $f
+             */
             $f = $outcome[0];
 
             return ['failed', trim((string) $f), (string) $f, (string) ($f['type'] ?? '') ?: null];

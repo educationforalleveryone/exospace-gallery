@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
+use App\Http\Controllers\Controller;
 use App\Models\AnalyticsEvent;
 use App\Models\Gallery;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AnalyticsController extends Controller
@@ -18,8 +17,8 @@ class AnalyticsController extends Controller
     {
         $this->authorizeGalleryAccess($gallery);
 
-        $now   = now();
-        $day7  = $now->copy()->subDays(7);
+        $now = now();
+        $day7 = $now->copy()->subDays(7);
         $day30 = $now->copy()->subDays(30);
         $today = $now->toDateString();
 
@@ -45,18 +44,18 @@ class AnalyticsController extends Controller
             ->selectRaw("AVG(CASE WHEN event = 'view' AND dwell_seconds IS NOT NULL THEN dwell_seconds END) as avg_dwell")
             ->first();
 
-        $todayViews   = (int) ($todayRow->views ?? 0);
-        $todayUnique  = (int) ($todayRow->unique_visitors ?? 0);
+        $todayViews = (int) ($todayRow->views ?? 0);
+        $todayUnique = (int) ($todayRow->unique_visitors ?? 0);
         $todayFocuses = (int) ($todayRow->focuses ?? 0);
-        $todayTours   = (int) ($todayRow->tour_starts ?? 0);
-        $todayDwell   = $todayRow->avg_dwell ?? 0;
+        $todayTours = (int) ($todayRow->tour_starts ?? 0);
+        $todayDwell = $todayRow->avg_dwell ?? 0;
 
         // Combine rollup + today
-        $totalViews     = ($rollup->total_views ?? 0) + $todayViews;
+        $totalViews = ($rollup->total_views ?? 0) + $todayViews;
         $uniqueVisitors = ($rollup->total_unique ?? 0) + $todayUnique;
-        $totalFocuses   = ($rollup->total_focuses ?? 0) + $todayFocuses;
-        $tourStarts     = ($rollup->total_tours ?? 0) + $todayTours;
-        $avgDwell       = $todayViews > 0
+        $totalFocuses = ($rollup->total_focuses ?? 0) + $todayFocuses;
+        $tourStarts = ($rollup->total_tours ?? 0) + $todayTours;
+        $avgDwell = $todayViews > 0
             ? (($rollup->avg_dwell ?? 0) * ($rollup->total_views ?? 0) + ($todayDwell * $todayViews)) / $totalViews
             : ($rollup->avg_dwell ?? 0);
 
@@ -67,11 +66,11 @@ class AnalyticsController extends Controller
             ->pluck('views', 'date');
 
         // Fill all 30 days
-        $chartDates  = [];
+        $chartDates = [];
         $chartCounts = [];
         for ($i = 29; $i >= 0; $i--) {
             $date = now()->subDays($i)->toDateString();
-            $chartDates[]  = now()->subDays($i)->format('M d');
+            $chartDates[] = now()->subDays($i)->format('M d');
             if ($i === 0) {
                 // Today — from raw events
                 $chartCounts[] = $todayViews;
@@ -157,24 +156,24 @@ class AnalyticsController extends Controller
         }
 
         $validated = $request->validate([
-            'event'          => 'required|in:view,focus,tour_start,tour_complete,dwell,perf',
-            'session_token'  => 'required|string|max:64',
-            'image_id'       => 'nullable|integer',
-            'dwell_seconds'  => 'nullable|integer|min:1|max:86400',
-            'perf'           => 'nullable|array', // beacon payload — fields bounded below
-            'perf.tier'      => 'nullable|in:high,mobile,low',
-            'perf.q'         => 'nullable|string|max:8',
-            'perf.fps'       => 'nullable|integer|min:0|max:240',
-            'perf.fps_min'   => 'nullable|integer|min:0|max:240',
-            'perf.draws'     => 'nullable|integer|min:0|max:10000',
-            'perf.tris'      => 'nullable|integer|min:0|max:100000',
-            'perf.pr'        => 'nullable|numeric|min:0.1|max:8',
-            'perf.adapt'     => 'nullable|numeric|min:0.1|max:1',
-            'perf.n'         => 'nullable|integer|min:0|max:10000',
-            'perf.heap'      => 'nullable|integer|min:0|max:16384',
-            'perf.net'       => 'nullable|string|max:8',
-            'perf.ms'        => 'nullable|integer|min:0|max:3600000',
-            'perf.partial'   => 'nullable|integer|in:0,1',
+            'event' => 'required|in:view,focus,tour_start,tour_complete,dwell,perf',
+            'session_token' => 'required|string|max:64',
+            'image_id' => 'nullable|integer',
+            'dwell_seconds' => 'nullable|integer|min:1|max:86400',
+            'perf' => 'nullable|array', // beacon payload — fields bounded below
+            'perf.tier' => 'nullable|in:high,mobile,low',
+            'perf.q' => 'nullable|string|max:8',
+            'perf.fps' => 'nullable|integer|min:0|max:240',
+            'perf.fps_min' => 'nullable|integer|min:0|max:240',
+            'perf.draws' => 'nullable|integer|min:0|max:10000',
+            'perf.tris' => 'nullable|integer|min:0|max:100000',
+            'perf.pr' => 'nullable|numeric|min:0.1|max:8',
+            'perf.adapt' => 'nullable|numeric|min:0.1|max:1',
+            'perf.n' => 'nullable|integer|min:0|max:10000',
+            'perf.heap' => 'nullable|integer|min:0|max:16384',
+            'perf.net' => 'nullable|string|max:8',
+            'perf.ms' => 'nullable|integer|min:0|max:3600000',
+            'perf.partial' => 'nullable|integer|in:0,1',
         ]);
 
         // Ignore any keys the client sends beyond the perf beacon schema —
@@ -210,19 +209,19 @@ class AnalyticsController extends Controller
         } else {
             // Validate image_id belongs to this gallery (security)
             $imageId = null;
-            if (!empty($validated['image_id'])) {
+            if (! empty($validated['image_id'])) {
                 $imageId = $gallery->images()->where('id', $validated['image_id'])->value('id');
             }
 
             AnalyticsEvent::create([
-                'gallery_id'    => $gallery->id,
-                'image_id'      => $imageId,
-                'event'         => $validated['event'],
+                'gallery_id' => $gallery->id,
+                'image_id' => $imageId,
+                'event' => $validated['event'],
                 'session_token' => $sessionTokenHash,
-                'referrer'      => $referrer,
+                'referrer' => $referrer,
                 // Perf beacon payload (null for every other event)
-                'perf_data'     => is_array($perf) && $perf !== [] ? $perf : null,
-                'created_at'    => now(),
+                'perf_data' => is_array($perf) && $perf !== [] ? $perf : null,
+                'created_at' => now(),
             ]);
         }
 

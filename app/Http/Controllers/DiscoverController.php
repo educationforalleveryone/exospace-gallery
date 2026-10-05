@@ -13,11 +13,15 @@ class DiscoverController extends Controller
 {
     public function index(Request $request): View
     {
-        $sort = $request->string('sort', 'featured')->toString();
-        $venueId = $request->string('venue')->toString();
+        // Scalar guards: array query params (?sort[]=x) must degrade to the
+        // defaults instead of crashing Str::of() with a TypeError.
+        $sortParam = $request->query('sort');
+        $sort = is_string($sortParam) ? $sortParam : 'featured';
+        $venueParam = $request->query('venue');
+        $venueId = is_string($venueParam) ? $venueParam : '';
 
         // Any non-default sort/venue makes this an alternate view.
-        $isFilteredView = $venueId !== '' || !in_array($sort, ['featured', ''], true);
+        $isFilteredView = $venueId !== '' || ! in_array($sort, ['featured', ''], true);
 
         $query = Gallery::publiclyListable()
             ->with(['coverImage.media', 'venueTemplate', 'user'])
@@ -29,14 +33,14 @@ class DiscoverController extends Controller
             $query->where('venue_template_id', $venueId);
         }
 
-        $query->when($sort === 'views', fn($q) => $q->orderByDesc('view_count'))
-              ->when($sort === 'newest', fn($q) => $q->orderByDesc('created_at'))
-              ->when($sort === 'published', fn($q) => $q->orderByDesc('published_at'))
-              ->when($sort === 'updated', fn($q) => $q->orderByDesc('updated_at'))
-              ->unless(in_array($sort, ['views', 'newest', 'published', 'updated']), function ($q) {
-                  return $q->orderByDesc('is_featured')
-                           ->orderByDesc('view_count');
-              });
+        $query->when($sort === 'views', fn ($q) => $q->orderByDesc('view_count'))
+            ->when($sort === 'newest', fn ($q) => $q->orderByDesc('created_at'))
+            ->when($sort === 'published', fn ($q) => $q->orderByDesc('published_at'))
+            ->when($sort === 'updated', fn ($q) => $q->orderByDesc('updated_at'))
+            ->unless(in_array($sort, ['views', 'newest', 'published', 'updated']), function ($q) {
+                return $q->orderByDesc('is_featured')
+                    ->orderByDesc('view_count');
+            });
 
         $galleries = $query->paginate(24)->withQueryString();
 
@@ -56,15 +60,15 @@ class DiscoverController extends Controller
             $prev = $next = null;
         } else {
             // Default view: self-canonical with the page param, prev/next.
-            $canonical = $page > 1 ? $baseUrl . '?page=' . $page : $baseUrl;
+            $canonical = $page > 1 ? $baseUrl.'?page='.$page : $baseUrl;
             $robots = null;
             $pagination = CanonicalUrl::paginationLinks($baseUrl, $page, $galleries->hasMorePages());
             $prev = $pagination['prev'];
             $next = $pagination['next'];
         }
 
-        $title = config('seo.site_name', 'Exospace') . ' — Discover 3D Art Exhibitions';
-        $description = 'Walk through virtual galleries curated by artists, photographers, and institutions from around the world. Featured 3D exhibitions on ' . config('seo.site_name', 'Exospace') . '.';
+        $title = config('seo.site_name', 'Exospace').' — Discover 3D Art Exhibitions';
+        $description = 'Walk through virtual galleries curated by artists, photographers, and institutions from around the world. Featured 3D exhibitions on '.config('seo.site_name', 'Exospace').'.';
 
         $seo = new \App\Support\Seo\SeoData(
             title: $title,
@@ -78,7 +82,7 @@ class DiscoverController extends Controller
             nextUrl: $next,
         );
 
-        if (!$isFilteredView && $page === 1) {
+        if (! $isFilteredView && $page === 1) {
             $schema = app(SchemaBuilder::class);
             $seo = $seo->with(['jsonLd' => [
                 $schema->hubCollectionPage(

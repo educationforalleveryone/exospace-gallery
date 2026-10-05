@@ -6,7 +6,6 @@ use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class PlanExpiryTeamTest extends TestCase
@@ -83,7 +82,6 @@ class PlanExpiryTeamTest extends TestCase
         $response->assertOk(); // not redirected
     }
 
-
     private function signedInvitationUrl(string $token, bool $accept = true): string
     {
         return \Illuminate\Support\Facades\URL::signedRoute(
@@ -106,8 +104,8 @@ class PlanExpiryTeamTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $owner->id, 'name' => 'Secret Team']);
         $invitation = TeamInvitation::factory()->create([
             'team_id' => $team->id,
-            'email'   => 'invited@example.com',
-            'token'   => 'test-token-123',
+            'email' => 'invited@example.com',
+            'token' => 'test-token-123',
         ]);
 
         // Not logged in — should NOT see team name
@@ -123,8 +121,8 @@ class PlanExpiryTeamTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $owner->id, 'name' => 'My Team']);
         $invitation = TeamInvitation::factory()->create([
             'team_id' => $team->id,
-            'email'   => 'invited@example.com',
-            'token'   => 'test-token-456',
+            'email' => 'invited@example.com',
+            'token' => 'test-token-456',
         ]);
 
         $response = $this->actingAs($invitee)
@@ -141,9 +139,9 @@ class PlanExpiryTeamTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $owner->id]);
         $invitation = TeamInvitation::factory()->create([
             'team_id' => $team->id,
-            'email'   => 'invited@example.com',
-            'token'   => 'accept-token-123',
-            'role'    => 'editor',
+            'email' => 'invited@example.com',
+            'token' => 'accept-token-123',
+            'role' => 'editor',
         ]);
 
         $response = $this->actingAs($invitee)
@@ -153,7 +151,7 @@ class PlanExpiryTeamTest extends TestCase
         $this->assertDatabaseHas('team_user', [
             'team_id' => $team->id,
             'user_id' => $invitee->id,
-            'role'    => 'editor',
+            'role' => 'editor',
         ]);
         $this->assertDatabaseMissing('team_invitations', ['id' => $invitation->id]);
     }
@@ -165,8 +163,8 @@ class PlanExpiryTeamTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $owner->id]);
         TeamInvitation::factory()->create([
             'team_id' => $team->id,
-            'email'   => 'invited@example.com',
-            'token'   => 'accept-token-456',
+            'email' => 'invited@example.com',
+            'token' => 'accept-token-456',
         ]);
 
         $response = $this->actingAs($intruder)
@@ -223,10 +221,10 @@ class PlanExpiryTeamTest extends TestCase
         $invitee = User::factory()->create(['email' => 'invited@example.com']);
         $team = Team::factory()->create();
         TeamInvitation::factory()->create([
-            'team_id'   => $team->id,
-            'email'     => 'invited@example.com',
-            'token'     => 'expired-token-123',
-            'expires_at'=> now()->subDay(), // expired
+            'team_id' => $team->id,
+            'email' => 'invited@example.com',
+            'token' => 'expired-token-123',
+            'expires_at' => now()->subDay(), // expired
         ]);
 
         $response = $this->actingAs($invitee)

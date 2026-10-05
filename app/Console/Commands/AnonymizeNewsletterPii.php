@@ -21,18 +21,19 @@ class AnonymizeNewsletterPii extends Command
     public function handle(): int
     {
         $retentionMonths = (int) $this->option('retention-months');
-        $dryRun          = (bool) $this->option('dry-run');
-        $batchSize       = (int) $this->option('batch-size');
+        $dryRun = (bool) $this->option('dry-run');
+        $batchSize = (int) $this->option('batch-size');
 
         $cutoff = now()->subMonths($retentionMonths);
 
         $this->info("Newsletter signup PII anonymization for records older than {$retentionMonths} months (before {$cutoff->toDateString()})");
-        $this->info("  Dry run: " . ($dryRun ? 'YES' : 'NO'));
+        $this->info('  Dry run: '.($dryRun ? 'YES' : 'NO'));
         $this->info("  Batch size: {$batchSize}");
         $this->newLine();
 
         if (! Schema::hasTable('newsletter_signups')) {
-            $this->warn("  newsletter_signups table does not exist — skipping.");
+            $this->warn('  newsletter_signups table does not exist — skipping.');
+
             return self::SUCCESS;
         }
 
@@ -40,14 +41,15 @@ class AnonymizeNewsletterPii extends Command
             ->where('signed_up_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('name')
-                  ->orWhereNotNull('ip_address')
-                  ->orWhereNotNull('referrer');
+                    ->orWhereNotNull('name')
+                    ->orWhereNotNull('ip_address')
+                    ->orWhereNotNull('referrer');
             })
             ->count();
 
         if ($needsAnonymization === 0) {
-            $this->info("  No newsletter signup rows need anonymization (all old rows already anonymized).");
+            $this->info('  No newsletter signup rows need anonymization (all old rows already anonymized).');
+
             return self::SUCCESS;
         }
 
@@ -55,6 +57,7 @@ class AnonymizeNewsletterPii extends Command
 
         if ($dryRun) {
             $this->warn("  [DRY-RUN] Would anonymize {$needsAnonymization} newsletter signup rows. No changes made.");
+
             return self::SUCCESS;
         }
 
@@ -65,9 +68,9 @@ class AnonymizeNewsletterPii extends Command
             ->where('signed_up_at', '<', $cutoff)
             ->where(function ($q) {
                 $q->where('email', 'not like', 'anonymized:%')
-                  ->orWhereNotNull('name')
-                  ->orWhereNotNull('ip_address')
-                  ->orWhereNotNull('referrer');
+                    ->orWhereNotNull('name')
+                    ->orWhereNotNull('ip_address')
+                    ->orWhereNotNull('referrer');
             })
             ->orderBy('id')
             ->chunkById($batchSize, function ($rows) use ($appId, &$anonymized) {
@@ -75,10 +78,10 @@ class AnonymizeNewsletterPii extends Command
                     DB::table('newsletter_signups')
                         ->where('id', $row->id)
                         ->update([
-                            'email'      => 'anonymized:' . substr(hash('sha256', $appId . $row->email), 0, 16),
-                            'name'       => null,
+                            'email' => 'anonymized:'.substr(hash('sha256', $appId.$row->email), 0, 16),
+                            'name' => null,
                             'ip_address' => null,
-                            'referrer'   => null,
+                            'referrer' => null,
                             'updated_at' => now(),
                         ]);
                     $anonymized++;
@@ -90,9 +93,9 @@ class AnonymizeNewsletterPii extends Command
         $this->info("  Anonymized {$anonymized} newsletter signup rows.");
 
         Log::info('AnonymizeNewsletterPii: complete', [
-            'anonymized'        => $anonymized,
-            'retention_months'  => $retentionMonths,
-            'cutoff'            => $cutoff->toDateString(),
+            'anonymized' => $anonymized,
+            'retention_months' => $retentionMonths,
+            'cutoff' => $cutoff->toDateString(),
         ]);
 
         return self::SUCCESS;

@@ -50,11 +50,11 @@ class PendingUpgrade extends Model
         $hashedToken = self::hashToken($plaintextToken);
 
         $pending = self::create([
-            'user_id'    => $user->id,
-            'token'      => $hashedToken, // store the HASH, not the plaintext
-            'plan'       => $plan,
+            'user_id' => $user->id,
+            'token' => $hashedToken, // store the HASH, not the plaintext
+            'plan' => $plan,
             'product_id' => $productId,
-            'status'     => 'pending',
+            'status' => 'pending',
             'expires_at' => now()->addDays(7),
         ]);
 
@@ -132,7 +132,7 @@ class PendingUpgrade extends Model
     public function markConverted(int $transactionId): void
     {
         $this->forceFill([
-            'status'         => 'converted',
+            'status' => 'converted',
             'transaction_id' => $transactionId,
         ])->save();
     }

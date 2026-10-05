@@ -34,11 +34,11 @@ class RetentionController extends Controller
 
         AdminAuditLog::record('retention.cohort_viewed', $auditTarget, [
             'cohort_week_start' => $data['week_start']->toDateString(),
-            'week_index'        => $weekIndex,
-            'cohort_size'       => $data['size'],
-            'active_count'      => $data['active_count'],
-            'page'              => $members->currentPage(),
-            'row_count'         => $members->count(),
+            'week_index' => $weekIndex,
+            'cohort_size' => $data['size'],
+            'active_count' => $data['active_count'],
+            'page' => $members->currentPage(),
+            'row_count' => $members->count(),
         ]);
 
         $pct = $data['size'] > 0
@@ -48,15 +48,15 @@ class RetentionController extends Controller
         $curve = $service->cohortCurve($data['week_start']->toDateString(), 8);
 
         return view('super-admin.retention-cohort', [
-            'cohort'        => $data['week_start'],
-            'weekIndex'     => $weekIndex,
-            'periodStart'   => $data['period']['start'],
-            'periodEnd'     => $data['period']['end'],
-            'size'          => $data['size'],
-            'activeCount'   => $data['active_count'],
-            'pct'           => $pct,
-            'members'       => $members,
-            'curve'         => $curve,
+            'cohort' => $data['week_start'],
+            'weekIndex' => $weekIndex,
+            'periodStart' => $data['period']['start'],
+            'periodEnd' => $data['period']['end'],
+            'size' => $data['size'],
+            'activeCount' => $data['active_count'],
+            'pct' => $pct,
+            'members' => $members,
+            'curve' => $curve,
         ]);
     }
 
@@ -80,9 +80,9 @@ class RetentionController extends Controller
 
         AdminAuditLog::record('retention.cohort_exported', $request->user(), [
             'cohort_week_start' => $data['week_start']->toDateString(),
-            'week_index'        => $weekIndex,
-            'cohort_size'       => $rowCount,
-            'active_count'      => $data['active_count'],
+            'week_index' => $weekIndex,
+            'cohort_size' => $rowCount,
+            'active_count' => $data['active_count'],
         ]);
 
         $headers = [
@@ -96,10 +96,10 @@ class RetentionController extends Controller
         ];
 
         $filename = 'exospace-cohort-'
-            . $data['week_start']->format('Ymd')
-            . '-w' . $weekIndex
-            . '-' . Str::random(4)
-            . '.csv';
+            .$data['week_start']->format('Ymd')
+            .'-w'.$weekIndex
+            .'-'.Str::random(4)
+            .'.csv';
 
         $weekStartStr = $data['week_start']->toDateString();
         $periodStartStr = $data['period']['start']->toDateString();
@@ -114,11 +114,11 @@ class RetentionController extends Controller
 
             fputcsv($out, ['# Exospace retention cohort export']);
             fputcsv($out, [
-                '# cohort_week_start=' . $weekStartStr,
-                'week_index=' . $weekIndex,
-                'period_start=' . $periodStartStr,
-                'period_end=' . $periodEndStr,
-                'exported_at=' . $asOf,
+                '# cohort_week_start='.$weekStartStr,
+                'week_index='.$weekIndex,
+                'period_start='.$periodStartStr,
+                'period_end='.$periodEndStr,
+                'exported_at='.$asOf,
             ]);
             fputcsv($out, ['# active_in_period is computed live at export time, not read from a snapshot']);
 

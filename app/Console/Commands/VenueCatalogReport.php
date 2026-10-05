@@ -4,25 +4,24 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\Gallery;
 use App\Models\VenueTemplate;
 use Illuminate\Console\Command;
 
 class VenueCatalogReport extends Command
 {
     private const REGISTER_MAP = [
-        'clean'           => 'white-cube',
+        'clean' => 'white-cube',
         'warm-industrial' => 'industrial-loft',
-        'dramatic'        => 'dark-museum',
-        'serene'          => 'zen-gallery',
-        'luxurious'       => 'luxury-penthouse',
-        'electric'        => 'cyber-gallery',
-        'infinite'        => 'infinite-void',
-        'ethereal'        => 'crystal-cathedral',
-        'cosmic'          => 'nebula-drift',
-        'reflective'      => 'mirror-lake',
-        'natural'         => 'sculpture-garden',
-        'intimacy'        => 'the-salon',
+        'dramatic' => 'dark-museum',
+        'serene' => 'zen-gallery',
+        'luxurious' => 'luxury-penthouse',
+        'electric' => 'cyber-gallery',
+        'infinite' => 'infinite-void',
+        'ethereal' => 'crystal-cathedral',
+        'cosmic' => 'nebula-drift',
+        'reflective' => 'mirror-lake',
+        'natural' => 'sculpture-garden',
+        'intimacy' => 'the-salon',
     ];
 
     private const UNCOVERED_REGISTERS = ['grandeur'];
@@ -52,11 +51,11 @@ class VenueCatalogReport extends Command
 
         if ($this->option('json')) {
             $this->line(json_encode([
-                'generated_at'      => now()->toIso8601String(),
-                'venues'            => $rows,
-                'tier_demand'       => $this->tierDemand($venues),
+                'generated_at' => now()->toIso8601String(),
+                'venues' => $rows,
+                'tier_demand' => $this->tierDemand($venues),
                 'register_coverage' => $this->registerCoverage($venues),
-                'decision_inputs'   => $this->decisionInputs($venues),
+                'decision_inputs' => $this->decisionInputs($venues),
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
             return self::SUCCESS;
@@ -78,7 +77,7 @@ class VenueCatalogReport extends Command
             ['plan', 'views', 'galleries', 'share of views'],
             array_map(fn (array $t) => [
                 $t['plan'], number_format($t['views']), number_format($t['galleries']),
-                $t['views_share_percent'] === null ? '—' : $t['views_share_percent'] . '%',
+                $t['views_share_percent'] === null ? '—' : $t['views_share_percent'].'%',
             ], $this->tierDemand($venues)),
         );
 
@@ -103,16 +102,16 @@ class VenueCatalogReport extends Command
     private function venueRow(VenueTemplate $venue): array
     {
         return [
-            'slug'               => $venue->slug,
-            'plan'               => $venue->plan_required ?: 'free',
-            'category'           => $venue->category,
-            'is_active'          => (bool) $venue->is_active,
-            'is_draft'           => (bool) $venue->is_draft,
-            'archived'           => $venue->isArchived(),
-            'galleries_total'    => (int) ($venue->galleries_count ?? $venue->galleries()->count()),
-            'galleries_public'   => (int) ($venue->public_galleries_count ?? 0),
-            'views'              => (int) ($venue->view_count ?? 0),
-            'conversion_per_1k'  => $venue->conversionRate(),
+            'slug' => $venue->slug,
+            'plan' => $venue->plan_required ?: 'free',
+            'category' => $venue->category,
+            'is_active' => (bool) $venue->is_active,
+            'is_draft' => (bool) $venue->is_draft,
+            'archived' => $venue->isArchived(),
+            'galleries_total' => (int) ($venue->galleries_count ?? $venue->galleries()->count()),
+            'galleries_public' => (int) ($venue->public_galleries_count ?? 0),
+            'views' => (int) ($venue->view_count ?? 0),
+            'conversion_per_1k' => $venue->conversionRate(),
         ];
     }
 
@@ -126,11 +125,11 @@ class VenueCatalogReport extends Command
             $views = (int) $inTier->sum(fn (VenueTemplate $v) => (int) ($v->view_count ?? 0));
 
             return [
-                'plan'                 => $plan,
-                'views'                => $views,
-                'galleries'            => (int) $inTier->sum(fn (VenueTemplate $v) => (int) ($v->galleries_count ?? 0)),
-                'venue_count'          => $inTier->count(),
-                'views_share_percent'  => $totalViews > 0 ? round(($views / $totalViews) * 100, 1) : null,
+                'plan' => $plan,
+                'views' => $views,
+                'galleries' => (int) $inTier->sum(fn (VenueTemplate $v) => (int) ($v->galleries_count ?? 0)),
+                'venue_count' => $inTier->count(),
+                'views_share_percent' => $totalViews > 0 ? round(($views / $totalViews) * 100, 1) : null,
             ];
         })->all();
     }
@@ -143,16 +142,16 @@ class VenueCatalogReport extends Command
         foreach (self::REGISTER_MAP as $register => $slug) {
             $rows[] = [
                 'register' => $register,
-                'venue'    => $bySlug->has($slug) ? $slug : null,
-                'status'   => $bySlug->has($slug) ? 'covered' : 'uncovered',
+                'venue' => $bySlug->has($slug) ? $slug : null,
+                'status' => $bySlug->has($slug) ? 'covered' : 'uncovered',
             ];
         }
 
         foreach (self::UNCOVERED_REGISTERS as $register) {
             $rows[] = [
                 'register' => $register,
-                'venue'    => null,
-                'status'   => 'uncovered',
+                'venue' => null,
+                'status' => 'uncovered',
             ];
         }
 
@@ -169,7 +168,7 @@ class VenueCatalogReport extends Command
 
         return [
             "total galleries created: {$totalGalleries}",
-            'studio-tier share of venue-attributed views: ' . ($studioShare === null ? 'no data yet (0 views)' : $studioShare . '%'),
+            'studio-tier share of venue-attributed views: '.($studioShare === null ? 'no data yet (0 views)' : $studioShare.'%'),
             "pre-committed rule: studio share >= 50% builds {$hall}; below 50% (or no data) builds {$salon}",
             'rationale: premium demand concentrated at Studio tier justifies the costlier vertical build; otherwise the cheap, close-hung salon converts the free tier the catalog under-serves',
             'either way: venue #12 is built through the pipeline (clone → descriptors → preview → publish) per §16.7, and NO existing venue retires (roadmap DO NOT DO #2)',

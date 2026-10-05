@@ -116,13 +116,13 @@ class AdminAuditChainTest extends TestCase
 
         // A pre-chain row (written before the chain_hash column existed).
         DB::table('admin_audit_logs')->insert([
-            'actor_id'    => null,
-            'action'      => 'user_banned',
+            'actor_id' => null,
+            'action' => 'user_banned',
             'target_type' => User::class,
-            'target_id'   => $target->id,
-            'payload'     => json_encode(['plan' => 'free']),
-            'ip'          => '127.0.0.1',
-            'created_at'  => now()->subYear(),
+            'target_id' => $target->id,
+            'payload' => json_encode(['plan' => 'free']),
+            'ip' => '127.0.0.1',
+            'created_at' => now()->subYear(),
         ]);
 
         AdminAuditLog::record('plan_changed', $target, ['plan' => 'pro']);

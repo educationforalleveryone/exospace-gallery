@@ -20,8 +20,8 @@ final class DiagnosticRegistry
     public const SCOPE_APPLICATION = 'application';
 
     /**
-      * @var array<string, array{label: string, group: string, description: string, scope: string, runner: string}>
-      */
+     * @var array<string, array{label: string, group: string, description: string, scope: string, runner: string}>
+     */
     private const DIAGNOSTICS = [
         'database.connectivity' => [
             'label' => 'Database connectivity',

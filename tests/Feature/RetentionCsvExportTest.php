@@ -26,12 +26,12 @@ class RetentionCsvExportTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return [$admin, $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ])];
     }
@@ -72,7 +72,7 @@ class RetentionCsvExportTest extends TestCase
         $response = $this->actingAsMfaSuperAdmin()[1]
             ->get(route('super.retention.cohort.export', [
                 'cohort' => $weekStart->toDateString(),
-                'week'   => 0,
+                'week' => 0,
             ]));
 
         $response->assertStatus(200);
@@ -96,32 +96,32 @@ class RetentionCsvExportTest extends TestCase
         $periodEnd = $periodStart->copy()->addWeek();
 
         $active1 = User::factory()->create([
-            'email'         => 'active1@example.com',
-            'created_at'    => $weekStart->copy()->addDays(1),
+            'email' => 'active1@example.com',
+            'created_at' => $weekStart->copy()->addDays(1),
             'last_login_at' => $periodStart->copy()->addDays(2),
-            'plan'          => 'free',
+            'plan' => 'free',
         ]);
         $active2 = User::factory()->create([
-            'email'         => 'active2@example.com',
-            'created_at'    => $weekStart->copy()->addDays(2),
+            'email' => 'active2@example.com',
+            'created_at' => $weekStart->copy()->addDays(2),
             'last_login_at' => null,
-            'plan'          => 'pro',
+            'plan' => 'pro',
         ]);
         Gallery::factory()->create([
-            'user_id'    => $active2->id,
-            'is_active'  => true,
+            'user_id' => $active2->id,
+            'is_active' => true,
             'updated_at' => $periodStart->copy()->addDays(3),
         ]);
         $inactive = User::factory()->create([
-            'email'         => 'inactive@example.com',
-            'created_at'    => $weekStart->copy()->addDays(3),
+            'email' => 'inactive@example.com',
+            'created_at' => $weekStart->copy()->addDays(3),
             'last_login_at' => null,
-            'plan'          => 'studio',
+            'plan' => 'studio',
         ]);
 
         $response = $this->get(route('super.retention.cohort.export', [
             'cohort' => $weekStart->toDateString(),
-            'week'   => 1,
+            'week' => 1,
         ]));
 
         $response->assertStatus(200);
@@ -132,10 +132,10 @@ class RetentionCsvExportTest extends TestCase
         $this->assertStringContainsString('active2@example.com', $body);
         $this->assertStringContainsString('inactive@example.com', $body);
 
-        $this->assertStringContainsString('cohort_week_start=' . $weekStart->toDateString(), $body);
+        $this->assertStringContainsString('cohort_week_start='.$weekStart->toDateString(), $body);
         $this->assertStringContainsString('week_index=1', $body);
-        $this->assertStringContainsString('period_start=' . $periodStart->toDateString(), $body);
-        $this->assertStringContainsString('period_end=' . $periodEnd->toDateString(), $body);
+        $this->assertStringContainsString('period_start='.$periodStart->toDateString(), $body);
+        $this->assertStringContainsString('period_end='.$periodEnd->toDateString(), $body);
 
         $headerLine = 'name,email,plan,registered_at,last_login_at,active_in_period,banned';
         $this->assertStringContainsString($headerLine, $body);
@@ -157,13 +157,13 @@ class RetentionCsvExportTest extends TestCase
 
         $response = $this->get(route('super.retention.cohort', [
             'cohort' => $weekStart->toDateString(),
-            'week'   => 0,
+            'week' => 0,
         ]));
 
         $response->assertStatus(200);
         $response->assertSee(route('super.retention.cohort.export', [
             'cohort' => $weekStart->toDateString(),
-            'week'   => 0,
+            'week' => 0,
         ]), false);
         $response->assertSee('Export CSV', false);
     }
@@ -174,15 +174,15 @@ class RetentionCsvExportTest extends TestCase
         $weekStart = $this->thisMonday()->subWeeks(2);
 
         $active = User::factory()->create([
-            'email'         => 'asof@example.com',
-            'created_at'    => $weekStart->copy()->addDays(1),
+            'email' => 'asof@example.com',
+            'created_at' => $weekStart->copy()->addDays(1),
             'last_login_at' => $weekStart->copy()->addWeeks(2),
-            'plan'          => 'free',
+            'plan' => 'free',
         ]);
 
         $response = $this->get(route('super.retention.cohort.export', [
             'cohort' => $weekStart->toDateString(),
-            'week'   => 1,
+            'week' => 1,
         ]));
 
         $response->assertStatus(200);

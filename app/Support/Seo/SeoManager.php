@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace App\Support\Seo;
 
-use App\Models\Concerns\HasSeoProfile;
+use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
-use App\Models\Artist;
 use Illuminate\Support\Str;
 
 class SeoManager
 {
-
     public function forStaticPage(
         string $title,
         ?string $description = null,
@@ -38,7 +36,7 @@ class SeoManager
             title: $this->interpolate($template, ['site' => $this->siteName()]),
             description: $this->description(),
             canonicalUrl: CanonicalUrl::path('/'),
-            ogTitle: $this->siteName() . ' — Immersive 3D Art Galleries',
+            ogTitle: $this->siteName().' — Immersive 3D Art Galleries',
             ogDescription: $this->description(),
             ogImage: $this->defaultOgImage(),
         );
@@ -57,7 +55,7 @@ class SeoManager
             ogImage: url("/gallery/{$gallery->slug}/og-image"),
             ogImageWidth: 1200,
             ogImageHeight: 630,
-            ogImageAlt: 'Cover image for the 3D exhibition "' . ($gallery->title ?: 'Untitled Exhibition') . '"',
+            ogImageAlt: 'Cover image for the 3D exhibition "'.($gallery->title ?: 'Untitled Exhibition').'"',
             ogType: 'website',
         );
 
@@ -73,18 +71,18 @@ class SeoManager
         $parts = [];
         $parts[] = 'A 3D virtual exhibition on Exospace';
         if ($gallery->venueTemplate?->name) {
-            $parts[] = 'presented in the ' . $gallery->venueTemplate->name . ' venue';
+            $parts[] = 'presented in the '.$gallery->venueTemplate->name.' venue';
         }
         $count = $gallery->images->count();
         if ($count > 0) {
-            $parts[] = 'featuring ' . $count . ' ' . Str::plural('artwork', $count);
+            $parts[] = 'featuring '.$count.' '.Str::plural('artwork', $count);
         }
         $artistNames = $gallery->images->filter(fn ($i) => $i->artist?->name)->pluck('artist.name')->unique()->take(3)->values();
         if ($artistNames->isNotEmpty()) {
-            $parts[] = 'with works by ' . $artistNames->implode(', ');
+            $parts[] = 'with works by '.$artistNames->implode(', ');
         }
 
-        return $this->description(implode(' ', $parts) . '. Walk through it in your browser.');
+        return $this->description(implode(' ', $parts).'. Walk through it in your browser.');
     }
 
     public function forArtist(Artist $artist, int $publicWorkCount = 0, int $exhibitionCount = 0): SeoData
@@ -94,15 +92,15 @@ class SeoManager
         $seo = new SeoData(
             title: $this->applyTemplate('artist', ['title' => $artist->name]),
             description: $description,
-            canonicalUrl: CanonicalUrl::path('/artist/' . $artist->slug),
-            ogTitle: $artist->name . ' — Artist on ' . $this->siteName(),
+            canonicalUrl: CanonicalUrl::path('/artist/'.$artist->slug),
+            ogTitle: $artist->name.' — Artist on '.$this->siteName(),
             ogDescription: $description,
             ogImage: url("/artist/{$artist->slug}/og-image"),
             ogImageWidth: 1200,
             ogImageHeight: 630,
             ogImageAlt: $artist->portrait_url
-                ? ('Portrait of ' . $artist->name)
-                : ('Artworks by ' . $artist->name),
+                ? ('Portrait of '.$artist->name)
+                : ('Artworks by '.$artist->name),
             ogType: 'profile',
         );
 
@@ -118,20 +116,20 @@ class SeoManager
         // Factual fallback built from real data only.
         $parts = [];
         if ($artist->location) {
-            $parts[] = $artist->location . '-based artist';
+            $parts[] = $artist->location.'-based artist';
         } else {
             $parts[] = 'Artist';
         }
         if ($exhibitionCount > 0) {
-            $parts[] = 'showing in ' . $exhibitionCount . ' ' . Str::plural('3D exhibition', $exhibitionCount);
+            $parts[] = 'showing in '.$exhibitionCount.' '.Str::plural('3D exhibition', $exhibitionCount);
         } elseif ($workCount > 0) {
-            $parts[] = 'with ' . $workCount . ' ' . Str::plural('artwork', $workCount) . ' on display';
+            $parts[] = 'with '.$workCount.' '.Str::plural('artwork', $workCount).' on display';
         }
         if ($parts === ['Artist']) {
-            $parts[] = 'on ' . $this->siteName();
+            $parts[] = 'on '.$this->siteName();
         }
 
-        return $this->description(implode(' ', $parts) . '. Explore their works in immersive 3D galleries.');
+        return $this->description(implode(' ', $parts).'. Explore their works in immersive 3D galleries.');
     }
 
     public function forArtwork(GalleryImage $artwork, Gallery $gallery): SeoData
@@ -154,7 +152,7 @@ class SeoManager
             ogImage: url("/gallery/{$gallery->slug}/og-image?artwork={$artwork->id}"),
             ogImageWidth: 1200,
             ogImageHeight: 630,
-            ogImageAlt: $title . ($artistName ? ' by ' . $artistName : ''),
+            ogImageAlt: $title.($artistName ? ' by '.$artistName : ''),
             ogType: 'article',
         );
 
@@ -172,17 +170,17 @@ class SeoManager
         // Factual context: artist, exhibition, medium, year.
         $facts = [];
         if ($artistName) {
-            $facts[] = 'By ' . $artistName . '.';
+            $facts[] = 'By '.$artistName.'.';
         }
-        $facts[] = 'On view in "' . ($gallery->title ?: 'Untitled Exhibition') . '", a 3D virtual exhibition.';
+        $facts[] = 'On view in "'.($gallery->title ?: 'Untitled Exhibition').'", a 3D virtual exhibition.';
         if ($artwork->medium) {
-            $facts[] = $artwork->medium . '.';
+            $facts[] = $artwork->medium.'.';
         }
         if ($artwork->year) {
-            $facts[] = 'Created ' . $artwork->year . '.';
+            $facts[] = 'Created '.$artwork->year.'.';
         }
         if ($artwork->dimensions) {
-            $facts[] = $artwork->dimensions . '.';
+            $facts[] = $artwork->dimensions.'.';
         }
 
         $segments[] = implode(' ', $facts);
@@ -215,7 +213,7 @@ class SeoManager
 
     private function applyProfile(SeoData $seo, $model): SeoData
     {
-        if (!method_exists($model, 'seoProfile')) {
+        if (! method_exists($model, 'seoProfile')) {
             return $seo;
         }
 
@@ -225,7 +223,7 @@ class SeoManager
             ? $model->getRelation('seoProfile')
             : $model->seoProfile()->first();
 
-        if (!$profile) {
+        if (! $profile) {
             return $seo;
         }
 
@@ -234,7 +232,7 @@ class SeoManager
             'description' => $profile->description_override ?: null,
             'canonicalUrl' => $profile->canonical_override ?: null,
             'robots' => $profile->robots_directive ?: null,
-            'ogImage' => $profile->og_image_path ? asset('storage/' . $profile->og_image_path) : null,
+            'ogImage' => $profile->og_image_path ? asset('storage/'.$profile->og_image_path) : null,
         ]);
     }
 

@@ -12,7 +12,6 @@ use App\Ops\Models\OpsEvent;
 use App\Ops\Models\OpsIncident;
 use App\Ops\Support\OpsAccessContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class OpsOperatorAccessTest extends TestCase

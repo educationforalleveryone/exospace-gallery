@@ -19,8 +19,8 @@ class QaSmoke extends Command
     protected $description = 'Run safe read-only smoke checks against a deployed Exospace instance';
 
     /**
- * @var array<int, array<string,mixed>>
- */
+     * @var array<int, array<string,mixed>>
+     */
     private array $cases = [];
 
     public function handle(EnvironmentSafety $safety): int
@@ -51,7 +51,7 @@ class QaSmoke extends Command
                 [$ok, $detail] = [false, get_class($e).': '.$e->getMessage()];
             }
 
-            $status   = $ok ? 'passed' : 'failed';
+            $status = $ok ? 'passed' : 'failed';
             $problems += $ok ? 0 : 1;
 
             if (! $quiet) {
@@ -61,12 +61,12 @@ class QaSmoke extends Command
 
             $this->cases[] = [
                 'identifier' => "smoke::{$name}",
-                'classname'  => 'qa-smoke',
-                'name'       => $name,
-                'status'     => $status,
-                'time_ms'    => null,
-                'message'    => $ok ? null : (string) $detail,
-                'data_set'   => null,
+                'classname' => 'qa-smoke',
+                'name' => $name,
+                'status' => $status,
+                'time_ms' => null,
+                'message' => $ok ? null : (string) $detail,
+                'data_set' => null,
                 'exception_class' => null,
             ];
         }
@@ -76,7 +76,7 @@ class QaSmoke extends Command
         if ((string) $this->option('format') === 'junit-json') {
             $this->line(json_encode([
                 'totals' => ['tests' => count($this->cases), 'failures' => $problems, 'errors' => 0, 'skipped' => 0, 'assertions' => count($this->cases)],
-                'cases'  => $this->cases,
+                'cases' => $this->cases,
                 'duration_ms' => $durationMs,
             ]));
 
@@ -106,6 +106,7 @@ class QaSmoke extends Command
                 && ! preg_match('/href="([^"]+\/assets\/[^"]+\.css[^"]*)"/', $resp->body(), $m)) {
                 return [false, 'no hashed build asset reference found in homepage HTML'];
             }
+
             // strip domain: served locally by definition; presence in HTML implies deploy wired vite manifest
             return [true, 'hashed build asset referenced: '.substr($m[1], -60)];
         };
@@ -140,12 +141,15 @@ class QaSmoke extends Command
             ['/login', function () use ($get): array {
                 $r = $get('/login');
 
-                return [$r->status() === 200 || $r->isRedirect(), 'HTTP '.$r->status()];
+                // Illuminate's Response proxies unknown methods to the PSR-7
+                // object, which has no isRedirect() — a redirect response
+                // would fatal here instead of counting as reachable.
+                return [$r->status() === 200 || in_array($r->status(), [301, 302, 303, 307, 308], true), 'HTTP '.$r->status()];
             }],
             ['/register', function () use ($get): array {
                 $r = $get('/register');
 
-                return [$r->status() === 200 || $r->isRedirect(), 'HTTP '.$r->status()];
+                return [$r->status() === 200 || in_array($r->status(), [301, 302, 303, 307, 308], true), 'HTTP '.$r->status()];
             }],
             ['build-assets', $manifestCheck],
         ];

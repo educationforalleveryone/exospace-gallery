@@ -18,8 +18,8 @@ class LifecycleEmailDedupTest extends TestCase
         Mail::fake();
 
         User::factory()->pro()->create([
-            'email_verified_at'       => now(),
-            'plan_expires_at'         => now()->addDays(5),
+            'email_verified_at' => now(),
+            'plan_expires_at' => now()->addDays(5),
             'plan_expiry_reminded_at' => now()->subDays(2), // inside [expiry-14d, expiry]
         ]);
 
@@ -35,8 +35,8 @@ class LifecycleEmailDedupTest extends TestCase
         // The prior reminder landed long before the new cycle's window —
         // it must not suppress a reminder for the renewed expiry date.
         User::factory()->pro()->create([
-            'email_verified_at'       => now(),
-            'plan_expires_at'         => now()->addDays(5),
+            'email_verified_at' => now(),
+            'plan_expires_at' => now()->addDays(5),
             'plan_expiry_reminded_at' => now()->subDays(40),
         ]);
 
@@ -54,15 +54,15 @@ class LifecycleEmailDedupTest extends TestCase
         // slot and starve the eligible users behind them.
         for ($i = 0; $i < 50; $i++) {
             User::factory()->pro()->create([
-                'email_verified_at'       => now(),
-                'plan_expires_at'         => now()->addDays(5),
+                'email_verified_at' => now(),
+                'plan_expires_at' => now()->addDays(5),
                 'plan_expiry_reminded_at' => now()->subDays(1),
             ]);
         }
 
         $eligible = User::factory()->pro()->count(2)->create([
-            'email_verified_at'       => now(),
-            'plan_expires_at'         => now()->addDays(4),
+            'email_verified_at' => now(),
+            'plan_expires_at' => now()->addDays(4),
             'plan_expiry_reminded_at' => null,
         ]);
 
@@ -82,8 +82,8 @@ class LifecycleEmailDedupTest extends TestCase
         Mail::fake();
 
         User::factory()->pro()->create([
-            'email_verified_at'       => now(),
-            'plan_expires_at'         => now()->subDay(), // already expired
+            'email_verified_at' => now(),
+            'plan_expires_at' => now()->subDay(), // already expired
             'plan_expiry_reminded_at' => null,
         ]);
 

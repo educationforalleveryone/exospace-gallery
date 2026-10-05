@@ -33,26 +33,26 @@ class SeoSchemaAndLinkingTest extends TestCase
         $user = User::factory()->create();
 
         return Gallery::create(array_merge([
-            'user_id'    => $user->id,
-            'title'      => 'Echoes of the Void',
-            'slug'       => 'echoes-' . uniqid(),
-            'description'=> 'A survey of new digital works.',
-            'is_active'  => true,
+            'user_id' => $user->id,
+            'title' => 'Echoes of the Void',
+            'slug' => 'echoes-'.uniqid(),
+            'description' => 'A survey of new digital works.',
+            'is_active' => true,
         ], $attrs));
     }
 
     private function addArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 
@@ -86,10 +86,10 @@ class SeoSchemaAndLinkingTest extends TestCase
     public function test_person_schema_maps_real_artist_columns(): void
     {
         $artist = Artist::create([
-            'name'     => 'Maya Chen',
-            'bio'      => 'Berlin-based artist.',
+            'name' => 'Maya Chen',
+            'bio' => 'Berlin-based artist.',
             'location' => 'Berlin, Germany',
-            'website'  => 'https://mayachen.example.com',
+            'website' => 'https://mayachen.example.com',
         ]);
 
         $schema = app(SchemaBuilder::class)->person($artist);
@@ -117,7 +117,7 @@ class SeoSchemaAndLinkingTest extends TestCase
     public function test_exhibition_event_schema_for_dated_gallery(): void
     {
         $gallery = $this->makePublicGallery([
-            'opens_at'  => now()->addDays(7),
+            'opens_at' => now()->addDays(7),
             'closes_at' => now()->addDays(37),
         ]);
 
@@ -135,14 +135,14 @@ class SeoSchemaAndLinkingTest extends TestCase
         $artist = Artist::create(['name' => 'M']);
         $gallery = $this->makePublicGallery();
         $artwork = $this->addArtwork($gallery, [
-            'artist_id'  => $artist->id,
-            'title'      => 'Light Study',
-            'medium'     => 'Oil on canvas',
-            'year'       => 2024,
+            'artist_id' => $artist->id,
+            'title' => 'Light Study',
+            'medium' => 'Oil on canvas',
+            'year' => 2024,
             'dimensions' => '120 × 80 cm',
-            'for_sale'   => true,
-            'price'      => 2500.00,
-            'currency'   => 'USD',
+            'for_sale' => true,
+            'price' => 2500.00,
+            'currency' => 'USD',
         ]);
 
         $schema = app(SchemaBuilder::class)->visualArtwork($artwork, $gallery);
@@ -324,7 +324,7 @@ class SeoSchemaAndLinkingTest extends TestCase
         $html2 = $response2->getContent();
         $this->assertStringContainsString('"@type":"ExhibitionEvent"', $html2);
         $this->assertStringContainsString('"@type":"ItemList"', $html2);
-        $this->assertStringContainsString("/artwork/", $html2);
+        $this->assertStringContainsString('/artwork/', $html2);
     }
 
     public function test_gallery_page_shows_related_exhibitions(): void

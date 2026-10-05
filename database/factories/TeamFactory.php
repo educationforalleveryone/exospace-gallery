@@ -13,9 +13,9 @@ class TeamFactory extends Factory
         $name = fake()->company();
 
         return [
-            'name'    => $name,
-            'slug'    => Str::slug($name) . '-' . uniqid(),
-            'owner_id'=> User::factory(),
+            'name' => $name,
+            'slug' => Str::slug($name).'-'.uniqid(),
+            'owner_id' => User::factory(),
         ];
     }
 }

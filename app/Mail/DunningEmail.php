@@ -25,10 +25,10 @@ class DunningEmail extends Mailable implements ShouldQueue
 
         return new Envelope(
             subject: match ($this->step) {
-                1       => "Action needed: Your Exospace {$planName} payment failed",
-                2       => "Reminder: Your {$planName} subscription payment is still failing",
-                3       => "Final notice: Your {$planName} subscription will be cancelled",
-                default => "Your Exospace subscription payment failed",
+                1 => "Action needed: Your Exospace {$planName} payment failed",
+                2 => "Reminder: Your {$planName} subscription payment is still failing",
+                3 => "Final notice: Your {$planName} subscription will be cancelled",
+                default => 'Your Exospace subscription payment failed',
             },
         );
     }

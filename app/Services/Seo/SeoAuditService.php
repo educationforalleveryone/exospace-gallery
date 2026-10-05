@@ -10,7 +10,6 @@ use App\Models\GalleryImage;
 use App\Models\SeoPage;
 use App\Models\SeoProfile;
 use App\Models\SeoRedirect;
-use Illuminate\Support\Collection;
 
 class SeoAuditService
 {
@@ -23,12 +22,12 @@ class SeoAuditService
     public function summary(): array
     {
         return [
-            'indexable_galleries'  => $this->publicGalleryScope(Gallery::query())->has('images', '>=', 1)->count(),
-            'indexable_artists'    => Artist::whereHas('images.gallery', fn ($q) => $q->publiclyViewable())->count(),
-            'indexable_artworks'   => $this->indexableArtworkCount(),
-            'published_seo_pages'  => \Schema::hasTable('seo_pages') ? SeoPage::published()->count() : 0,
-            'active_redirects'     => \Schema::hasTable('seo_redirects') ? SeoRedirect::active()->count() : 0,
-            'generated_at'         => now()->toIso8601String(),
+            'indexable_galleries' => $this->publicGalleryScope(Gallery::query())->has('images', '>=', 1)->count(),
+            'indexable_artists' => Artist::whereHas('images.gallery', fn ($q) => $q->publiclyViewable())->count(),
+            'indexable_artworks' => $this->indexableArtworkCount(),
+            'published_seo_pages' => \Schema::hasTable('seo_pages') ? SeoPage::published()->count() : 0,
+            'active_redirects' => \Schema::hasTable('seo_redirects') ? SeoRedirect::active()->count() : 0,
+            'generated_at' => now()->toIso8601String(),
         ];
     }
 
@@ -42,7 +41,7 @@ class SeoAuditService
         if ($missingDesc > 0) {
             $issues[] = [
                 'key' => 'galleries_missing_description',
-                'label' => "Public galleries with no curator description (fallback text used)",
+                'label' => 'Public galleries with no curator description (fallback text used)',
                 'count' => $missingDesc,
                 'severity' => 'warning',
             ];
@@ -55,7 +54,7 @@ class SeoAuditService
         if ($artistsNoBio > 0) {
             $issues[] = [
                 'key' => 'artists_missing_bio',
-                'label' => "Artists with public works but no biography",
+                'label' => 'Artists with public works but no biography',
                 'count' => $artistsNoBio,
                 'severity' => 'info',
             ];
@@ -69,7 +68,7 @@ class SeoAuditService
         if ($thinArtworks > 0) {
             $issues[] = [
                 'key' => 'thin_artworks',
-                'label' => "Artworks below the quality gate (noindex — add metadata to index)",
+                'label' => 'Artworks below the quality gate (noindex — add metadata to index)',
                 'count' => $thinArtworks,
                 'severity' => 'info',
             ];
@@ -86,7 +85,7 @@ class SeoAuditService
         if ($forcedNoindex > 0) {
             $issues[] = [
                 'key' => 'galleries_forced_noindex',
-                'label' => "Galleries with a profile-forced noindex",
+                'label' => 'Galleries with a profile-forced noindex',
                 'count' => $forcedNoindex,
                 'severity' => 'info',
             ];
@@ -100,7 +99,7 @@ class SeoAuditService
             if ($staleDrafts > 0) {
                 $issues[] = [
                     'key' => 'stale_seo_page_drafts',
-                    'label' => "SEO page drafts untouched for 30+ days",
+                    'label' => 'SEO page drafts untouched for 30+ days',
                     'count' => $staleDrafts,
                     'severity' => 'info',
                 ];

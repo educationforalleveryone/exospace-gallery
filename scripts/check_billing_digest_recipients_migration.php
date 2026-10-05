@@ -1,11 +1,11 @@
 <?php
-require __DIR__ . '/../vendor/autoload.php';
 
-$app = require_once __DIR__ . '/../bootstrap/app.php';
+require __DIR__.'/../vendor/autoload.php';
+
+$app = require_once __DIR__.'/../bootstrap/app.php';
 $app->make(\Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 // Force sqlite for this script (sandbox .env points at mysql).
 config(['database.default' => 'sqlite']);
@@ -20,7 +20,7 @@ $tables = collect(DB::select("SELECT name FROM sqlite_master WHERE type='table' 
 
 if (! in_array('billing_digest_recipients', $tables, true)) {
     fwrite(STDERR, "FAIL: billing_digest_recipients table not created\n");
-    fwrite(STDERR, "Tables: " . implode(',', $tables) . "\n");
+    fwrite(STDERR, 'Tables: '.implode(',', $tables)."\n");
     exit(1);
 }
 echo "OK: billing_digest_recipients table present after up.\n";
@@ -28,28 +28,34 @@ echo "OK: billing_digest_recipients table present after up.\n";
 // Insert + read back
 $now = now();
 DB::table('billing_digest_recipients')->insert([
-    'email'     => 'finance@example.com',
-    'added_by'  => null,
-    'created_at'=> $now,
-    'updated_at'=> $now,
+    'email' => 'finance@example.com',
+    'added_by' => null,
+    'created_at' => $now,
+    'updated_at' => $now,
 ]);
 $count = DB::table('billing_digest_recipients')->count();
-if ($count !== 1) { fwrite(STDERR, "FAIL: expected 1 row, got {$count}\n"); exit(2); }
+if ($count !== 1) {
+    fwrite(STDERR, "FAIL: expected 1 row, got {$count}\n");
+    exit(2);
+}
 echo "OK: inserted 1 row, count={$count}.\n";
 
 // Unique constraint
 $ok = false;
 try {
     DB::table('billing_digest_recipients')->insert([
-        'email'     => 'finance@example.com',
-        'added_by'  => null,
-        'created_at'=> $now,
-        'updated_at'=> $now,
+        'email' => 'finance@example.com',
+        'added_by' => null,
+        'created_at' => $now,
+        'updated_at' => $now,
     ]);
 } catch (\Throwable $e) {
     $ok = true;
 }
-if (! $ok) { fwrite(STDERR, "FAIL: unique email constraint not enforced\n"); exit(3); }
+if (! $ok) {
+    fwrite(STDERR, "FAIL: unique email constraint not enforced\n");
+    exit(3);
+}
 echo "OK: unique email constraint enforced.\n";
 
 // Rollback

@@ -42,7 +42,7 @@ class SendBillingExport extends Command
         $since = now()->subDays($days)->startOfDay();
         $window = [
             'from' => $since->toDateString(),
-            'to'   => now()->toDateString(),
+            'to' => now()->toDateString(),
         ];
 
         // Same code path as the on-demand export — byte-identical columns.
@@ -73,7 +73,7 @@ class SendBillingExport extends Command
                 $failed++;
                 Log::error('SendBillingExport: delivery failed', [
                     'recipient' => $recipient,
-                    'error'     => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
                 $this->error("  → FAILED for {$recipient}: {$e->getMessage()}");
             }
@@ -84,9 +84,9 @@ class SendBillingExport extends Command
         if ($target !== null) {
             AdminAuditLog::record('billing.exported', $target, [
                 'export_type' => 'scheduled_digest',
-                'days'        => $days,
-                'row_count'   => $csv['count'],
-                'recipients'  => $delivered,
+                'days' => $days,
+                'row_count' => $csv['count'],
+                'recipients' => $delivered,
                 'delivery_failures' => $failed,
             ]);
         } else {
@@ -102,9 +102,9 @@ class SendBillingExport extends Command
             );
 
             Log::info('SendBillingExport: digest NOT delivered to anyone', [
-                'window'   => $window,
+                'window' => $window,
                 'failures' => $failed,
-                'csv_rows'  => $csv['count'],
+                'csv_rows' => $csv['count'],
             ]);
 
             return self::FAILURE;
@@ -119,18 +119,18 @@ class SendBillingExport extends Command
             );
 
             Log::warning('SendBillingExport: partial delivery failure', [
-                'window'    => $window,
+                'window' => $window,
                 'delivered' => $delivered,
-                'failures'  => $failed,
-                'csv_rows'   => $csv['count'],
+                'failures' => $failed,
+                'csv_rows' => $csv['count'],
             ]);
         }
 
         Log::info('SendBillingExport: digest sent', [
-            'window'    => $window,
-            'recipients'=> $delivered,
-            'failures'  => $failed,
-            'csv_rows'  => $csv['count'],
+            'window' => $window,
+            'recipients' => $delivered,
+            'failures' => $failed,
+            'csv_rows' => $csv['count'],
         ]);
 
         app(JobHeartbeatService::class)->stamp('exospace:send-billing-export');

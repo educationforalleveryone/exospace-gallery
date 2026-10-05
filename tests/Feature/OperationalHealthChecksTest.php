@@ -34,12 +34,12 @@ class OperationalHealthChecksTest extends TestCase
 
         // Insert a fake job that's been available for 15 minutes.
         DB::table('jobs')->insert([
-            'queue'        => 'default',
-            'payload'      => json_encode(['job' => 'test']),
-            'attempts'     => 0,
-            'reserved_at'  => null,
+            'queue' => 'default',
+            'payload' => json_encode(['job' => 'test']),
+            'attempts' => 0,
+            'reserved_at' => null,
             'available_at' => now()->subMinutes(15)->timestamp,
-            'created_at'   => now()->subMinutes(15)->timestamp,
+            'created_at' => now()->subMinutes(15)->timestamp,
         ]);
 
         app(OperationalAlertService::class)->checkQueueWorkerHealth();
@@ -56,12 +56,12 @@ class OperationalHealthChecksTest extends TestCase
         config(['services.operational_alerts.webhook_url' => null]);
 
         DB::table('jobs')->insert([
-            'queue'        => 'default',
-            'payload'      => json_encode(['job' => 'test']),
-            'attempts'     => 0,
-            'reserved_at'  => null,
+            'queue' => 'default',
+            'payload' => json_encode(['job' => 'test']),
+            'attempts' => 0,
+            'reserved_at' => null,
             'available_at' => now()->subMinutes(3)->timestamp, // 3 min ago
-            'created_at'   => now()->subMinutes(3)->timestamp,
+            'created_at' => now()->subMinutes(3)->timestamp,
         ]);
 
         app(OperationalAlertService::class)->checkQueueWorkerHealth();
@@ -76,7 +76,7 @@ class OperationalHealthChecksTest extends TestCase
 
         // Use the local disk (default backup destination).
         $disk = Storage::disk('local');
-        $backupName = config('backup.backup.name', config('app.name') . ' Backup');
+        $backupName = config('backup.backup.name', config('app.name').' Backup');
 
         // Ensure the backup directory is empty (no zips).
         $existingFiles = $disk->files($backupName);
@@ -100,7 +100,7 @@ class OperationalHealthChecksTest extends TestCase
         config(['services.operational_alerts.webhook_url' => null]);
 
         $disk = Storage::disk('local');
-        $backupName = config('backup.backup.name', config('app.name') . ' Backup');
+        $backupName = config('backup.backup.name', config('app.name').' Backup');
 
         // Clean any existing backups first.
         $existingFiles = $disk->files($backupName);
@@ -111,10 +111,10 @@ class OperationalHealthChecksTest extends TestCase
         }
 
         // Create a fake backup zip file with an old modification time (30 hours ago).
-        $disk->put($backupName . '/old-backup.zip', 'fake-zip-content');
+        $disk->put($backupName.'/old-backup.zip', 'fake-zip-content');
 
         // Set the file's modification time to 30 hours ago using the underlying filesystem.
-        $fullPath = $disk->path($backupName . '/old-backup.zip');
+        $fullPath = $disk->path($backupName.'/old-backup.zip');
         touch($fullPath, now()->subHours(30)->timestamp);
 
         app(OperationalAlertService::class)->checkBackupHealth();
@@ -125,7 +125,7 @@ class OperationalHealthChecksTest extends TestCase
             ->once();
 
         // Cleanup.
-        $disk->delete($backupName . '/old-backup.zip');
+        $disk->delete($backupName.'/old-backup.zip');
     }
 
     public function test_audit_p16_4_backup_health_no_alert_when_backup_is_fresh(): void
@@ -134,7 +134,7 @@ class OperationalHealthChecksTest extends TestCase
         config(['services.operational_alerts.webhook_url' => null]);
 
         $disk = Storage::disk('local');
-        $backupName = config('backup.backup.name', config('app.name') . ' Backup');
+        $backupName = config('backup.backup.name', config('app.name').' Backup');
 
         // Clean any existing backups.
         $existingFiles = $disk->files($backupName);
@@ -145,8 +145,8 @@ class OperationalHealthChecksTest extends TestCase
         }
 
         // Create a fresh backup (1 hour old).
-        $disk->put($backupName . '/fresh-backup.zip', 'fake-zip-content');
-        $fullPath = $disk->path($backupName . '/fresh-backup.zip');
+        $disk->put($backupName.'/fresh-backup.zip', 'fake-zip-content');
+        $fullPath = $disk->path($backupName.'/fresh-backup.zip');
         touch($fullPath, now()->subHour()->timestamp);
 
         app(OperationalAlertService::class)->checkBackupHealth();
@@ -154,7 +154,7 @@ class OperationalHealthChecksTest extends TestCase
         Log::shouldNotHaveReceived('critical');
 
         // Cleanup.
-        $disk->delete($backupName . '/fresh-backup.zip');
+        $disk->delete($backupName.'/fresh-backup.zip');
     }
 
     private function setEnvVar(string $name, ?string $value): void
@@ -210,14 +210,14 @@ class OperationalHealthChecksTest extends TestCase
         DB::table('jobs')->truncate();
 
         $disk = Storage::disk('local');
-        $backupName = config('backup.backup.name', config('app.name') . ' Backup');
-        $disk->put($backupName . '/healthy-backup.zip', 'fake-zip-content');
-        $fullPath = $disk->path($backupName . '/healthy-backup.zip');
+        $backupName = config('backup.backup.name', config('app.name').' Backup');
+        $disk->put($backupName.'/healthy-backup.zip', 'fake-zip-content');
+        $fullPath = $disk->path($backupName.'/healthy-backup.zip');
         touch($fullPath, now()->subHour()->timestamp);
 
         $service->checkAndAlert();
 
         // Cleanup.
-        $disk->delete($backupName . '/healthy-backup.zip');
+        $disk->delete($backupName.'/healthy-backup.zip');
     }
 }

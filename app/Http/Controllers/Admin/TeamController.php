@@ -15,7 +15,6 @@ use Illuminate\View\View;
 
 class TeamController extends Controller
 {
-
     public function index(): View
     {
         $user = Auth::user();
@@ -97,7 +96,7 @@ class TeamController extends Controller
             ->update(['current_team_id' => null]);
 
         AdminAuditLog::record('team.deleted', $team, [
-            'name'        => $team->name,
+            'name' => $team->name,
             'member_count' => $team->members()->count(),
         ]);
 

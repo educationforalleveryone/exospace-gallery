@@ -44,7 +44,7 @@ return new class extends Migration
         // --- Add team_id to galleries (nullable so existing galleries aren't broken) ---
         Schema::table('galleries', function (Blueprint $table) {
             $table->foreignId('team_id')->nullable()->after('user_id')
-                  ->constrained()->onDelete('set null');
+                ->constrained()->onDelete('set null');
             $table->index('team_id');
         });
     }

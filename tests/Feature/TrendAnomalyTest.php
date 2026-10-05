@@ -30,12 +30,12 @@ class TrendAnomalyTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -126,19 +126,19 @@ class TrendAnomalyTest extends TestCase
     private function seedSnapshot(string $captured, ?float $ttfeAvg, int $window = 30): void
     {
         OnboardingSnapshot::create([
-            'window_days'    => $window,
-            'registered'     => 5,
-            'created_gallery'=> 4,
+            'window_days' => $window,
+            'registered' => 5,
+            'created_gallery' => 4,
             'uploaded_image' => 3,
-            'published'      => 2,
-            'got_views'      => 1,
-            'ttfg_min'       => $ttfeAvg ? $ttfeAvg - 1.0 : null,
-            'ttfg_avg'       => $ttfeAvg,
-            'ttfg_max'       => $ttfeAvg ? $ttfeAvg + 1.0 : null,
-            'ttfe_min'       => $ttfeAvg ? $ttfeAvg - 0.5 : null,
-            'ttfe_avg'       => $ttfeAvg,
-            'ttfe_max'       => $ttfeAvg ? $ttfeAvg + 0.5 : null,
-            'captured_at'    => $captured,
+            'published' => 2,
+            'got_views' => 1,
+            'ttfg_min' => $ttfeAvg ? $ttfeAvg - 1.0 : null,
+            'ttfg_avg' => $ttfeAvg,
+            'ttfg_max' => $ttfeAvg ? $ttfeAvg + 1.0 : null,
+            'ttfe_min' => $ttfeAvg ? $ttfeAvg - 0.5 : null,
+            'ttfe_avg' => $ttfeAvg,
+            'ttfe_max' => $ttfeAvg ? $ttfeAvg + 0.5 : null,
+            'captured_at' => $captured,
         ]);
     }
 
@@ -205,11 +205,11 @@ class TrendAnomalyTest extends TestCase
     {
         RetentionSnapshot::create([
             'cohort_week_start' => '2026-07-06',
-            'week_index'        => $weekIndex,
-            'cohort_size'       => 10,
-            'active_count'      => (int) round($pct / 10),
-            'retained_pct'      => $pct,
-            'captured_at'       => $captured,
+            'week_index' => $weekIndex,
+            'cohort_size' => 10,
+            'active_count' => (int) round($pct / 10),
+            'retained_pct' => $pct,
+            'captured_at' => $captured,
         ]);
     }
 

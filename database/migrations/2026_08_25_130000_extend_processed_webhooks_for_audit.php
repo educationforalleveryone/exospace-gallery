@@ -17,8 +17,8 @@ return new class extends Migration
         });
 
         \DB::table('processed_webhooks')->whereNull('status')->update([
-            'status'      => 'processed',
-            'updated_at'  => now(),
+            'status' => 'processed',
+            'updated_at' => now(),
         ]);
     }
 

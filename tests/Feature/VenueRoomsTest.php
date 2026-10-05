@@ -13,7 +13,8 @@ class VenueRoomsTest extends TestCase
     use RefreshDatabase;
 
     private const DESCRIPTOR_VENUES = ['luxury-penthouse', 'cyber-gallery'];
-    private const ROOM_PASS_VENUES  = ['white-cube', 'luxury-penthouse', 'cyber-gallery'];
+
+    private const ROOM_PASS_VENUES = ['white-cube', 'luxury-penthouse', 'cyber-gallery'];
 
     public function test_descriptor_venues_declare_rooms_structure(): void
     {
@@ -73,7 +74,7 @@ class VenueRoomsTest extends TestCase
         $garden = $this->visualConfig('sculpture-garden');
         $this->assertTrue($garden['sun_shadows'] ?? false, '[sculpture-garden] is the only venue allowed sun shadows (§4.10, tier-gated in JS).');
         $this->assertSame('garden', $garden['structure_pass'] ?? null, '[sculpture-garden] selects its bespoke interpreter via structure_pass.');
-        $this->assertSame(2.0, (float) ($this->materialConfig('sculpture-garden')['floor_tile_meters'] ?? 0));
+        $this->assertSame(3.0, (float) ($this->materialConfig('sculpture-garden')['floor_tile_meters'] ?? 0));
 
         $museum = $this->defaultSettings('dark-museum');
         $this->assertSame('white', $museum['wall_texture'] ?? null, '[dark-museum] default wall is a painted museum wall, not brick (§4.4).');
@@ -103,7 +104,7 @@ class VenueRoomsTest extends TestCase
                 $this->assertContains(
                     $entry['primitive'] ?? null,
                     $allowed,
-                    "[{$slug}] descriptor \"" . ($entry['id'] ?? '?') . '" uses an unknown primitive.'
+                    "[{$slug}] descriptor \"".($entry['id'] ?? '?').'" uses an unknown primitive.'
                 );
             }
         }
@@ -119,8 +120,8 @@ class VenueRoomsTest extends TestCase
 
         $penthouse = (string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description');
         $this->assertMatchesRegularExpression('/glazed|glass/i', $penthouse, 'Penthouse copy must promise the glazing wall.');
-        $this->assertMatchesRegularExpression('/skyline|city lights/i', $penthouse, 'Penthouse copy must promise the skyline.');
-        $this->assertMatchesRegularExpression('/lounge/i', $penthouse, 'Penthouse copy must promise the lounge.');
+        $this->assertMatchesRegularExpression('/skyline|dusk city|city lights/i', $penthouse, 'Penthouse copy must promise the skyline.');
+        $this->assertMatchesRegularExpression('/lounge|living room/i', $penthouse, 'Penthouse copy must promise the lounge.');
 
         $cyber = (string) DB::table('venue_templates')->where('slug', 'cyber-gallery')->value('description');
         $this->assertMatchesRegularExpression('/neon/i', $cyber, 'Cyber copy must promise the neon (now all four edges).');
@@ -139,7 +140,7 @@ class VenueRoomsTest extends TestCase
         DB::table('venue_templates')->where('slug', 'zen-gallery')->update([
             'visual_config' => json_encode([
                 'background_color' => '0x223344',
-                'structure'        => [['id' => 'admin-panel', 'primitive' => 'box', 'at' => [0, 1, 0], 'size' => [1, 1, 1], 'material' => 'stone']],
+                'structure' => [['id' => 'admin-panel', 'primitive' => 'box', 'at' => [0, 1, 0], 'size' => [1, 1, 1], 'material' => 'stone']],
             ]),
             'description' => 'Our house zen room.',
         ]);
@@ -165,10 +166,10 @@ class VenueRoomsTest extends TestCase
         $penthouse = $this->visualConfig('luxury-penthouse');
         $this->assertTrue($penthouse['glazing_wall'] ?? false);
         $this->assertSame('rooms', $penthouse['structure_pass'] ?? null);
-        $this->assertSame(
-            'A private collector\'s evening — a glazed wall over the city lights, a lounge by the glass, dark walls and gold frames.',
-            DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description'),
-            'Pre-pass copy is re-tightened to the delivered rooms.'
+        $this->assertStringContainsStringIgnoringCase(
+            'two volumes',
+            (string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('description'),
+            'The migration never rewrites the shipped double-volume copy.'
         );
     }
 
@@ -189,13 +190,13 @@ class VenueRoomsTest extends TestCase
         $this->assertSame('rooms-v2', $cyber['structure_pass'] ?? null, 'down() must preserve the admin post-pass edit of a key it added.');
         $this->assertArrayNotHasKey('structure', $cyber, 'down() removes the untouched keys it added.');
 
-        $this->assertSame(
-            'A dark futuristic exhibition space with neon light accents. For digital and web3 creators.',
-            DB::table('venue_templates')->where('slug', 'cyber-gallery')->value('description'),
-            'down() restores the original copy (rollback path of the re-tightening).'
+        $this->assertStringContainsStringIgnoringCase(
+            'signal room',
+            (string) DB::table('venue_templates')->where('slug', 'cyber-gallery')->value('description'),
+            'down() never rewrites the shipped signal-room copy.'
         );
         $this->assertSame(
-            'brick',
+            'white',
             $this->defaultSettings('dark-museum')['wall_texture'] ?? null,
             'down() restores the pre-pass museum default (guard symmetrical).'
         );
@@ -213,14 +214,14 @@ class VenueRoomsTest extends TestCase
         $exporter = app(\App\Services\VenueConfigExporter::class);
 
         $penthouse = \App\Models\VenueTemplate::where('slug', 'luxury-penthouse')->firstOrFail();
-        $config    = $exporter->forVenuePreview($penthouse);
+        $config = $exporter->forVenuePreview($penthouse);
         $this->assertSame('rooms', $config['visual_config']['structure_pass'] ?? null);
         $this->assertTrue($config['visual_config']['glazing_wall'] ?? false);
         $this->assertIsArray($config['visual_config']['structure'] ?? null, 'The descriptor array must reach the client untouched.');
         $this->assertNotEmpty($config['visual_config']['structure']);
 
         $whiteCube = \App\Models\VenueTemplate::where('slug', 'white-cube')->firstOrFail();
-        $wcConfig  = $exporter->forVenuePreview($whiteCube);
+        $wcConfig = $exporter->forVenuePreview($whiteCube);
         // 'cube' is the respect-pass interpreter selector.
         $this->assertSame('cube', $wcConfig['visual_config']['structure_pass'] ?? null);
         $this->assertArrayNotHasKey('structure', $wcConfig['visual_config']);

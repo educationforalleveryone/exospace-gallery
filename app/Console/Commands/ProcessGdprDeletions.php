@@ -17,6 +17,7 @@ class ProcessGdprDeletions extends Command
     private const STALE_CLAIM_HOURS = 6;
 
     protected $signature = 'exospace:process-gdpr-deletions';
+
     protected $description = 'Execute GDPR deletion requests whose 30-day grace period has expired.';
 
     public function handle(UserDeletionService $deletionService, JobHeartbeatService $heartbeats): int
@@ -56,7 +57,7 @@ class ProcessGdprDeletions extends Command
                 }
 
                 $request->update([
-                    'status'       => 'completed',
+                    'status' => 'completed',
                     'completed_at' => now(),
                 ]);
 
@@ -68,8 +69,8 @@ class ProcessGdprDeletions extends Command
 
                 Log::error('ProcessGdprDeletions: deletion request failed', [
                     'request_id' => $request->id,
-                    'user_id'    => $request->user_id,
-                    'error'      => $e->getMessage(),
+                    'user_id' => $request->user_id,
+                    'error' => $e->getMessage(),
                 ]);
 
                 $this->error("Deletion request #{$request->id} failed: {$e->getMessage()}");
@@ -79,9 +80,9 @@ class ProcessGdprDeletions extends Command
         $this->info("GDPR deletions: {$completed} completed, {$failed} failed ({$due->count()} due).");
 
         Log::info('ProcessGdprDeletions: run complete', [
-            'due'      => $due->count(),
+            'due' => $due->count(),
             'completed' => $completed,
-            'failed'   => $failed,
+            'failed' => $failed,
         ]);
 
         // Only report cadence health when the run finished cleanly; a failed

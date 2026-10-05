@@ -24,12 +24,12 @@ class OnboardingMetricsTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -43,21 +43,21 @@ class OnboardingMetricsTest extends TestCase
         User::factory()->create(['created_at' => now()->subDays(40)]);
 
         Gallery::create([
-            'user_id'      => $a->id,
-            'title'        => 'A Show', 'slug' => 'a-show',
-            'description'  => 'x', 'is_active' => true,
+            'user_id' => $a->id,
+            'title' => 'A Show', 'slug' => 'a-show',
+            'description' => 'x', 'is_active' => true,
             'published_at' => now()->subDays(2),
         ])->forceFill(['created_at' => now()->subDays(4)])->save();
         // A's SECOND gallery published later — must NOT distort per-user FIRST timing.
         Gallery::create([
-            'user_id'      => $a->id,
-            'title'        => 'A Second', 'slug' => 'a-second',
-            'description'  => 'x', 'is_active' => true,
+            'user_id' => $a->id,
+            'title' => 'A Second', 'slug' => 'a-second',
+            'description' => 'x', 'is_active' => true,
             'published_at' => now()->subDays(1),
         ])->forceFill(['created_at' => now()->subDays(3)])->save();
         Gallery::create([
-            'user_id'     => $b->id,
-            'title'       => 'B Draft', 'slug' => 'b-draft',
+            'user_id' => $b->id,
+            'title' => 'B Draft', 'slug' => 'b-draft',
             'description' => 'x', 'is_active' => false,
         ])->forceFill(['created_at' => now()->subDays(3)])->save();
 
@@ -96,9 +96,9 @@ class OnboardingMetricsTest extends TestCase
     {
         $user = User::factory()->create(['created_at' => now()->subDays(5)]);
         Gallery::create([
-            'user_id'      => $user->id,
-            'title'        => 'Panel Show', 'slug' => 'panel-show',
-            'description'  => 'x', 'is_active' => true,
+            'user_id' => $user->id,
+            'title' => 'Panel Show', 'slug' => 'panel-show',
+            'description' => 'x', 'is_active' => true,
             'published_at' => now()->subDays(2),
         ])->forceFill(['created_at' => now()->subDays(4)])->save();
 

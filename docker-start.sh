@@ -18,6 +18,7 @@ set -e
 #
 # BEHAVIOR SUMMARY:
 #   - PHP upload limits (64M transport ceiling, 50M max validated upload)
+#     + FPM max_execution_time=300 (50MP media decode headroom)
 #   - Nginx client_max_body_size patch (64M, kept in sync with PHP)
 #   - storage:link on every container start
 #   - migrate --force on every container start
@@ -25,7 +26,7 @@ set -e
 #   - php-fpm + nginx start
 # ──────────────────────────────────────────────────────────────────────────
 
-# 1. Configure PHP upload limits
+# 1. Configure PHP limits for the FPM pool.
 #
 #     64M transport ceiling vs the 50M largest validated upload (venue
 #     preview_model / hdri_file): multipart encoding adds boundary overhead
@@ -37,12 +38,16 @@ set -e
 #     NIXPACKS_PHP_UPLOAD_MAX_FILESIZE / PHP_UPLOAD_MAX_FILESIZE /
 #     PHP_POST_MAX_SIZE / NIXPACKS_PHP_POST_MAX_SIZE in Coolify env must
 #     match — see docs/DISASTER-RECOVERY.md (storage operations).
-cat > /assets/php-fpm-overrides.conf << 'PHPEOF'
-upload_max_filesize = 64M
-post_max_size = 64M
-memory_limit = 512M
-max_execution_time = 300
-PHPEOF
+#
+#     These limits are passed as `-d` flags on the `php-fpm` invocation in
+#     step 9 below. They deliberately do NOT go through an overrides file:
+#     the php-fpm.conf the nixpacks PHP provider ships into /assets has no
+#     `include` directive, so a file written here is never read (a previous
+#     revision wrote /assets/php-fpm-overrides.conf, and max_execution_time
+#     in it silently never applied — the other limits only survived because
+#     they were ALSO passed via -d). max_execution_time=300 is applied via
+#     -d for the first time alongside them; without it, FPM caps at the
+#     30s default while ImageProcessingService decodes 50MP uploads.
 
 # 2. Patch the Nginx template to keep the transport ceiling in sync
 if grep -q "client_max_body_size" /assets/nginx.template.conf; then
@@ -84,6 +89,24 @@ if [ -f "$NGINX_TPL" ] && ! grep -q "exospace-static-cache" "$NGINX_TPL"; then
     sed -i 's@server {@server {\n\n        # exospace-static-cache: gzip + immutable static caching\n        gzip on;\n        gzip_comp_level 5;\n        gzip_min_length 256;\n        gzip_proxied any;\n        gzip_vary on;\n        gzip_types text/css text/javascript application/javascript application/json application/manifest+json image/svg+xml;\n\n        location ~* ^/(build|assets|decoders|img)/ {\n            expires 30d;\n            add_header Cache-Control "public, immutable";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }\n\n        location ~* ^/storage/ {\n            expires 7d;\n            add_header Cache-Control "public";\n            add_header X-Content-Type-Options nosniff;\n            add_header X-Frame-Options SAMEORIGIN;\n            access_log off;\n            log_not_found off;\n            try_files $uri =404;\n        }@' "$NGINX_TPL"
     echo "Injected static-asset caching + gzip into nginx template."
 fi
+
+# 2c. Persistent-storage writability for the FPM worker user.
+#
+#     The php-fpm.conf nixpacks ships runs pool workers as user `nobody`.
+#     The persistent volumes mounted at the three storage paths below are
+#     created root-owned by the platform; if `nobody` cannot write into
+#     them, web uploads and daily application logs fail at runtime while
+#     every health check stays green. Fix the mount POINTS only — cheap,
+#     never recursive over user media — so new files are created by the
+#     FPM user; existing files keep their ownership. Already-writable
+#     directories make this a no-op.
+for d in /app/storage/app/public /app/storage/app/private /app/storage/logs; do
+    mkdir -p "$d"
+    if command -v runuser >/dev/null 2>&1 && ! runuser -u nobody -- test -w "$d" 2>/dev/null; then
+        chown nobody:nogroup "$d"
+        echo "Adjusted ownership of $d (FPM worker user could not write)."
+    fi
+done
 
 # 3. Caches are built in the nixpacks.toml build phase (deploy time).
 #    Here we only run storage:link (needs to run at container start because
@@ -270,4 +293,7 @@ if [ -n "$SCHEDULER_PID" ] || [ -n "$QUEUE_PID" ]; then
 fi
 
 # 9. Start PHP-FPM and Nginx (foreground — keeps the container alive).
-node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=64M -d post_max_size=64M -d memory_limit=512M & nginx -c /nginx.conf)
+#    The -d flags apply the limits from section 1 — including
+#    max_execution_time, which has no other effective injection point
+#    (see the nixpacks php-fpm.conf note there).
+node /assets/scripts/prestart.mjs /assets/nginx.template.conf /nginx.conf && (php-fpm -y /assets/php-fpm.conf -d upload_max_filesize=64M -d post_max_size=64M -d memory_limit=512M -d max_execution_time=300 & nginx -c /nginx.conf)

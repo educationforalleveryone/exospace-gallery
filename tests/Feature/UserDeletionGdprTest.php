@@ -29,8 +29,8 @@ class UserDeletionGdprTest extends TestCase
         // Create an image with Spatie media
         $image = GalleryImage::factory()->create([
             'gallery_id' => $gallery->id,
-            'filename'   => 'test-image.jpg',
-            'path'       => 'storage/galleries/' . $gallery->id . '/test-image.jpg',
+            'filename' => 'test-image.jpg',
+            'path' => 'storage/galleries/'.$gallery->id.'/test-image.jpg',
         ]);
 
         // Add a file to the Spatie 'original' collection
@@ -54,7 +54,7 @@ class UserDeletionGdprTest extends TestCase
 
         // The Spatie media DB record must be deleted
         $this->assertDatabaseMissing('media', [
-            'model_id'   => $image->id,
+            'model_id' => $image->id,
             'model_type' => GalleryImage::class,
         ]);
 
@@ -67,13 +67,13 @@ class UserDeletionGdprTest extends TestCase
         $user = User::factory()->create();
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
 
-        $legacyPath = 'galleries/' . $gallery->id . '/legacy-image.jpg';
+        $legacyPath = 'galleries/'.$gallery->id.'/legacy-image.jpg';
         Storage::disk('public')->put($legacyPath, 'fake-image-bytes');
 
         GalleryImage::factory()->create([
             'gallery_id' => $gallery->id,
-            'filename'   => 'legacy-image.jpg',
-            'path'       => 'storage/' . $legacyPath,
+            'filename' => 'legacy-image.jpg',
+            'path' => 'storage/'.$legacyPath,
         ]);
 
         app(UserDeletionService::class)->deleteUser($user, 'Test: legacy path deletion');
@@ -89,18 +89,18 @@ class UserDeletionGdprTest extends TestCase
         $user = User::factory()->studio()->create();
         $gallery = Gallery::factory()->create(['user_id' => $user->id]);
 
-        $logoPath = 'logos/logo-' . uniqid() . '.png';
-        $curtainPath = 'logos/curtain-' . uniqid() . '.png';
-        $audioPath = 'audio/audio-' . uniqid() . '.mp3';
+        $logoPath = 'logos/logo-'.uniqid().'.png';
+        $curtainPath = 'logos/curtain-'.uniqid().'.png';
+        $audioPath = 'audio/audio-'.uniqid().'.mp3';
 
         Storage::disk('public')->put($logoPath, 'fake-logo');
         Storage::disk('public')->put($curtainPath, 'fake-curtain');
         Storage::disk('public')->put($audioPath, 'fake-audio');
 
         $gallery->forceFill([
-            'custom_logo_path'  => 'storage/' . $logoPath,
-            'curtain_logo_path' => 'storage/' . $curtainPath,
-            'audio_path'        => 'storage/' . $audioPath,
+            'custom_logo_path' => 'storage/'.$logoPath,
+            'curtain_logo_path' => 'storage/'.$curtainPath,
+            'audio_path' => 'storage/'.$audioPath,
         ])->save();
 
         // Mock CoolifyDomainManager to avoid HTTP calls during downgrade
@@ -129,14 +129,14 @@ class UserDeletionGdprTest extends TestCase
 
         // Create the GalleryImage row
         $image = $gallery->images()->create([
-            'filename'       => $data['filename'],
-            'original_name'  => 'photo.jpg',
-            'path'           => $data['path'],
-            'mime_type'      => $data['mime_type'],
-            'size'           => $data['size'],
-            'width'          => $data['width'],
-            'height'         => $data['height'],
-            'orientation'    => 'landscape',
+            'filename' => $data['filename'],
+            'original_name' => 'photo.jpg',
+            'path' => $data['path'],
+            'mime_type' => $data['mime_type'],
+            'size' => $data['size'],
+            'width' => $data['width'],
+            'height' => $data['height'],
+            'orientation' => 'landscape',
             'position_order' => 0,
         ]);
 

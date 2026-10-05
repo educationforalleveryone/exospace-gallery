@@ -26,7 +26,7 @@ class WebhookSubscriptionManagementTest extends TestCase
     private function createMfaSuperAdmin(): User
     {
         return User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
     }
@@ -36,7 +36,7 @@ class WebhookSubscriptionManagementTest extends TestCase
         $admin ??= $this->createMfaSuperAdmin();
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -48,9 +48,9 @@ class WebhookSubscriptionManagementTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://example.com/hook',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => $admin->id,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => $admin->id,
         ]);
 
         config(['services.outbound_webhook.url' => 'https://env-configured.example.com']);
@@ -75,7 +75,7 @@ class WebhookSubscriptionManagementTest extends TestCase
         $response = $this->post(route('super.webhooks.store'), [
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://hooks.example.com/security',
-            'secret'     => 'per-sub-secret',
+            'secret' => 'per-sub-secret',
         ]);
 
         $response->assertRedirect();
@@ -84,8 +84,8 @@ class WebhookSubscriptionManagementTest extends TestCase
         $this->assertDatabaseHas('webhook_subscriptions', [
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://hooks.example.com/security',
-            'is_active'  => true,
-            'added_by'    => $admin->id,
+            'is_active' => true,
+            'added_by' => $admin->id,
         ]);
 
         // Audit row written with the documented action + payload shape.
@@ -107,7 +107,7 @@ class WebhookSubscriptionManagementTest extends TestCase
             ->post(route('super.webhooks.store'), [
                 'event_type' => 'BILLING.RECIPIENT_ADDED', // case-different on input
                 'target_url' => 'https://example.com/hook',
-                'secret'     => '',
+                'secret' => '',
             ]);
 
         $this->assertDatabaseHas('webhook_subscriptions', [
@@ -120,16 +120,16 @@ class WebhookSubscriptionManagementTest extends TestCase
         WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://example.com/dup',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         $response = $this->actingAsMfaSuperAdmin()
             ->post(route('super.webhooks.store'), [
                 'event_type' => 'billing.recipient_added',
                 'target_url' => 'https://example.com/dup',
-                'secret'     => '',
+                'secret' => '',
             ]);
 
         $response->assertRedirect();
@@ -142,7 +142,7 @@ class WebhookSubscriptionManagementTest extends TestCase
             ->post(route('super.webhooks.store'), [
                 'event_type' => 'gallery.published',
                 'target_url' => 'http://insecure.example.com/hook', // http://, not https://
-                'secret'     => '',
+                'secret' => '',
             ]);
 
         $response->assertSessionHasErrors(['target_url']);
@@ -156,9 +156,9 @@ class WebhookSubscriptionManagementTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => 'https://example.com/destroy-me',
-            'secret'     => 'secret-to-attribute',
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => 'secret-to-attribute',
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         $this->actingAsMfaSuperAdmin()
@@ -182,9 +182,9 @@ class WebhookSubscriptionManagementTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'gallery.published',
             'target_url' => 'https://example.com/toggle',
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         $this->actingAsMfaSuperAdmin()
@@ -223,7 +223,7 @@ class WebhookSubscriptionManagementTest extends TestCase
                 ->post(route('super.webhooks.store'), [
                     'event_type' => "event.test{$i}",
                     'target_url' => "https://example.com/hook-{$i}",
-                    'secret'     => '',
+                    'secret' => '',
                 ])->assertRedirect();
         }
 
@@ -232,7 +232,7 @@ class WebhookSubscriptionManagementTest extends TestCase
             ->post(route('super.webhooks.store'), [
                 'event_type' => 'event.throttle',
                 'target_url' => 'https://example.com/throttle',
-                'secret'     => '',
+                'secret' => '',
             ])->assertStatus(429);
     }
 }

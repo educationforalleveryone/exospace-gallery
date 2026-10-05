@@ -22,13 +22,13 @@ class ArtistApiController extends Controller
             ->paginate($perPage);
 
         return response()->json([
-            'data' => $artists->map(fn($a) => $this->formatArtist($a)),
+            'data' => $artists->map(fn ($a) => $this->formatArtist($a)),
             'meta' => [
                 'pagination' => [
-                    'total'        => $artists->total(),
-                    'per_page'     => $artists->perPage(),
+                    'total' => $artists->total(),
+                    'per_page' => $artists->perPage(),
                     'current_page' => $artists->currentPage(),
-                    'last_page'    => $artists->lastPage(),
+                    'last_page' => $artists->lastPage(),
                 ],
             ],
         ]);
@@ -64,19 +64,19 @@ class ArtistApiController extends Controller
             ->paginate($perPage);
 
         return response()->json([
-            'data' => $galleries->map(fn($g) => [
-                'id'         => $g->id,
-                'title'      => $g->title,
-                'slug'       => $g->slug,
+            'data' => $galleries->map(fn ($g) => [
+                'id' => $g->id,
+                'title' => $g->title,
+                'slug' => $g->slug,
                 'view_count' => $g->view_count,
                 'public_url' => $g->public_url,
             ]),
             'meta' => [
                 'pagination' => [
-                    'total'        => $galleries->total(),
-                    'per_page'     => $galleries->perPage(),
+                    'total' => $galleries->total(),
+                    'per_page' => $galleries->perPage(),
                     'current_page' => $galleries->currentPage(),
-                    'last_page'    => $galleries->lastPage(),
+                    'last_page' => $galleries->lastPage(),
                 ],
             ],
         ]);
@@ -85,16 +85,16 @@ class ArtistApiController extends Controller
     private function formatArtist(Artist $a): array
     {
         return [
-            'id'         => $a->id,
-            'name'       => $a->name,
-            'slug'       => $a->slug,
-            'bio'        => $a->bio,
-            'website'    => $a->website,
-            'instagram'  => $a->instagram,
-            'twitter'    => $a->twitter,
-            'email'      => $a->email,
-            'location'   => $a->location,
-            'profile_url' => url('/artist/' . $a->slug),
+            'id' => $a->id,
+            'name' => $a->name,
+            'slug' => $a->slug,
+            'bio' => $a->bio,
+            'website' => $a->website,
+            'instagram' => $a->instagram,
+            'twitter' => $a->twitter,
+            'email' => $a->email,
+            'location' => $a->location,
+            'profile_url' => url('/artist/'.$a->slug),
             'created_at' => $a->created_at?->toIso8601String(),
         ];
     }

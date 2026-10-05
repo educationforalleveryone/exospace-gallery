@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Gallery;
 use App\Models\AdminAuditLog;
+use App\Models\Gallery;
+use App\Models\User;
 use App\Services\PlanLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,15 +26,15 @@ class SystemController extends Controller
             'master-control:platform-stats',
             [now()->addMinutes(5), now()->addMinutes(10)],
             fn () => [
-                'total_users'     => User::count(),
+                'total_users' => User::count(),
                 'total_galleries' => Gallery::count(),
-                'free_users'      => User::where('plan', 'free')->count(),
-                'pro_users'       => User::where('plan', 'pro')->count(),
-                'studio_users'    => User::where('plan', 'studio')->count(),
-                'total_images'    => DB::table('gallery_images')->whereNull('deleted_at')->count(),
-                'total_views'     => Gallery::sum('view_count'),
-                'banned_users'    => User::whereNotNull('banned_at')->count(),
-                'unverified_users'=> User::whereNull('email_verified_at')->count(),
+                'free_users' => User::where('plan', 'free')->count(),
+                'pro_users' => User::where('plan', 'pro')->count(),
+                'studio_users' => User::where('plan', 'studio')->count(),
+                'total_images' => DB::table('gallery_images')->whereNull('deleted_at')->count(),
+                'total_views' => Gallery::sum('view_count'),
+                'banned_users' => User::whereNotNull('banned_at')->count(),
+                'unverified_users' => User::whereNull('email_verified_at')->count(),
             ],
         );
 
@@ -71,13 +71,13 @@ class SystemController extends Controller
             $raw = \App\Services\TrendAnomalies::detect($series);
             foreach ($raw as $a) {
                 $anomalyAnnotations[] = [
-                    'index'     => $a['index'],
-                    'label'     => $onboardingTrend[$a['index']]['captured_at'] ?? '',
-                    'value'     => $a['value'],
-                    'mean'      => $a['mean'],
-                    'sigma'     => $a['sigma'],
+                    'index' => $a['index'],
+                    'label' => $onboardingTrend[$a['index']]['captured_at'] ?? '',
+                    'value' => $a['value'],
+                    'mean' => $a['mean'],
+                    'sigma' => $a['sigma'],
                     'sigma_eff' => $a['sigma_eff'],
-                    'z'         => $a['z'],
+                    'z' => $a['z'],
                     'direction' => $a['direction'],
                 ];
             }
@@ -92,13 +92,13 @@ class SystemController extends Controller
             );
             foreach (\App\Services\TrendAnomalies::detect($w1Series) as $a) {
                 $retentionW1Anomalies[] = [
-                    'index'     => $a['index'],
-                    'label'     => $retentionTrendW1[$a['index']]['captured_at'] ?? '',
-                    'value'     => $a['value'],
-                    'mean'      => $a['mean'],
-                    'sigma'     => $a['sigma'],
+                    'index' => $a['index'],
+                    'label' => $retentionTrendW1[$a['index']]['captured_at'] ?? '',
+                    'value' => $a['value'],
+                    'mean' => $a['mean'],
+                    'sigma' => $a['sigma'],
                     'sigma_eff' => $a['sigma_eff'],
-                    'z'         => $a['z'],
+                    'z' => $a['z'],
                     'direction' => $a['direction'],
                 ];
             }
@@ -110,13 +110,13 @@ class SystemController extends Controller
             );
             foreach (\App\Services\TrendAnomalies::detect($w2Series) as $a) {
                 $retentionW2Anomalies[] = [
-                    'index'     => $a['index'],
-                    'label'     => $retentionTrendW2[$a['index']]['captured_at'] ?? '',
-                    'value'     => $a['value'],
-                    'mean'      => $a['mean'],
-                    'sigma'     => $a['sigma'],
+                    'index' => $a['index'],
+                    'label' => $retentionTrendW2[$a['index']]['captured_at'] ?? '',
+                    'value' => $a['value'],
+                    'mean' => $a['mean'],
+                    'sigma' => $a['sigma'],
                     'sigma_eff' => $a['sigma_eff'],
-                    'z'         => $a['z'],
+                    'z' => $a['z'],
                     'direction' => $a['direction'],
                 ];
             }
@@ -126,7 +126,7 @@ class SystemController extends Controller
         if (count($onboardingTrend) >= 2) {
             $stages = [
                 's1' => ['label' => 'Registered → Created gallery', 'from' => 'registered',       'to' => 'created_gallery', 'color' => '#60a5fa'],
-                's2' => ['label' => 'Created gallery → Uploaded image', 'from' => 'created_gallery','to' => 'uploaded_image',  'color' => '#a78bfa'],
+                's2' => ['label' => 'Created gallery → Uploaded image', 'from' => 'created_gallery', 'to' => 'uploaded_image',  'color' => '#a78bfa'],
                 's3' => ['label' => 'Uploaded image → Published',     'from' => 'uploaded_image', 'to' => 'published',       'color' => '#34d399'],
                 's4' => ['label' => 'Published → Got first view',      'from' => 'published',      'to' => 'got_views',       'color' => '#fbbf24'],
             ];
@@ -134,28 +134,28 @@ class SystemController extends Controller
                 $series = [];
                 foreach ($onboardingTrend as $p) {
                     $denominator = (int) ($p[$meta['from']] ?? 0);
-                    $numerator   = (int) ($p[$meta['to']]   ?? 0);
+                    $numerator = (int) ($p[$meta['to']] ?? 0);
                     $series[] = $denominator > 0 ? round(($numerator / $denominator) * 100, 1) : null;
                 }
                 $anomalies = [];
                 foreach (\App\Services\TrendAnomalies::detect($series) as $a) {
                     $anomalies[] = [
-                        'index'     => $a['index'],
-                        'label'     => $onboardingTrend[$a['index']]['captured_at'] ?? '',
-                        'value'     => $a['value'],
-                        'mean'      => $a['mean'],
-                        'sigma'     => $a['sigma'],
+                        'index' => $a['index'],
+                        'label' => $onboardingTrend[$a['index']]['captured_at'] ?? '',
+                        'value' => $a['value'],
+                        'mean' => $a['mean'],
+                        'sigma' => $a['sigma'],
                         'sigma_eff' => $a['sigma_eff'],
-                        'z'         => $a['z'],
+                        'z' => $a['z'],
                         'direction' => $a['direction'],
                     ];
                 }
                 $funnelStageTrend[] = [
-                    'key'        => $key,
-                    'label'      => $meta['label'],
-                    'color'      => $meta['color'],
-                    'series'     => $series,
-                    'anomalies'  => $anomalies,
+                    'key' => $key,
+                    'label' => $meta['label'],
+                    'color' => $meta['color'],
+                    'series' => $series,
+                    'anomalies' => $anomalies,
                 ];
             }
         }
@@ -172,9 +172,9 @@ class SystemController extends Controller
                 $anyObserved = true;
             }
             $backupHealth['types'][$key] = [
-                'status'  => $status,
+                'status' => $status,
                 'last_at' => $lastAt?->diffForHumans(),
-                'label'   => ucfirst($key),
+                'label' => ucfirst($key),
             ];
             if ($worstRank[$status] > $worstRank[$backupHealth['worst']]) {
                 $backupHealth['worst'] = $status;
@@ -206,9 +206,9 @@ class SystemController extends Controller
 
         $request->validate(['plan' => 'required|in:free,pro,studio']);
 
-        $plan    = $request->plan;
+        $plan = $request->plan;
         $oldPlan = $user->plan;
-        $limits  = User::planLimits($plan);
+        $limits = User::planLimits($plan);
 
         $result = $this->planLock->withUserLock($user->id, function () use ($user, $plan, $oldPlan, $limits) {
             $user->refresh();
@@ -219,9 +219,9 @@ class SystemController extends Controller
                     ->downgradeToFree($user, "Admin plan change ({$currentPlan} → free)");
             } else {
                 $user->forceFill([
-                    'plan'            => $plan,
-                    'max_galleries'   => $limits['max_galleries'],
-                    'max_images'      => $limits['max_images'],
+                    'plan' => $plan,
+                    'max_galleries' => $limits['max_galleries'],
+                    'max_images' => $limits['max_images'],
                     'plan_started_at' => now(),
                     'plan_expires_at' => null, // Lifetime — matches webhook semantics
                 ])->save();
@@ -236,7 +236,7 @@ class SystemController extends Controller
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('SystemController: PlanUpgradedEmail send failed', [
                         'user_id' => $user->id,
-                        'error'   => $e->getMessage(),
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
@@ -263,7 +263,7 @@ class SystemController extends Controller
             ->deleteUser($user, 'Admin deletion');
 
         return redirect()->route('super.index')
-                         ->with('success', "User \"{$userName}\" and all their data permanently deleted.");
+            ->with('success', "User \"{$userName}\" and all their data permanently deleted.");
     }
 
     public function banUser(Request $request, User $user)
@@ -273,7 +273,7 @@ class SystemController extends Controller
         $request->validate(['reason' => 'nullable|string|max:500']);
 
         $user->forceFill([
-            'banned_at'  => now(),
+            'banned_at' => now(),
             'ban_reason' => $request->input('reason') ?: 'No reason provided.',
             'remember_token' => null,
         ])->save();
@@ -304,7 +304,7 @@ class SystemController extends Controller
         AdminAuditLog::record('user_banned', $user, [
             // 'ban_reason' is an audit PII key — the free-text reason is
             // hashed at write time, matching how _changed.ban_reason is scrubbed.
-            'ban_reason'     => $request->input('reason') ?: 'No reason provided',
+            'ban_reason' => $request->input('reason') ?: 'No reason provided',
             'sessions_purged' => $sessionsPurged,
             'tokens_revoked' => true,
         ]);
@@ -317,7 +317,7 @@ class SystemController extends Controller
         $this->preventSelfAction($user, 'unban');
 
         $user->forceFill([
-            'banned_at'  => null,
+            'banned_at' => null,
             'ban_reason' => null,
         ])->save();
 
@@ -390,7 +390,7 @@ class SystemController extends Controller
     {
         $galleries = $user->galleries()
             ->withCount('images')
-            ->with(['images' => fn($q) => $q->orderBy('position_order')->limit(10)])
+            ->with(['images' => fn ($q) => $q->orderBy('position_order')->limit(10)])
             ->latest()
             ->paginate(15);
 
@@ -406,7 +406,7 @@ class SystemController extends Controller
 
         AdminAuditLog::record('gallery_toggled', $gallery, [
             'from' => $oldActive,
-            'to'   => $gallery->is_active,
+            'to' => $gallery->is_active,
         ]);
 
         return back()->with('success', "Gallery \"{$gallery->title}\" {$status}.");
@@ -439,9 +439,9 @@ class SystemController extends Controller
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($user, $pending, $plan, $limits) {
             $user->forceFill([
-                'plan'            => $plan,
-                'max_galleries'   => $limits['max_galleries'],
-                'max_images'      => $limits['max_images'],
+                'plan' => $plan,
+                'max_galleries' => $limits['max_galleries'],
+                'max_images' => $limits['max_images'],
                 'plan_started_at' => now(),
                 'plan_expires_at' => null, // lifetime
             ])->save();
@@ -451,24 +451,24 @@ class SystemController extends Controller
 
             // Record a transaction (manual — no invoice_id from 2Checkout)
             \DB::table('transactions')->insert([
-                'user_id'        => $user->id,
-                'invoice_id'     => 'MANUAL-' . $pending->id . '-' . time(),
-                'sale_id'        => null,
-                'product_id'     => $pending->product_id,
-                'plan'           => $plan,
-                'amount'         => 0.00,
-                'currency'       => 'USD',
+                'user_id' => $user->id,
+                'invoice_id' => 'MANUAL-'.$pending->id.'-'.time(),
+                'sale_id' => null,
+                'product_id' => $pending->product_id,
+                'plan' => $plan,
+                'amount' => 0.00,
+                'currency' => 'USD',
                 'customer_email' => $user->email,
-                'customer_name'  => $user->name,
-                'status'         => 'manual',
-                'created_at'     => now(),
-                'updated_at'     => now(),
+                'customer_name' => $user->name,
+                'status' => 'manual',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         });
 
         AdminAuditLog::record('manual_upgrade', $user, [
-            'plan'              => $plan,
-            'pending_upgrade_id'=> $pending->id,
+            'plan' => $plan,
+            'pending_upgrade_id' => $pending->id,
         ]);
 
         return back()->with('success', "Manually upgraded {$user->name} to {$plan}.");

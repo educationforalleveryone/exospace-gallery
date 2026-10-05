@@ -18,20 +18,21 @@ class NotificationService
     ): ?UserNotification {
         try {
             return UserNotification::create([
-                'user_id'      => $user->id,
-                'type'         => $type,
-                'title'        => $title,
-                'body'         => $body,
-                'action_url'   => $actionUrl,
+                'user_id' => $user->id,
+                'type' => $type,
+                'title' => $title,
+                'body' => $body,
+                'action_url' => $actionUrl,
                 'action_label' => $actionLabel,
             ]);
         } catch (\Throwable $e) {
             Log::warning('NotificationService: failed to create notification', [
                 'user_id' => $user->id,
-                'type'    => $type,
-                'title'   => $title,
-                'error'   => $e->getMessage(),
+                'type' => $type,
+                'title' => $title,
+                'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }

@@ -4,14 +4,13 @@ namespace App\Console\Commands;
 
 use App\Jobs\VerifyCustomDomain;
 use App\Models\Gallery;
-use App\Services\CoolifyDomainManager;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class VerifyPendingCustomDomains extends Command
 {
     protected $signature = 'exospace:verify-pending-domains';
+
     protected $description = 'Dispatch DNS verification jobs for galleries with a pending custom_domain.';
 
     public function handle(): int
@@ -24,6 +23,7 @@ class VerifyPendingCustomDomains extends Command
 
         if ($pending->isEmpty()) {
             $this->info('No pending custom-domain verifications.');
+
             return self::SUCCESS;
         }
 

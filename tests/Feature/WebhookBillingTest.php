@@ -14,9 +14,13 @@ class WebhookBillingTest extends TestCase
     use RefreshDatabase;
 
     private const SECRET_WORD = 'test-secret-word';
+
     private const BUY_LINK_SECRET = 'test-buy-link-secret';
+
     private const PRODUCT_ID_PRO = 'PRO-1001';
+
     private const PRODUCT_ID_STUDIO = 'STUDIO-2001';
+
     private const VENDOR_ID = 'V12345';
 
     protected function setUp(): void
@@ -31,27 +35,27 @@ class WebhookBillingTest extends TestCase
 
     private function validIpnPayload(array $overrides = []): array
     {
-        $saleId = $overrides['sale_id'] ?? 'SALE-' . uniqid();
-        $invoiceId = $overrides['invoice_id'] ?? 'INV-' . uniqid();
+        $saleId = $overrides['sale_id'] ?? 'SALE-'.uniqid();
+        $invoiceId = $overrides['invoice_id'] ?? 'INV-'.uniqid();
         $vendorId = $overrides['vendor_id'] ?? self::VENDOR_ID;
 
         $stringToHash = $saleId
-                      . $vendorId
-                      . $invoiceId
-                      . self::SECRET_WORD;
+                      .$vendorId
+                      .$invoiceId
+                      .self::SECRET_WORD;
         $hash = strtoupper(md5($stringToHash));
 
         return array_merge([
-            'message_type'      => 'ORDER_CREATED',
-            'sale_id'           => $saleId,
-            'vendor_id'         => $vendorId,
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $hash,
-            'customer_email'    => 'buyer@example.com',
-            'customer_name'     => 'Test Buyer',
-            'item_id_1'         => self::PRODUCT_ID_PRO,
-            'item_list_amount_1'=> '29.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'ORDER_CREATED',
+            'sale_id' => $saleId,
+            'vendor_id' => $vendorId,
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $hash,
+            'customer_email' => 'buyer@example.com',
+            'customer_name' => 'Test Buyer',
+            'item_id_1' => self::PRODUCT_ID_PRO,
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
         ], $overrides);
     }
 
@@ -67,7 +71,7 @@ class WebhookBillingTest extends TestCase
         $hmacPayload = '';
         foreach ($fields as $field) {
             $value = (string) ($payload[$field] ?? '');
-            $hmacPayload .= strlen($value) . $value;
+            $hmacPayload .= strlen($value).$value;
         }
 
         return hash_hmac('sha256', $hmacPayload, self::BUY_LINK_SECRET);
@@ -93,10 +97,10 @@ class WebhookBillingTest extends TestCase
         $this->assertEquals('pro', $user->plan);
         $this->assertNull($user->plan_expires_at); // lifetime
         $this->assertDatabaseHas('transactions', [
-            'user_id'   => $user->id,
-            'invoice_id'=> $payload['invoice_id'],
-            'plan'      => 'pro',
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => $payload['invoice_id'],
+            'plan' => 'pro',
+            'status' => 'completed',
         ]);
     }
 
@@ -121,10 +125,10 @@ class WebhookBillingTest extends TestCase
         $pending = PendingUpgrade::createForUser($user, 'pro', self::PRODUCT_ID_PRO);
 
         $payload = $this->validIpnPayload([
-            'customer_email'    => 'different-paypal@example.com', // doesn't match account email
+            'customer_email' => 'different-paypal@example.com', // doesn't match account email
             // Use the plaintext_token runtime attribute (not the stored hash)
-            'external-reference'=> $pending->plaintext_token,
-            'item_id_1'         => self::PRODUCT_ID_PRO,
+            'external-reference' => $pending->plaintext_token,
+            'item_id_1' => self::PRODUCT_ID_PRO,
         ]);
 
         $response = $this->postWebhook($payload);
@@ -165,12 +169,12 @@ class WebhookBillingTest extends TestCase
 
         $this->postWebhook($this->validIpnPayload([
             'customer_email' => $proUser->email,
-            'item_id_1'      => 'PRO-RECURRING-1',
+            'item_id_1' => 'PRO-RECURRING-1',
         ]))->assertOk();
 
         $this->postWebhook($this->validIpnPayload([
             'customer_email' => $studioUser->email,
-            'item_id_1'      => 'STUDIO-RECURRING-1',
+            'item_id_1' => 'STUDIO-RECURRING-1',
         ]))->assertOk();
 
         $this->assertEquals('pro', $proUser->fresh()->plan);
@@ -200,7 +204,7 @@ class WebhookBillingTest extends TestCase
 
         $this->postWebhook($this->validIpnPayload([
             'external-reference' => $paidLink->plaintext_token,
-            'item_id_1'          => self::PRODUCT_ID_PRO,
+            'item_id_1' => self::PRODUCT_ID_PRO,
         ]))->assertOk();
 
         $this->assertEquals('converted', $paidLink->fresh()->status);
@@ -292,16 +296,16 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-REFUND-001',
-            'plan'      => 'pro',
-            'amount'    => 29.00, // explicit amount for partial-refund logic
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-REFUND-001',
+            'plan' => 'pro',
+            'amount' => 29.00, // explicit amount for partial-refund logic
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'       => 'REFUND_ISSUED',
-            'invoice_id'         => 'INV-REFUND-001',
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => 'INV-REFUND-001',
             'item_list_amount_1' => '29.00', // full refund amount
         ]);
 
@@ -319,16 +323,16 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-REFUND-002',
-            'plan'      => 'pro', // the refunded transaction was for Pro
-            'amount'    => 29.00, // explicit amount
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-REFUND-002',
+            'plan' => 'pro', // the refunded transaction was for Pro
+            'amount' => 29.00, // explicit amount
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'       => 'REFUND_ISSUED',
-            'invoice_id'         => 'INV-REFUND-002',
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => 'INV-REFUND-002',
             'item_list_amount_1' => '29.00', // full refund amount
         ]);
 
@@ -346,16 +350,16 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
         Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-REFUND-003',
-            'plan'      => 'pro',
-            'amount'    => 29.00, // explicit amount
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-REFUND-003',
+            'plan' => 'pro',
+            'amount' => 29.00, // explicit amount
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'       => 'REFUND_ISSUED',
-            'invoice_id'         => 'INV-REFUND-003',
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => 'INV-REFUND-003',
             'item_list_amount_1' => '29.00', // full refund amount
         ]);
 
@@ -371,15 +375,15 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-CB-001',
-            'plan'      => 'studio',
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-CB-001',
+            'plan' => 'studio',
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'CHARGEBACK_REPORTED',
-            'invoice_id'    => 'INV-CB-001',
+            'message_type' => 'CHARGEBACK_REPORTED',
+            'invoice_id' => 'INV-CB-001',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -396,18 +400,18 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'buyer@example.com',
-            'plan'  => 'free', // was downgraded by chargeback
+            'plan' => 'free', // was downgraded by chargeback
         ]);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-CB-002',
-            'plan'      => 'pro',
-            'status'    => 'chargeback',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-CB-002',
+            'plan' => 'pro',
+            'status' => 'chargeback',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'CHARGEBACK_REVERSED',
-            'invoice_id'    => 'INV-CB-002',
+            'message_type' => 'CHARGEBACK_REVERSED',
+            'invoice_id' => 'INV-CB-002',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -425,7 +429,7 @@ class WebhookBillingTest extends TestCase
         $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'REFUND_REQUESTED',
+            'message_type' => 'REFUND_REQUESTED',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -440,7 +444,7 @@ class WebhookBillingTest extends TestCase
         $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'FRAUD_STATUS_CHANGED',
+            'message_type' => 'FRAUD_STATUS_CHANGED',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -576,11 +580,11 @@ class WebhookBillingTest extends TestCase
         Config::set('services.2checkout.buy_link_secret_word', self::BUY_LINK_SECRET);
 
         $attacker = User::factory()->create(['email' => 'attacker@example.com']);
-        $victim   = User::factory()->create(['email' => 'victim@example.com']);
+        $victim = User::factory()->create(['email' => 'victim@example.com']);
 
         $payload = $this->validIpnPayload([
             'customer_email' => 'attacker@example.com',
-            'item_id_1'      => self::PRODUCT_ID_STUDIO,
+            'item_id_1' => self::PRODUCT_ID_STUDIO,
         ]);
         // Sign with the ORIGINAL customer_email
         $payload['signature'] = $this->signPayloadHmac($payload);
@@ -624,15 +628,15 @@ class WebhookBillingTest extends TestCase
 
         $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
         Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-TAMPER-001',
-            'plan'      => 'pro',
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-TAMPER-001',
+            'plan' => 'pro',
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
             'message_type' => 'ORDER_CREATED',
-            'invoice_id'   => 'INV-TAMPER-001',
+            'invoice_id' => 'INV-TAMPER-001',
         ]);
         $payload['signature'] = $this->signPayloadHmac($payload);
 
@@ -652,16 +656,16 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-REFUND-PARTIAL-001',
-            'plan'      => 'studio',
-            'amount'    => 99.00,
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-REFUND-PARTIAL-001',
+            'plan' => 'studio',
+            'amount' => 99.00,
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'       => 'REFUND_ISSUED',
-            'invoice_id'         => 'INV-REFUND-PARTIAL-001',
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => 'INV-REFUND-PARTIAL-001',
             'item_list_amount_1' => '5.00', // only $5 refunded (5% of $99)
         ]);
 
@@ -680,16 +684,16 @@ class WebhookBillingTest extends TestCase
         // Full refund ($99 on a $99 purchase) → downgrade.
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-REFUND-FULL-001',
-            'plan'      => 'studio',
-            'amount'    => 99.00,
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-REFUND-FULL-001',
+            'plan' => 'studio',
+            'amount' => 99.00,
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'       => 'REFUND_ISSUED',
-            'invoice_id'         => 'INV-REFUND-FULL-001',
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => 'INV-REFUND-FULL-001',
             'item_list_amount_1' => '99.00', // full refund
         ]);
 
@@ -708,16 +712,16 @@ class WebhookBillingTest extends TestCase
         // 90% refund ($89.10 on $99) → downgrade (threshold is >=90%).
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-REFUND-90-001',
-            'plan'      => 'studio',
-            'amount'    => 99.00,
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-REFUND-90-001',
+            'plan' => 'studio',
+            'amount' => 99.00,
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'       => 'REFUND_ISSUED',
-            'invoice_id'         => 'INV-REFUND-90-001',
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => 'INV-REFUND-90-001',
             'item_list_amount_1' => '89.10', // exactly 90%
         ]);
 
@@ -732,15 +736,15 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->studio()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-CB-PLAN-MISMATCH',
-            'plan'      => 'pro', // the charged-back transaction was for Pro
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-CB-PLAN-MISMATCH',
+            'plan' => 'pro', // the charged-back transaction was for Pro
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'CHARGEBACK_REPORTED',
-            'invoice_id'    => 'INV-CB-PLAN-MISMATCH',
+            'message_type' => 'CHARGEBACK_REPORTED',
+            'invoice_id' => 'INV-CB-PLAN-MISMATCH',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -758,15 +762,15 @@ class WebhookBillingTest extends TestCase
         // User is on Pro, chargeback on their Pro purchase → downgrade.
         $user = User::factory()->pro()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'   => $user->id,
-            'invoice_id'=> 'INV-CB-PLAN-MATCH',
-            'plan'      => 'pro',
-            'status'    => 'completed',
+            'user_id' => $user->id,
+            'invoice_id' => 'INV-CB-PLAN-MATCH',
+            'plan' => 'pro',
+            'status' => 'completed',
         ]);
 
         $payload = $this->validIpnPayload([
-            'message_type'  => 'CHARGEBACK_REPORTED',
-            'invoice_id'    => 'INV-CB-PLAN-MATCH',
+            'message_type' => 'CHARGEBACK_REPORTED',
+            'invoice_id' => 'INV-CB-PLAN-MATCH',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -807,7 +811,7 @@ class WebhookBillingTest extends TestCase
 
         $payload = $this->validIpnPayload([
             'item_id_1' => self::PRODUCT_ID_PRO,
-            'demo'      => 'Y',
+            'demo' => 'Y',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -824,7 +828,7 @@ class WebhookBillingTest extends TestCase
 
         $payload = $this->validIpnPayload([
             'item_id_1' => self::PRODUCT_ID_PRO,
-            'demo'      => 'N',
+            'demo' => 'N',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -841,9 +845,9 @@ class WebhookBillingTest extends TestCase
         $victim = User::factory()->create(['email' => 'victim@example.com']);
 
         $payload = $this->validIpnPayload([
-            'item_id_1'          => self::PRODUCT_ID_PRO,
+            'item_id_1' => self::PRODUCT_ID_PRO,
             'external-reference' => (string) $victim->id,
-            'customer_email'     => 'attacker-unrelated@example.com',
+            'customer_email' => 'attacker-unrelated@example.com',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -859,9 +863,9 @@ class WebhookBillingTest extends TestCase
         $victim = User::factory()->create(['email' => 'victim@example.com']);
 
         $payload = $this->validIpnPayload([
-            'item_id_1'          => self::PRODUCT_ID_PRO,
+            'item_id_1' => self::PRODUCT_ID_PRO,
             'merchant_item_id_1' => (string) $victim->id,
-            'customer_email'     => 'attacker-unrelated@example.com',
+            'customer_email' => 'attacker-unrelated@example.com',
         ]);
 
         $response = $this->postWebhook($payload);
@@ -881,10 +885,10 @@ class WebhookBillingTest extends TestCase
         ]);
 
         $user = User::factory()->pro()->create([
-            'email'               => 'buyer@example.com',
-            'subscription_id'     => 'OLD-SUB-1',
+            'email' => 'buyer@example.com',
+            'subscription_id' => 'OLD-SUB-1',
             'subscription_status' => 'active',
-            'subscription_ends_at'=> now()->addDays(20),
+            'subscription_ends_at' => now()->addDays(20),
         ]);
 
         $payload = $this->validIpnPayload([
@@ -910,15 +914,15 @@ class WebhookBillingTest extends TestCase
         ]);
 
         $user = User::factory()->pro()->create([
-            'email'               => 'buyer@example.com',
-            'subscription_id'     => 'OLD-SUB-2',
+            'email' => 'buyer@example.com',
+            'subscription_id' => 'OLD-SUB-2',
             'subscription_status' => 'active',
-            'subscription_ends_at'=> now()->addDays(20),
+            'subscription_ends_at' => now()->addDays(20),
         ]);
 
         $payload = $this->validIpnPayload([
-            'item_id_1'           => self::PRODUCT_ID_STUDIO,
-            'recurring_order_id'  => 'NEW-SUB-2',
+            'item_id_1' => self::PRODUCT_ID_STUDIO,
+            'recurring_order_id' => 'NEW-SUB-2',
             'item_billing_cycle_next_date' => now()->addMonth()->toDateString(),
         ]);
 
@@ -962,11 +966,11 @@ class WebhookBillingTest extends TestCase
     {
         $user = User::factory()->{$plan}()->create(['email' => 'buyer@example.com']);
         $transaction = Transaction::factory()->create([
-            'user_id'    => $user->id,
+            'user_id' => $user->id,
             'invoice_id' => $invoiceId,
-            'plan'       => $plan,
-            'amount'     => $amount,
-            'status'     => $status,
+            'plan' => $plan,
+            'amount' => $amount,
+            'status' => $status,
         ]);
 
         return [$user, $transaction];
@@ -975,8 +979,8 @@ class WebhookBillingTest extends TestCase
     private function refundPayload(string $invoiceId, string $amount): array
     {
         return $this->validIpnPayload([
-            'message_type'       => 'REFUND_ISSUED',
-            'invoice_id'         => $invoiceId,
+            'message_type' => 'REFUND_ISSUED',
+            'invoice_id' => $invoiceId,
             'item_list_amount_1' => $amount,
         ]);
     }
@@ -1038,7 +1042,8 @@ class WebhookBillingTest extends TestCase
     {
         [$user, $transaction] = $this->seedTransaction('INV-REFUND-RETRY-001', 'pro', 29.00);
 
-        $flaky = new class (app(\App\Services\CoolifyDomainManager::class)) extends \App\Services\PlanDowngradeService {
+        $flaky = new class(app(\App\Services\CoolifyDomainManager::class)) extends \App\Services\PlanDowngradeService
+        {
             public int $calls = 0;
 
             public function downgradeToFree(User $user, string $reason): void
@@ -1066,7 +1071,8 @@ class WebhookBillingTest extends TestCase
     {
         [$user, $transaction] = $this->seedTransaction('INV-CB-RETRY-001', 'pro', 29.00);
 
-        $flaky = new class (app(\App\Services\CoolifyDomainManager::class)) extends \App\Services\PlanDowngradeService {
+        $flaky = new class(app(\App\Services\CoolifyDomainManager::class)) extends \App\Services\PlanDowngradeService
+        {
             public int $calls = 0;
 
             public function downgradeToFree(User $user, string $reason): void
@@ -1081,7 +1087,7 @@ class WebhookBillingTest extends TestCase
 
         $payload = $this->validIpnPayload([
             'message_type' => 'CHARGEBACK_REPORTED',
-            'invoice_id'   => 'INV-CB-RETRY-001',
+            'invoice_id' => 'INV-CB-RETRY-001',
         ]);
 
         $this->postWebhook($payload)->assertStatus(500);

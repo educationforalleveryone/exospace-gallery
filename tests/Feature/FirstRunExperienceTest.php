@@ -27,19 +27,19 @@ class FirstRunExperienceTest extends TestCase
     private function venueTemplate(string $plan = 'free', string $slug = 'white-cube', int $sort = 1): VenueTemplate
     {
         return VenueTemplate::create([
-            'name'             => ucfirst(str_replace('-', ' ', $slug)),
-            'slug'             => $slug,
-            'description'      => 'A venue for testing.',
-            'plan_required'    => $plan,
-            'is_active'        => true,
-            'is_draft'         => false,
-            'sort_order'       => $sort,
+            'name' => ucfirst(str_replace('-', ' ', $slug)),
+            'slug' => $slug,
+            'description' => 'A venue for testing.',
+            'plan_required' => $plan,
+            'is_active' => true,
+            'is_draft' => false,
+            'sort_order' => $sort,
             'default_settings' => [
-                'wall_texture'    => 'white',
-                'floor_material'  => 'concrete',
-                'frame_style'     => 'minimal',
+                'wall_texture' => 'white',
+                'floor_material' => 'concrete',
+                'frame_style' => 'minimal',
                 'lighting_preset' => 'bright',
-                'room_layout'     => 'square',
+                'room_layout' => 'square',
             ],
         ]);
     }
@@ -47,12 +47,12 @@ class FirstRunExperienceTest extends TestCase
     private function storePayload(array $overrides = []): array
     {
         return array_merge([
-            'title'           => 'My First Exhibition',
-            'wall_texture'    => 'white',
-            'frame_style'     => 'minimal',
+            'title' => 'My First Exhibition',
+            'wall_texture' => 'white',
+            'frame_style' => 'minimal',
             'lighting_preset' => 'bright',
-            'floor_material'  => 'concrete',
-            'room_layout'     => 'square',
+            'floor_material' => 'concrete',
+            'room_layout' => 'square',
         ], $overrides);
     }
 
@@ -86,7 +86,7 @@ class FirstRunExperienceTest extends TestCase
     {
         $user = User::factory()->create();
         $personal = Gallery::factory()->create([
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'is_active' => false,
             'view_count' => 0,
         ]);
@@ -94,8 +94,8 @@ class FirstRunExperienceTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $user->id]);
         $team->members()->attach($user->id, ['role' => 'owner']);
         Gallery::factory()->create([
-            'user_id'   => $user->id,
-            'team_id'   => $team->id,
+            'user_id' => $user->id,
+            'team_id' => $team->id,
             'is_active' => false,
         ]);
 
@@ -113,7 +113,7 @@ class FirstRunExperienceTest extends TestCase
     {
         $user = User::factory()->create();
         $personalDraft = Gallery::factory()->create([
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'is_active' => false,
         ]);
         GalleryImage::factory()->create(['gallery_id' => $personalDraft->id]);
@@ -121,8 +121,8 @@ class FirstRunExperienceTest extends TestCase
         $team = Team::factory()->create(['owner_id' => $user->id]);
         $team->members()->attach($user->id, ['role' => 'owner']);
         $teamDraft = Gallery::factory()->create([
-            'user_id'   => $user->id,
-            'team_id'   => $team->id,
+            'user_id' => $user->id,
+            'team_id' => $team->id,
             'is_active' => false,
         ]);
 
@@ -138,15 +138,15 @@ class FirstRunExperienceTest extends TestCase
     {
         $user = User::factory()->create();
         $personal = Gallery::factory()->create([
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'is_active' => false,
         ]);
 
         $team = Team::factory()->create(['owner_id' => $user->id]);
         $team->members()->attach($user->id, ['role' => 'owner']);
         $teamGallery = Gallery::factory()->create([
-            'user_id'   => $user->id,
-            'team_id'   => $team->id,
+            'user_id' => $user->id,
+            'team_id' => $team->id,
             'is_active' => false,
         ]);
         GalleryImage::factory()->create(['gallery_id' => $teamGallery->id]);
@@ -163,7 +163,7 @@ class FirstRunExperienceTest extends TestCase
     {
         $user = User::factory()->create();
         $gallery = Gallery::factory()->create([
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'is_active' => true,
             'view_count' => 0,
         ]);
@@ -183,8 +183,8 @@ class FirstRunExperienceTest extends TestCase
         $member->switchTeam($team);
 
         Gallery::factory()->create([
-            'user_id'   => $owner->id,
-            'team_id'   => $team->id,
+            'user_id' => $owner->id,
+            'team_id' => $team->id,
             'is_active' => false,
         ]);
 

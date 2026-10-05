@@ -23,11 +23,11 @@ class SuperAdminActionAlert extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         $actionLabels = [
-            'user_deleted'      => 'User Deleted',
-            'user_banned'       => 'User Banned',
+            'user_deleted' => 'User Deleted',
+            'user_banned' => 'User Banned',
             'super_admin_toggled' => 'Super-Admin Access Changed',
-            'email_unverified'  => 'Email Verification Revoked',
-            'plan_changed'      => 'User Plan Changed',
+            'email_unverified' => 'Email Verification Revoked',
+            'plan_changed' => 'User Plan Changed',
         ];
 
         $label = $actionLabels[$this->auditLog->action] ?? $this->auditLog->action;

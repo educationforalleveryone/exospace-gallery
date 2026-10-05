@@ -27,12 +27,12 @@ class OnboardingSnapshotTrendTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -41,11 +41,11 @@ class OnboardingSnapshotTrendTest extends TestCase
     {
         $user = User::factory()->create(['created_at' => $registered]);
         Gallery::create([
-            'user_id'      => $user->id,
-            'title'        => 'Snap ' . uniqid(),
-            'slug'         => 'snap-' . uniqid(),
-            'description'  => 'x',
-            'is_active'    => true,
+            'user_id' => $user->id,
+            'title' => 'Snap '.uniqid(),
+            'slug' => 'snap-'.uniqid(),
+            'description' => 'x',
+            'is_active' => true,
             'published_at' => $published,
         ])->forceFill(['created_at' => $galleryCreated])->save();
 

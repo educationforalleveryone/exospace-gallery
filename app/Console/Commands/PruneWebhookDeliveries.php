@@ -23,6 +23,7 @@ class PruneWebhookDeliveries extends Command
         if (! Schema::hasTable('webhook_deliveries')) {
             $this->info('webhook_deliveries table does not exist yet — nothing to prune (fresh install).');
             Log::info('PruneWebhookDeliveries: table not yet migrated — no-op.');
+
             return self::SUCCESS;
         }
 
@@ -31,7 +32,8 @@ class PruneWebhookDeliveries extends Command
             : config('services.outbound_webhook.ledger_retention_days', 30));
 
         if ($retentionDays < 1) {
-            $this->error('Retention window must be at least 1 day. Got: ' . $retentionDays);
+            $this->error('Retention window must be at least 1 day. Got: '.$retentionDays);
+
             return self::FAILURE;
         }
 
@@ -51,6 +53,7 @@ class PruneWebhookDeliveries extends Command
                 $cutoff->toIso8601String(),
                 $retentionDays,
             ));
+
             return self::SUCCESS;
         }
 
@@ -58,8 +61,9 @@ class PruneWebhookDeliveries extends Command
             $this->info('No rows older than the retention window — nothing to prune.');
             Log::info('PruneWebhookDeliveries: no rows older than retention window.', [
                 'retention_days' => $retentionDays,
-                'cutoff'         => $cutoff->toIso8601String(),
+                'cutoff' => $cutoff->toIso8601String(),
             ]);
+
             return self::SUCCESS;
         }
 
@@ -73,10 +77,10 @@ class PruneWebhookDeliveries extends Command
         ));
 
         Log::info('PruneWebhookDeliveries: pruned rows.', [
-            'rows_deleted'     => $deleted,
-            'oldest_deleted'   => $oldestDeliveredAt,
-            'retention_days'   => $retentionDays,
-            'cutoff'           => $cutoff->toIso8601String(),
+            'rows_deleted' => $deleted,
+            'oldest_deleted' => $oldestDeliveredAt,
+            'retention_days' => $retentionDays,
+            'cutoff' => $cutoff->toIso8601String(),
         ]);
 
         try {
@@ -86,10 +90,10 @@ class PruneWebhookDeliveries extends Command
 
             if ($newestSurviving !== null) {
                 AdminAuditLog::record('webhook.deliveries_pruned', $newestSurviving, [
-                    'rows_deleted'    => $deleted,
-                    'oldest_deleted'  => $oldestDeliveredAt,
-                    'retention_days'  => $retentionDays,
-                    'cutoff'          => $cutoff->toIso8601String(),
+                    'rows_deleted' => $deleted,
+                    'oldest_deleted' => $oldestDeliveredAt,
+                    'retention_days' => $retentionDays,
+                    'cutoff' => $cutoff->toIso8601String(),
                 ]);
             } else {
                 Log::info('PruneWebhookDeliveries: audit row skipped — no surviving rows to target.');

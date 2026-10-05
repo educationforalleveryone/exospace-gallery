@@ -8,7 +8,6 @@ use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
 use App\Models\SeoPage;
-use App\Models\SeoProfile;
 use App\Models\SeoRedirect;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,7 +34,7 @@ class SeoAdminToolingTest extends TestCase
     private function actingAsMfaSuperAdmin(): self
     {
         return $this->actingAs($this->superAdmin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }

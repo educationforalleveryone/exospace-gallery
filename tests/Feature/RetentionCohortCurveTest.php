@@ -28,12 +28,12 @@ class RetentionCohortCurveTest extends TestCase
     private function actingAsMfaSuperAdmin()
     {
         $admin = User::factory()->withMfa()->create([
-            'is_super_admin'    => true,
+            'is_super_admin' => true,
             'email_verified_at' => now(),
         ]);
 
         return $this->actingAs($admin)->withSession([
-            'mfa_verified'    => true,
+            'mfa_verified' => true,
             'mfa_verified_at' => now()->timestamp,
         ]);
     }
@@ -70,11 +70,11 @@ class RetentionCohortCurveTest extends TestCase
         for ($w = 0; $w < 8; $w++) {
             RetentionSnapshot::create([
                 'cohort_week_start' => $cohortStart->toDateString(),
-                'week_index'        => $w,
-                'cohort_size'       => 10,
-                'active_count'      => 10 - $w, // decay: 10,9,8,...3
-                'retained_pct'      => round(((10 - $w) / 10) * 100, 1),
-                'captured_at'       => $cohortStart->copy()->addWeeks($w + 1)->toDateTimeString(),
+                'week_index' => $w,
+                'cohort_size' => 10,
+                'active_count' => 10 - $w, // decay: 10,9,8,...3
+                'retained_pct' => round(((10 - $w) / 10) * 100, 1),
+                'captured_at' => $cohortStart->copy()->addWeeks($w + 1)->toDateTimeString(),
             ]);
         }
 
@@ -97,19 +97,19 @@ class RetentionCohortCurveTest extends TestCase
         $cohortStart = \Carbon\CarbonImmutable::now()->subWeeks(8)->startOfWeek();
         RetentionSnapshot::create([
             'cohort_week_start' => $cohortStart->toDateString(),
-            'week_index'        => 1,
-            'cohort_size'       => 10,
-            'active_count'      => 5,
-            'retained_pct'      => 50.0,
-            'captured_at'       => '2026-07-01 06:00:00',
+            'week_index' => 1,
+            'cohort_size' => 10,
+            'active_count' => 5,
+            'retained_pct' => 50.0,
+            'captured_at' => '2026-07-01 06:00:00',
         ]);
         RetentionSnapshot::create([
             'cohort_week_start' => $cohortStart->toDateString(),
-            'week_index'        => 1,
-            'cohort_size'       => 10,
-            'active_count'      => 8, // updated count — captures the more recent state
-            'retained_pct'      => 80.0,
-            'captured_at'       => '2026-07-08 06:00:00', // later
+            'week_index' => 1,
+            'cohort_size' => 10,
+            'active_count' => 8, // updated count — captures the more recent state
+            'retained_pct' => 80.0,
+            'captured_at' => '2026-07-08 06:00:00', // later
         ]);
 
         $service = app(\App\Services\CohortRetentionMetricsService::class);
@@ -128,11 +128,11 @@ class RetentionCohortCurveTest extends TestCase
         for ($w = 0; $w < 8; $w++) {
             RetentionSnapshot::create([
                 'cohort_week_start' => $cohortStart->toDateString(),
-                'week_index'        => $w,
-                'cohort_size'       => 1,
-                'active_count'      => $w % 2 === 0 ? 1 : 0,
-                'retained_pct'      => $w % 2 === 0 ? 100.0 : 0.0,
-                'captured_at'       => $cohortStart->copy()->addWeeks($w + 1)->toDateTimeString(),
+                'week_index' => $w,
+                'cohort_size' => 1,
+                'active_count' => $w % 2 === 0 ? 1 : 0,
+                'retained_pct' => $w % 2 === 0 ? 100.0 : 0.0,
+                'captured_at' => $cohortStart->copy()->addWeeks($w + 1)->toDateTimeString(),
             ]);
         }
 

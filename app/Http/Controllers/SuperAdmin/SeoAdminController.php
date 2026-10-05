@@ -8,13 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\Gallery;
 use App\Models\SeoPage;
-use App\Models\SeoProfile;
 use App\Models\SeoRedirect;
 use App\Services\Seo\OrganicAcquisitionService;
 use App\Services\Seo\SeoAuditService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class SeoAdminController extends Controller
 {
@@ -77,25 +76,25 @@ class SeoAdminController extends Controller
     public function updateProfile(Request $request, string $type, int $id): RedirectResponse
     {
         $validated = $request->validate([
-            'title_override'        => ['nullable', 'string', 'max:200'],
-            'description_override'  => ['nullable', 'string', 'max:300'],
-            'canonical_override'    => ['nullable', 'string', 'max:500'],
-            'robots_directive'      => ['nullable', 'string', 'max:100', 'regex:/^(index|noindex)(,(follow|nofollow))?$/'],
-            'sitemap_include'       => ['nullable', 'in:0,1'],
-            'structured_data'       => ['nullable', 'in:0,1'],
+            'title_override' => ['nullable', 'string', 'max:200'],
+            'description_override' => ['nullable', 'string', 'max:300'],
+            'canonical_override' => ['nullable', 'string', 'max:500'],
+            'robots_directive' => ['nullable', 'string', 'max:100', 'regex:/^(index|noindex)(,(follow|nofollow))?$/'],
+            'sitemap_include' => ['nullable', 'in:0,1'],
+            'structured_data' => ['nullable', 'in:0,1'],
         ]);
 
         $subject = $this->resolveSubject($type, $id);
-        if (!$subject) {
+        if (! $subject) {
             abort(404);
         }
 
         $profile = $subject->seoProfileOrCreate();
         $profile->fill([
-            'title_override'       => $validated['title_override'] ?? null,
+            'title_override' => $validated['title_override'] ?? null,
             'description_override' => $validated['description_override'] ?? null,
-            'canonical_override'   => $validated['canonical_override'] ?? null,
-            'robots_directive'     => $validated['robots_directive'] ?? null,
+            'canonical_override' => $validated['canonical_override'] ?? null,
+            'robots_directive' => $validated['robots_directive'] ?? null,
             'updated_by' => $request->user()->id,
         ]);
 
@@ -152,7 +151,7 @@ class SeoAdminController extends Controller
             'source_path' => $sourcePath,
             'destination' => $validated['destination'],
             'status_code' => $validated['status_code'] ?? 301,
-            'created_by'  => $request->user()->id,
+            'created_by' => $request->user()->id,
         ]);
 
         SeoRedirect::clearMapCache();

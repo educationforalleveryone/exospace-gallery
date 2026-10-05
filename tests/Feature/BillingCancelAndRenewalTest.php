@@ -31,9 +31,9 @@ class BillingCancelAndRenewalTest extends TestCase
 
         // User with an active subscription
         $user = User::factory()->create([
-            'plan'                 => 'pro',
-            'subscription_id'      => 'sub-123',
-            'subscription_status'  => 'active',
+            'plan' => 'pro',
+            'subscription_id' => 'sub-123',
+            'subscription_status' => 'active',
             'subscription_ends_at' => now()->addMonth(),
         ]);
 
@@ -67,9 +67,9 @@ class BillingCancelAndRenewalTest extends TestCase
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
 
         $user = User::factory()->create([
-            'plan'                 => 'pro',
-            'subscription_id'      => 'sub-456',
-            'subscription_status'  => 'active',
+            'plan' => 'pro',
+            'subscription_id' => 'sub-456',
+            'subscription_status' => 'active',
             'subscription_ends_at' => now()->addMonth(),
         ]);
 
@@ -95,11 +95,11 @@ class BillingCancelAndRenewalTest extends TestCase
         config()->set('services.2checkout.secret_word', 'TESTSECRET');
 
         $user = User::factory()->create([
-            'plan'                     => 'pro',
-            'subscription_id'          => 'sub-789',
-            'subscription_status'      => 'cancelled',
-            'subscription_cancelled_at'=> now()->subDay(),
-            'subscription_ends_at'     => now()->addWeek(), // still within paid-for period
+            'plan' => 'pro',
+            'subscription_id' => 'sub-789',
+            'subscription_status' => 'cancelled',
+            'subscription_cancelled_at' => now()->subDay(),
+            'subscription_ends_at' => now()->addWeek(), // still within paid-for period
         ]);
 
         Http::fake([
@@ -121,9 +121,9 @@ class BillingCancelAndRenewalTest extends TestCase
     {
         // User on Pro with a one-time purchase (plan_expires_at = null, no subscription)
         $user = User::factory()->create([
-            'plan'              => 'pro',
-            'plan_expires_at'   => null,
-            'subscription_id'   => null,
+            'plan' => 'pro',
+            'plan_expires_at' => null,
+            'subscription_id' => null,
         ]);
 
         config()->set('services.2checkout.account_number', 'TESTMERCHANT');
@@ -147,9 +147,9 @@ class BillingCancelAndRenewalTest extends TestCase
 
         // User on Pro with an active monthly subscription
         $user = User::factory()->create([
-            'plan'                 => 'pro',
-            'subscription_id'      => 'sub-convert-123',
-            'subscription_status'  => 'active',
+            'plan' => 'pro',
+            'subscription_id' => 'sub-convert-123',
+            'subscription_status' => 'active',
             'subscription_ends_at' => now()->addMonth(),
         ]);
 
@@ -176,8 +176,8 @@ class BillingCancelAndRenewalTest extends TestCase
     public function test_2co1_cancel_fails_when_user_has_no_active_subscription(): void
     {
         $user = User::factory()->create([
-            'plan'              => 'free',
-            'subscription_id'   => null,
+            'plan' => 'free',
+            'subscription_id' => null,
         ]);
 
         $response = $this->actingAs($user)

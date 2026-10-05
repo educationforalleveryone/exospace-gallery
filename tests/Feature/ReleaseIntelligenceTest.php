@@ -21,10 +21,10 @@ class ReleaseIntelligenceTest extends TestCase
     {
         foreach (['pre_release', 'security', 'billing', 'seo', 'database', 'smoke'] as $profile) {
             QaTestRun::factory()->create([
-                'profile'    => $profile,
-                'status'     => 'passed',
-                'total'      => 100,
-                'passed'     => 100,
+                'profile' => $profile,
+                'status' => 'passed',
+                'total' => 100,
+                'passed' => 100,
                 'created_at' => now()->subHours(2),
             ]);
         }
@@ -77,14 +77,14 @@ class ReleaseIntelligenceTest extends TestCase
     public function test_stale_run_beyond_freshness_requires_rerun_to_reprove(): void
     {
         QaTestRun::factory()->create([
-            'profile'    => 'pre_release',
-            'status'     => 'passed',
+            'profile' => 'pre_release',
+            'status' => 'passed',
             'created_at' => now()->subHours(72),
         ]);
         QaTestRun::factory()->create(['profile' => 'smoke', 'status' => 'passed']);
 
         $result = app(ReleaseReadinessService::class)->evaluate('production');
-        $gate   = $result['gates']->get('tests');
+        $gate = $result['gates']->get('tests');
 
         $this->assertSame('stale', $gate['state']);
         $this->assertStringContainsString('Re-run to re-prove', $gate['note']);
@@ -126,25 +126,25 @@ class ReleaseIntelligenceTest extends TestCase
         [$class, $method] = explode('::', $identifier);
 
         QaTestCaseResult::query()->create([
-            'qa_test_run_id'  => $runId,
+            'qa_test_run_id' => $runId,
             'test_identifier' => $identifier,
-            'classname'       => $class,
-            'method_name'     => $method,
-            'status'          => $green ? 'passed' : 'failed',
-            'message'         => $green ? null : 'synthetic boom',
+            'classname' => $class,
+            'method_name' => $method,
+            'status' => $green ? 'passed' : 'failed',
+            'message' => $green ? null : 'synthetic boom',
         ]);
     }
 
     public function test_smoke_verifies_deployed_surface_end_to_end(): void
     {
         Http::fake([
-            'https://exospace.test/up'          => Http::response('ok', 200),
-            'https://exospace.test/health'      => Http::response(json_encode(['checks' => ['db' => ['status' => 'ok']]]), 200),
-            'https://exospace.test/robots.txt'  => Http::response("User-agent: *\nAllow: /\nSitemap: https://exospace.test/sitemap.xml", 200),
+            'https://exospace.test/up' => Http::response('ok', 200),
+            'https://exospace.test/health' => Http::response(json_encode(['checks' => ['db' => ['status' => 'ok']]]), 200),
+            'https://exospace.test/robots.txt' => Http::response("User-agent: *\nAllow: /\nSitemap: https://exospace.test/sitemap.xml", 200),
             'https://exospace.test/sitemap.xml' => Http::response('<?xml version="1.0"?><urlset/>', 200),
-            'https://exospace.test/login'       => Http::response('<form>', 200),
-            'https://exospace.test/register'    => Http::response('<form>', 200),
-            'https://exospace.test/'            => Http::response('<html><script src="/build/assets/app-X.js"></script></html>', 200),
+            'https://exospace.test/login' => Http::response('<form>', 200),
+            'https://exospace.test/register' => Http::response('<form>', 200),
+            'https://exospace.test/' => Http::response('<html><script src="/build/assets/app-X.js"></script></html>', 200),
         ]);
 
         \Artisan::call('qa:smoke', ['--target' => 'https://exospace.test', '--format' => 'junit-json']);
@@ -172,6 +172,30 @@ class ReleaseIntelligenceTest extends TestCase
         $this->assertGreaterThan(0, $json['totals']['failures']);
     }
 
+    public function test_smoke_accepts_redirect_responses_for_auth_pages(): void
+    {
+        // Illuminate's HTTP Response proxies unknown methods to the PSR-7
+        // object, which has no isRedirect() — a redirecting /login used to
+        // fatal the check instead of counting as reachable.
+        Http::fake([
+            'https://redirected.test/up' => Http::response('ok', 200),
+            'https://redirected.test/health' => Http::response(json_encode(['checks' => ['db' => ['status' => 'ok']]]), 200),
+            'https://redirected.test/robots.txt' => Http::response('User-agent: *'."\n".'Sitemap: https://redirected.test/sitemap.xml', 200),
+            'https://redirected.test/sitemap.xml' => Http::response('<?xml version="1.0"?><urlset/>', 200),
+            'https://redirected.test/login' => Http::response('', 302),
+            'https://redirected.test/register' => Http::response('', 301),
+            'https://redirected.test/' => Http::response('<html><script src="/build/assets/app-X.js"></script></html>', 200),
+        ]);
+
+        \Artisan::call('qa:smoke', ['--target' => 'https://redirected.test', '--format' => 'junit-json']);
+        $json = json_decode(\Artisan::output(), true);
+
+        $this->assertSame(0, $json['totals']['failures'], json_encode($json['cases']));
+        $statuses = array_column($json['cases'], 'status', 'name');
+        $this->assertSame('passed', $statuses['/login']);
+        $this->assertSame('passed', $statuses['/register']);
+    }
+
     /* ── Dashboard smoke execution ─────────────────────────────────────── */
 
     public function test_dashboard_start_of_smoke_executes_inline_and_records_run(): void
@@ -182,13 +206,13 @@ class ReleaseIntelligenceTest extends TestCase
         $user = \App\Models\User::factory()->create(['email' => 'qa@exospace.gallery']);
 
         Http::fake([
-            'https://staging.exospace.test/up'          => Http::response('ok', 200),
-            'https://staging.exospace.test/health'      => Http::response(json_encode(['checks' => ['db' => ['status' => 'ok']]]), 200),
-            'https://staging.exospace.test/robots.txt'  => Http::response("User-agent: *\nAllow: /\nSitemap: https://staging.exospace.test/sitemap.xml", 200),
+            'https://staging.exospace.test/up' => Http::response('ok', 200),
+            'https://staging.exospace.test/health' => Http::response(json_encode(['checks' => ['db' => ['status' => 'ok']]]), 200),
+            'https://staging.exospace.test/robots.txt' => Http::response("User-agent: *\nAllow: /\nSitemap: https://staging.exospace.test/sitemap.xml", 200),
             'https://staging.exospace.test/sitemap.xml' => Http::response('<?xml version="1.0"?><urlset/>', 200),
-            'https://staging.exospace.test/login'       => Http::response('<form>', 200),
-            'https://staging.exospace.test/register'    => Http::response('<form>', 200),
-            'https://staging.exospace.test/'            => Http::response('<html><script src="/build/assets/app-X.js"></script></html>', 200),
+            'https://staging.exospace.test/login' => Http::response('<form>', 200),
+            'https://staging.exospace.test/register' => Http::response('<form>', 200),
+            'https://staging.exospace.test/' => Http::response('<html><script src="/build/assets/app-X.js"></script></html>', 200),
         ]);
 
         $response = $this->actingAs($user)->post('/control-center/profiles/smoke/start');
@@ -208,15 +232,15 @@ class ReleaseIntelligenceTest extends TestCase
         Http::fake(); // swallow any real posts
 
         $persisted = QaTestRun::factory()->create([
-            'profile'       => 'billing',
-            'environment'   => 'ci',
-            'status'        => 'failed',
+            'profile' => 'billing',
+            'environment' => 'ci',
+            'status' => 'failed',
             'failure_class' => 'application',
-            'git_commit'    => str_repeat('f', 40),
+            'git_commit' => str_repeat('f', 40),
         ]);
 
         $alerts = \Mockery::mock(\App\Services\OperationalAlertService::class)->makePartial();
-        $alerts->shouldReceive('alert')->once()->withArgs(function ($title, $msg, $severity, $dedup) use ($persisted) {
+        $alerts->shouldReceive('alert')->once()->withArgs(function ($title, $msg, $severity, $dedup) {
             return str_contains((string) $title, '[QA]')
                 && str_contains((string) $title, 'billing FAILED')
                 && $severity === 'critical'

@@ -16,9 +16,13 @@ class WebhookDeliveryLedgerTest extends TestCase
     use RefreshDatabase;
 
     private const ENV_URL = 'https://env.example.com/exospace';
+
     private const ENV_SECRET = 'env-shared-secret';
+
     private const SUB_URL_A = 'https://sub-a.example.com/hook';
+
     private const SUB_URL_B = 'https://sub-b.example.com/hook';
+
     private const SUB_SECRET_A = 'per-sub-secret-a';
 
     protected function setUp(): void
@@ -54,7 +58,7 @@ class WebhookDeliveryLedgerTest extends TestCase
     public function test_dispatch_to_db_subscription_threads_subscription_id_into_ledger_row(): void
     {
         Http::fake([
-            self::ENV_URL  => Http::response(['ok' => true], 200),
+            self::ENV_URL => Http::response(['ok' => true], 200),
             self::SUB_URL_A => Http::response(['ok' => true], 200),
         ]);
         config(['services.operational_alerts.webhook_url' => null]);
@@ -62,9 +66,9 @@ class WebhookDeliveryLedgerTest extends TestCase
         $sub = WebhookSubscription::create([
             'event_type' => 'billing.recipient_added',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null,
-            'is_active'  => true,
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => true,
+            'added_by' => null,
         ]);
 
         \App\Services\OutboundWebhookService::dispatch('billing.recipient_added', ['recipient_email' => 'r@example.com']);
@@ -146,16 +150,16 @@ class WebhookDeliveryLedgerTest extends TestCase
     public function test_paused_subscription_writes_no_ledger_row_for_that_subscription(): void
     {
         Http::fake([
-            self::ENV_URL  => Http::response(['ok' => true], 200),
+            self::ENV_URL => Http::response(['ok' => true], 200),
             self::SUB_URL_A => Http::response(['ok' => true], 200),
         ]);
 
         $sub = WebhookSubscription::create([
             'event_type' => 'gallery.published',
             'target_url' => self::SUB_URL_A,
-            'secret'     => null,
-            'is_active'  => false, // PAUSED — no dispatch, no ledger row
-            'added_by'   => null,
+            'secret' => null,
+            'is_active' => false, // PAUSED — no dispatch, no ledger row
+            'added_by' => null,
         ]);
 
         \App\Services\OutboundWebhookService::dispatch('gallery.published', ['id' => 42]);

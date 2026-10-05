@@ -43,7 +43,7 @@ class SeoRebuild extends Command
                 ->warmCaches(null, 10);
             $this->info("Sitemap caches warmed: {$stats['warmed']} keys under v{$newVersion}.");
         } catch (\Throwable $e) {
-            $this->warn('Sitemap warming failed (sitemaps regenerate lazily on next request): ' . $e->getMessage());
+            $this->warn('Sitemap warming failed (sitemaps regenerate lazily on next request): '.$e->getMessage());
         }
 
         return self::SUCCESS;

@@ -48,17 +48,17 @@ class DeliverOutboundWebhook implements ShouldQueue
             // be exactly $body — never a re-encoded copy of the decoded array.
             $response = Http::timeout(OutboundWebhookService::TIMEOUT)
                 ->withHeaders(array_filter([
-                    'Content-Type'         => 'application/json',
-                    'X-Exospace-Event'     => $this->eventType,
+                    'Content-Type' => 'application/json',
+                    'X-Exospace-Event' => $this->eventType,
                     'X-Exospace-Signature' => $this->signature,
                 ]))
                 ->send('post', $this->url, ['body' => $this->body]);
         } catch (\Throwable $e) {
             Log::warning('OutboundWebhook: dispatch failed (async)', [
-                'event'   => $this->eventType,
-                'url'     => $this->url,
+                'event' => $this->eventType,
+                'url' => $this->url,
                 'attempt' => $this->attempts(),
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
 
             throw new RuntimeException(
@@ -69,8 +69,8 @@ class DeliverOutboundWebhook implements ShouldQueue
 
         if ($response->successful()) {
             Log::info('OutboundWebhook: dispatched successfully (async)', [
-                'event'   => $this->eventType,
-                'url'     => $this->url,
+                'event' => $this->eventType,
+                'url' => $this->url,
                 'attempt' => $this->attempts(),
             ]);
 
@@ -78,9 +78,9 @@ class DeliverOutboundWebhook implements ShouldQueue
         }
 
         Log::warning('OutboundWebhook: non-2xx response (async)', [
-            'event'   => $this->eventType,
-            'url'     => $this->url,
-            'status'  => $response->status(),
+            'event' => $this->eventType,
+            'url' => $this->url,
+            'status' => $response->status(),
             'attempt' => $this->attempts(),
         ]);
 

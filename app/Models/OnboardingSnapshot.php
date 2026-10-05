@@ -28,19 +28,19 @@ class OnboardingSnapshot extends Model
     ];
 
     protected $casts = [
-        'window_days'     => 'integer',
-        'registered'      => 'integer',
+        'window_days' => 'integer',
+        'registered' => 'integer',
         'created_gallery' => 'integer',
-        'uploaded_image'  => 'integer',
-        'published'       => 'integer',
-        'got_views'       => 'integer',
-        'ttfg_min'        => 'float',
-        'ttfg_avg'        => 'float',
-        'ttfg_max'        => 'float',
-        'ttfe_min'        => 'float',
-        'ttfe_avg'        => 'float',
-        'ttfe_max'        => 'float',
-        'captured_at'     => 'datetime',
+        'uploaded_image' => 'integer',
+        'published' => 'integer',
+        'got_views' => 'integer',
+        'ttfg_min' => 'float',
+        'ttfg_avg' => 'float',
+        'ttfg_max' => 'float',
+        'ttfe_min' => 'float',
+        'ttfe_avg' => 'float',
+        'ttfe_max' => 'float',
+        'captured_at' => 'datetime',
     ];
 
     public function scopeTrend(Builder $q, int $windowDays, int $limit = 26): Builder

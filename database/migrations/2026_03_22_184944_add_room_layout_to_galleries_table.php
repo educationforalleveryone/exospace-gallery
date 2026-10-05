@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::table('galleries', function (Blueprint $table) {
             $table->enum('room_layout', ['square', 'corridor', 'l-shape', 'rotunda'])
-                  ->default('square')
-                  ->after('floor_material');
+                ->default('square')
+                ->after('floor_material');
         });
     }
 

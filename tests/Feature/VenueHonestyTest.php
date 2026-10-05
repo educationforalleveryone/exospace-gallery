@@ -33,7 +33,7 @@ class VenueHonestyTest extends TestCase
                     $claim,
                     (string) $row->description,
                     "Venue [{$row->slug}] description re-introduces the over-claim \"{$claim}\". "
-                    . 'If the renderer now delivers it, update the honesty-test claim list deliberately.'
+                    .'If the renderer now delivers it, update the honesty-test claim list deliberately.'
                 );
             }
         }

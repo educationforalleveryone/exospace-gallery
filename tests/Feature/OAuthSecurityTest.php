@@ -24,14 +24,14 @@ class OAuthSecurityTest extends TestCase
         parent::setUp();
         config([
             'services.google' => [
-                'client_id'     => 'test-google-client-id',
+                'client_id' => 'test-google-client-id',
                 'client_secret' => 'test-google-secret',
-                'redirect'      => '/auth/google/callback',
+                'redirect' => '/auth/google/callback',
             ],
             'services.github' => [
-                'client_id'     => 'test-github-client-id',
+                'client_id' => 'test-github-client-id',
                 'client_secret' => 'test-github-secret',
-                'redirect'      => '/auth/github/callback',
+                'redirect' => '/auth/github/callback',
             ],
         ]);
         // Configure fake OAuth credentials so isProviderConfigured() returns true

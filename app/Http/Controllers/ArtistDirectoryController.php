@@ -55,11 +55,11 @@ class ArtistDirectoryController extends Controller
         $page = max(1, (int) $request->input('page', 1));
         $pagination = CanonicalUrl::paginationLinks($baseUrl, $page, $artists->hasMorePages());
 
-        $canonical = $page > 1 ? $baseUrl . '?page=' . $page : $baseUrl;
+        $canonical = $page > 1 ? $baseUrl.'?page='.$page : $baseUrl;
 
         $seo = $this->seo->forHub(
             templateKey: 'artists_hub',
-            description: 'Browse artists exhibiting 3D virtual exhibitions on ' . config('seo.site_name', 'Exospace') . '. Discover painters, photographers, sculptors, and digital artists from around the world.',
+            description: 'Browse artists exhibiting 3D virtual exhibitions on '.config('seo.site_name', 'Exospace').'. Discover painters, photographers, sculptors, and digital artists from around the world.',
             canonicalPath: '/artists',
         )->with([
             'canonicalUrl' => $canonical,

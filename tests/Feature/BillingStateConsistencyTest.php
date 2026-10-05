@@ -16,7 +16,9 @@ class BillingStateConsistencyTest extends TestCase
     use RefreshDatabase;
 
     private const SECRET_WORD = 'consistency-secret';
+
     private const PRODUCT_ID_PRO = 'CONS-PRO-1';
+
     private const PRODUCT_ID_STUDIO = 'CONS-STUDIO-1';
 
     protected function setUp(): void
@@ -36,7 +38,7 @@ class BillingStateConsistencyTest extends TestCase
     private function md5For(string $saleId, string $invoiceId, string $vendorId = 'V-CONS'): string
     {
         return strtoupper(md5(
-            $saleId . $vendorId . $invoiceId . self::SECRET_WORD
+            $saleId.$vendorId.$invoiceId.self::SECRET_WORD
         ));
     }
 
@@ -50,10 +52,10 @@ class BillingStateConsistencyTest extends TestCase
     public function test_forced_expiry_marks_active_subscription_as_expired(): void
     {
         $user = User::factory()->pro()->create([
-            'plan_expires_at'     => now()->subDay(),
-            'subscription_id'     => 'SUB-EXP-1',
+            'plan_expires_at' => now()->subDay(),
+            'subscription_id' => 'SUB-EXP-1',
             'subscription_status' => 'active',
-            'subscription_ends_at'=> now()->addDays(3),
+            'subscription_ends_at' => now()->addDays(3),
         ]);
 
         $this->actingAs($user)->get('/admin/dashboard');
@@ -66,8 +68,8 @@ class BillingStateConsistencyTest extends TestCase
     public function test_forced_expiry_marks_past_due_subscription_as_expired(): void
     {
         $user = User::factory()->pro()->create([
-            'plan_expires_at'     => now()->subDays((int) config('plans.dunning_grace_days') + 1),
-            'subscription_id'     => 'SUB-EXP-2',
+            'plan_expires_at' => now()->subDays((int) config('plans.dunning_grace_days') + 1),
+            'subscription_id' => 'SUB-EXP-2',
             'subscription_status' => 'past_due',
         ]);
 
@@ -81,10 +83,10 @@ class BillingStateConsistencyTest extends TestCase
     public function test_past_due_subscription_keeps_access_during_dunning_grace(): void
     {
         $user = User::factory()->pro()->create([
-            'plan_expires_at'     => now()->subDay(),
-            'subscription_id'     => 'SUB-GRACE-1',
+            'plan_expires_at' => now()->subDay(),
+            'subscription_id' => 'SUB-GRACE-1',
             'subscription_status' => 'past_due',
-            'dunning_step'        => 1,
+            'dunning_step' => 1,
         ]);
 
         $this->actingAs($user)->get('/admin/dashboard');
@@ -97,8 +99,8 @@ class BillingStateConsistencyTest extends TestCase
     public function test_active_subscription_gets_no_grace_after_expiry(): void
     {
         $user = User::factory()->pro()->create([
-            'plan_expires_at'     => now()->subDay(),
-            'subscription_id'     => 'SUB-GRACE-2',
+            'plan_expires_at' => now()->subDay(),
+            'subscription_id' => 'SUB-GRACE-2',
             'subscription_status' => 'active',
         ]);
 
@@ -110,10 +112,10 @@ class BillingStateConsistencyTest extends TestCase
     public function test_cancelled_subscription_is_left_untouched_by_forced_expiry(): void
     {
         $user = User::factory()->pro()->create([
-            'plan_expires_at'     => now()->subDay(),
-            'subscription_id'     => 'SUB-EXP-3',
+            'plan_expires_at' => now()->subDay(),
+            'subscription_id' => 'SUB-EXP-3',
             'subscription_status' => 'cancelled',
-            'subscription_ends_at'=> now()->subDay(),
+            'subscription_ends_at' => now()->subDay(),
         ]);
 
         $this->actingAs($user)->get('/admin/dashboard');
@@ -128,24 +130,24 @@ class BillingStateConsistencyTest extends TestCase
     public function test_cancelled_event_for_old_subscription_does_not_cancel_new_one(): void
     {
         $user = User::factory()->pro()->create([
-            'email'               => 'renewal@example.com',
-            'subscription_id'     => 'SUB-NEW-1',
+            'email' => 'renewal@example.com',
+            'subscription_id' => 'SUB-NEW-1',
             'subscription_status' => 'active',
-            'subscription_ends_at'=> now()->addMonth(),
+            'subscription_ends_at' => now()->addMonth(),
         ]);
 
         $saleId = 'SALE-OLD-1';
         $invoiceId = 'INV-OLD-CANCEL-1';
 
         $response = $this->postWebhook([
-            'message_type'      => 'RECURRING_ORDER_CANCELLED',
-            'message_id'        => 'MSG-OLD-CANCEL-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-OLD-1',
-            'customer_email'    => $user->email,
+            'message_type' => 'RECURRING_ORDER_CANCELLED',
+            'message_id' => 'MSG-OLD-CANCEL-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-OLD-1',
+            'customer_email' => $user->email,
         ]);
 
         $response->assertOk();
@@ -159,24 +161,24 @@ class BillingStateConsistencyTest extends TestCase
         \Illuminate\Support\Facades\Mail::fake();
 
         $user = User::factory()->pro()->create([
-            'email'               => 'renewal-fail@example.com',
-            'subscription_id'     => 'SUB-NEW-2',
+            'email' => 'renewal-fail@example.com',
+            'subscription_id' => 'SUB-NEW-2',
             'subscription_status' => 'active',
-            'subscription_ends_at'=> now()->addMonth(),
+            'subscription_ends_at' => now()->addMonth(),
         ]);
 
         $saleId = 'SALE-OLD-2';
         $invoiceId = 'INV-OLD-FAIL-1';
 
         $response = $this->postWebhook([
-            'message_type'      => 'RECURRING_INSTALLMENT_FAILED',
-            'message_id'        => 'MSG-OLD-FAIL-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-OLD-2',
-            'customer_email'    => $user->email,
+            'message_type' => 'RECURRING_INSTALLMENT_FAILED',
+            'message_id' => 'MSG-OLD-FAIL-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-OLD-2',
+            'customer_email' => $user->email,
         ]);
 
         $response->assertOk();
@@ -188,11 +190,11 @@ class BillingStateConsistencyTest extends TestCase
     public function test_success_event_for_old_subscription_does_not_extend_new_one(): void
     {
         $user = User::factory()->pro()->create([
-            'email'               => 'renewal-success@example.com',
-            'subscription_id'     => 'SUB-NEW-3',
+            'email' => 'renewal-success@example.com',
+            'subscription_id' => 'SUB-NEW-3',
             'subscription_status' => 'active',
-            'subscription_ends_at'=> now()->addMonth(),
-            'plan_expires_at'     => now()->addMonth(),
+            'subscription_ends_at' => now()->addMonth(),
+            'plan_expires_at' => now()->addMonth(),
         ]);
 
         $endsAtBefore = $user->subscription_ends_at->copy();
@@ -201,16 +203,16 @@ class BillingStateConsistencyTest extends TestCase
         $invoiceId = 'INV-OLD-SUCCESS-1';
 
         $response = $this->postWebhook([
-            'message_type'      => 'RECURRING_INSTALLMENT_SUCCESS',
-            'message_id'        => 'MSG-OLD-SUCCESS-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-OLD-3',
-            'customer_email'    => $user->email,
-            'item_list_amount_1'=> '29.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'RECURRING_INSTALLMENT_SUCCESS',
+            'message_id' => 'MSG-OLD-SUCCESS-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-OLD-3',
+            'customer_email' => $user->email,
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
         ]);
 
         $response->assertOk();
@@ -225,28 +227,28 @@ class BillingStateConsistencyTest extends TestCase
     public function test_success_event_with_matching_subscription_extends_period(): void
     {
         $user = User::factory()->pro()->create([
-            'email'               => 'renewal-match@example.com',
-            'subscription_id'     => 'SUB-CURRENT-1',
+            'email' => 'renewal-match@example.com',
+            'subscription_id' => 'SUB-CURRENT-1',
             'subscription_status' => 'active',
-            'subscription_ends_at'=> now()->addDays(3),
-            'plan_expires_at'     => now()->addDays(3),
-            'dunning_step'        => 1,
+            'subscription_ends_at' => now()->addDays(3),
+            'plan_expires_at' => now()->addDays(3),
+            'dunning_step' => 1,
         ]);
 
         $saleId = 'SALE-NEW-4';
         $invoiceId = 'INV-NEW-SUCCESS-1';
 
         $response = $this->postWebhook([
-            'message_type'      => 'RECURRING_INSTALLMENT_SUCCESS',
-            'message_id'        => 'MSG-NEW-SUCCESS-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-CURRENT-1',
-            'customer_email'    => $user->email,
-            'item_list_amount_1'=> '29.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'RECURRING_INSTALLMENT_SUCCESS',
+            'message_id' => 'MSG-NEW-SUCCESS-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-CURRENT-1',
+            'customer_email' => $user->email,
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
             'item_billing_cycle_next_date' => now()->addMonth()->toDateString(),
         ]);
 
@@ -260,7 +262,7 @@ class BillingStateConsistencyTest extends TestCase
         $this->assertNull($user->dunning_step);
 
         $this->assertDatabaseHas('transactions', [
-            'user_id'    => $user->id,
+            'user_id' => $user->id,
             'invoice_id' => $invoiceId,
         ]);
     }
@@ -270,9 +272,9 @@ class BillingStateConsistencyTest extends TestCase
         \Illuminate\Support\Facades\Mail::fake();
 
         $user = User::factory()->create([
-            'email'               => 'late-fail@example.com',
-            'plan'                => 'free',
-            'subscription_id'     => 'SUB-LATE-1',
+            'email' => 'late-fail@example.com',
+            'plan' => 'free',
+            'subscription_id' => 'SUB-LATE-1',
             'subscription_status' => 'expired',
         ]);
 
@@ -280,14 +282,14 @@ class BillingStateConsistencyTest extends TestCase
         $invoiceId = 'INV-LATE-FAIL-1';
 
         $this->postWebhook([
-            'message_type'      => 'RECURRING_INSTALLMENT_FAILED',
-            'message_id'        => 'MSG-LATE-FAIL-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-LATE-1',
-            'customer_email'    => $user->email,
+            'message_type' => 'RECURRING_INSTALLMENT_FAILED',
+            'message_id' => 'MSG-LATE-FAIL-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-LATE-1',
+            'customer_email' => $user->email,
         ])->assertOk();
 
         $user->refresh();
@@ -302,8 +304,8 @@ class BillingStateConsistencyTest extends TestCase
         \Illuminate\Support\Facades\Mail::fake();
 
         $user = User::factory()->pro()->create([
-            'email'               => 'live-fail@example.com',
-            'subscription_id'     => 'SUB-LIVE-1',
+            'email' => 'live-fail@example.com',
+            'subscription_id' => 'SUB-LIVE-1',
             'subscription_status' => 'active',
         ]);
 
@@ -311,14 +313,14 @@ class BillingStateConsistencyTest extends TestCase
         $invoiceId = 'INV-LIVE-FAIL-1';
 
         $this->postWebhook([
-            'message_type'      => 'RECURRING_INSTALLMENT_FAILED',
-            'message_id'        => 'MSG-LIVE-FAIL-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-LIVE-1',
-            'customer_email'    => $user->email,
+            'message_type' => 'RECURRING_INSTALLMENT_FAILED',
+            'message_id' => 'MSG-LIVE-FAIL-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-LIVE-1',
+            'customer_email' => $user->email,
         ])->assertOk();
 
         $user->refresh();
@@ -329,31 +331,31 @@ class BillingStateConsistencyTest extends TestCase
     public function test_successful_retry_after_downgrade_restores_the_paid_plan(): void
     {
         $user = User::factory()->create([
-            'email'               => 'late-pay@example.com',
-            'plan'                => 'free',
-            'max_galleries'       => 1,
-            'max_images'          => 10,
-            'subscription_id'     => 'SUB-LATE-2',
+            'email' => 'late-pay@example.com',
+            'plan' => 'free',
+            'max_galleries' => 1,
+            'max_images' => 10,
+            'subscription_id' => 'SUB-LATE-2',
             'subscription_status' => 'expired',
-            'plan_expires_at'     => now()->subDays(20),
-            'dunning_step'        => 3,
+            'plan_expires_at' => now()->subDays(20),
+            'dunning_step' => 3,
         ]);
 
         $saleId = 'SALE-LATE-2';
         $invoiceId = 'INV-LATE-OK-1';
 
         $this->postWebhook([
-            'message_type'      => 'RECURRING_INSTALLMENT_SUCCESS',
-            'message_id'        => 'MSG-LATE-OK-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-LATE-2',
-            'customer_email'    => $user->email,
-            'item_id_1'         => self::PRODUCT_ID_STUDIO,
-            'item_list_amount_1'=> '99.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'RECURRING_INSTALLMENT_SUCCESS',
+            'message_id' => 'MSG-LATE-OK-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-LATE-2',
+            'customer_email' => $user->email,
+            'item_id_1' => self::PRODUCT_ID_STUDIO,
+            'item_list_amount_1' => '99.00',
+            'list_currency' => 'USD',
             'item_billing_cycle_next_date' => now()->addMonth()->toDateString(),
         ])->assertOk();
 
@@ -369,27 +371,27 @@ class BillingStateConsistencyTest extends TestCase
     public function test_new_purchase_clears_stale_dunning_state(): void
     {
         $user = User::factory()->pro()->create([
-            'email'               => 'fresh-order@example.com',
-            'subscription_id'     => 'SUB-OLD-DUN',
+            'email' => 'fresh-order@example.com',
+            'subscription_id' => 'SUB-OLD-DUN',
             'subscription_status' => 'past_due',
-            'dunning_step'        => 2,
-            'dunning_last_sent_at'=> now()->subDays(4),
+            'dunning_step' => 2,
+            'dunning_last_sent_at' => now()->subDays(4),
         ]);
 
         $saleId = 'SALE-FRESH-1';
         $invoiceId = 'INV-FRESH-1';
 
         $this->postWebhook([
-            'message_type'       => 'ORDER_CREATED',
-            'message_id'         => 'MSG-FRESH-1',
-            'sale_id'            => $saleId,
-            'vendor_id'          => 'V-CONS',
-            'invoice_id'         => $invoiceId,
-            'md5_hash'           => $this->md5For($saleId, $invoiceId),
-            'customer_email'     => $user->email,
-            'item_id_1'          => self::PRODUCT_ID_PRO,
+            'message_type' => 'ORDER_CREATED',
+            'message_id' => 'MSG-FRESH-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'customer_email' => $user->email,
+            'item_id_1' => self::PRODUCT_ID_PRO,
             'item_list_amount_1' => '29.00',
-            'list_currency'      => 'USD',
+            'list_currency' => 'USD',
             'recurring_order_id' => 'SUB-NEW-DUN',
         ])->assertOk();
 
@@ -402,26 +404,26 @@ class BillingStateConsistencyTest extends TestCase
     public function test_legacy_email_matched_renewal_without_local_subscription_id_still_extends(): void
     {
         $user = User::factory()->pro()->create([
-            'email'               => 'legacy@example.com',
-            'subscription_id'     => null,
+            'email' => 'legacy@example.com',
+            'subscription_id' => null,
             'subscription_status' => null,
-            'plan_expires_at'     => now()->addDays(3),
+            'plan_expires_at' => now()->addDays(3),
         ]);
 
         $saleId = 'SALE-LEGACY-1';
         $invoiceId = 'INV-LEGACY-SUCCESS-1';
 
         $response = $this->postWebhook([
-            'message_type'      => 'RECURRING_INSTALLMENT_SUCCESS',
-            'message_id'        => 'MSG-LEGACY-SUCCESS-1',
-            'sale_id'           => $saleId,
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => $invoiceId,
-            'md5_hash'          => $this->md5For($saleId, $invoiceId),
-            'recurring_order_id'=> 'SUB-LEGACY-1',
-            'customer_email'    => $user->email,
-            'item_list_amount_1'=> '29.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'RECURRING_INSTALLMENT_SUCCESS',
+            'message_id' => 'MSG-LEGACY-SUCCESS-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
+            'recurring_order_id' => 'SUB-LEGACY-1',
+            'customer_email' => $user->email,
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
             'item_billing_cycle_next_date' => now()->addMonth()->toDateString(),
         ]);
 
@@ -433,22 +435,22 @@ class BillingStateConsistencyTest extends TestCase
     public function test_duplicate_recurring_success_is_idempotent(): void
     {
         $user = User::factory()->pro()->create([
-            'email'               => 'idem@example.com',
-            'subscription_id'     => 'SUB-IDEM-1',
+            'email' => 'idem@example.com',
+            'subscription_id' => 'SUB-IDEM-1',
             'subscription_status' => 'active',
         ]);
 
         $payload = [
-            'message_type'      => 'RECURRING_INSTALLMENT_SUCCESS',
-            'message_id'        => 'MSG-IDEM-1',
-            'sale_id'           => 'SALE-IDEM-1',
-            'vendor_id'         => 'V-CONS',
-            'invoice_id'        => 'INV-IDEM-1',
-            'md5_hash'          => $this->md5For('SALE-IDEM-1', 'INV-IDEM-1'),
-            'recurring_order_id'=> 'SUB-IDEM-1',
-            'customer_email'    => $user->email,
-            'item_list_amount_1'=> '29.00',
-            'list_currency'     => 'USD',
+            'message_type' => 'RECURRING_INSTALLMENT_SUCCESS',
+            'message_id' => 'MSG-IDEM-1',
+            'sale_id' => 'SALE-IDEM-1',
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => 'INV-IDEM-1',
+            'md5_hash' => $this->md5For('SALE-IDEM-1', 'INV-IDEM-1'),
+            'recurring_order_id' => 'SUB-IDEM-1',
+            'customer_email' => $user->email,
+            'item_list_amount_1' => '29.00',
+            'list_currency' => 'USD',
             'item_billing_cycle_next_date' => now()->addMonth()->toDateString(),
         ];
 
@@ -463,8 +465,8 @@ class BillingStateConsistencyTest extends TestCase
     public function test_downgrade_with_active_subscription_cancels_but_does_not_change_plan(): void
     {
         $user = User::factory()->studio()->create([
-            'subscription_id'      => 'SUB-DG-1',
-            'subscription_status'  => 'active',
+            'subscription_id' => 'SUB-DG-1',
+            'subscription_status' => 'active',
             'subscription_ends_at' => now()->addDays(12),
         ]);
 
@@ -485,8 +487,8 @@ class BillingStateConsistencyTest extends TestCase
     public function test_downgrade_with_past_due_subscription_cancels_it_at_2checkout(): void
     {
         $user = User::factory()->studio()->create([
-            'subscription_id'      => 'SUB-DG-PD',
-            'subscription_status'  => 'past_due',
+            'subscription_id' => 'SUB-DG-PD',
+            'subscription_status' => 'past_due',
             'subscription_ends_at' => now()->addDays(3),
         ]);
 
@@ -505,9 +507,9 @@ class BillingStateConsistencyTest extends TestCase
     public function test_downgrade_without_subscription_changes_plan_immediately(): void
     {
         $user = User::factory()->studio()->create([
-            'subscription_id'      => null,
-            'subscription_status'  => null,
-            'plan_expires_at'      => null,
+            'subscription_id' => null,
+            'subscription_status' => null,
+            'plan_expires_at' => null,
         ]);
 
         $response = $this->actingAs($user)
@@ -554,30 +556,30 @@ class BillingStateConsistencyTest extends TestCase
     public function test_full_refund_of_subscription_marks_local_state_cancelled(): void
     {
         $user = User::factory()->pro()->create([
-            'email'                => 'refund-sub@example.com',
-            'subscription_id'      => 'SUB-REF-1',
-            'subscription_status'  => 'active',
+            'email' => 'refund-sub@example.com',
+            'subscription_id' => 'SUB-REF-1',
+            'subscription_status' => 'active',
             'subscription_ends_at' => now()->addDays(20),
         ]);
 
         Transaction::factory()->create([
-            'user_id'    => $user->id,
+            'user_id' => $user->id,
             'invoice_id' => 'INV-REF-SUB-1',
-            'plan'       => 'pro',
-            'amount'     => 29.00,
-            'status'     => 'completed',
+            'plan' => 'pro',
+            'amount' => 29.00,
+            'status' => 'completed',
         ]);
 
         $saleId = 'SALE-REF-1';
         $invoiceId = 'INV-REF-SUB-1';
 
         $response = $this->postWebhook([
-            'message_type'       => 'REFUND_ISSUED',
-            'message_id'         => 'MSG-REF-SUB-1',
-            'sale_id'            => $saleId,
-            'vendor_id'          => 'V-CONS',
-            'invoice_id'         => $invoiceId,
-            'md5_hash'           => $this->md5For($saleId, $invoiceId),
+            'message_type' => 'REFUND_ISSUED',
+            'message_id' => 'MSG-REF-SUB-1',
+            'sale_id' => $saleId,
+            'vendor_id' => 'V-CONS',
+            'invoice_id' => $invoiceId,
+            'md5_hash' => $this->md5For($saleId, $invoiceId),
             'item_list_amount_1' => '29.00',
         ]);
 

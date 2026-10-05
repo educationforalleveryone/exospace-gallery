@@ -82,10 +82,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup PHP 8.3
+      - name: Setup PHP 8.2 (matches the composer platform pin)
+        # Production runs PHP 8.2.27 (composer.json config.platform.php, see
+        # nixpacks.toml's lockfile guard). Running the suite on a NEWER PHP
+        # here would repeat the exact incident class that guard exists for:
+        # a lockfile resolved against 8.3 loads fine in CI and then aborts
+        # the production deploy (zipstream-php requiring php-64bit ^8.3).
+        # Fidelity is the whole point of this workflow — stay on 8.2.
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.2'
           extensions: mbstring, xml, ctype, json, bcmath, gd, exif, intl, pdo, pdo_mysql, pdo_sqlite, sqlite3, redis, zip
           coverage: ${{ (inputs.coverage == true && 'pcov') || 'none' }}
 
@@ -101,6 +107,17 @@ jobs:
             echo "database=${{ inputs.database }}"  >> "$GITHUB_OUTPUT"
             echo "coverage=${{ inputs.coverage }}"  >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache composer packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -155,19 +172,30 @@ jobs:
           retention-days: 90
 
       - name: Ingest into Control Center dashboard
-        if: ${{ secrets.CONTROL_CENTER_INGEST_URL != '' && secrets.QA_INGEST_TOKEN != '' }}
+        # Secrets and runner values are bridged through `env` instead of
+        # interpolated into the command line: (1) `env` in the `if` is
+        # unambiguously available, (2) untrusted values (branch names) never
+        # become shell syntax, and (3) GitHub masks env values in logs the
+        # same way it masks secrets.
+        if: ${{ env.CONTROL_CENTER_INGEST_URL != '' && env.QA_INGEST_TOKEN != '' }}
         continue-on-error: true   # a dashboard outage must never mask test truth
+        env:
+          CONTROL_CENTER_INGEST_URL: ${{ secrets.CONTROL_CENTER_INGEST_URL }}
+          QA_INGEST_TOKEN: ${{ secrets.QA_INGEST_TOKEN }}
+          GIT_BRANCH: ${{ github.ref_name }}
+          GIT_COMMIT: ${{ github.sha }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          curl -sS -X POST "${{ secrets.CONTROL_CENTER_INGEST_URL }}" \
-            -H "X-QA-Token: ${{ secrets.QA_INGEST_TOKEN }}" \
+          curl -sS -X POST "$CONTROL_CENTER_INGEST_URL" \
+            -H "X-QA-Token: $QA_INGEST_TOKEN" \
             -F "junit=@${{ steps.artifact.outputs.path }}" \
             -F "profile=${{ steps.params.outputs.profile }}" \
             -F "environment=ci" \
             -F "trigger=ci" \
             -F "runner=github-actions" \
-            -F "git_branch=${{ github.ref_name }}" \
-            -F "git_commit=${{ github.sha }}" \
-            -F "ci_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            -F "git_branch=$GIT_BRANCH" \
+            -F "git_commit=$GIT_COMMIT" \
+            -F "ci_run_url=$CI_RUN_URL"
 
       - name: Enforce result status
         if: steps.qa_run.outcome != 'success'

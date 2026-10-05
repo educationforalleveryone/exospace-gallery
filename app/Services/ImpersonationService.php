@@ -43,13 +43,13 @@ class ImpersonationService
 
         // Audit log — attributed to the admin, not the account now logged in.
         AdminAuditLog::record('impersonation_started', $target, [
-            'admin_id'   => $admin->id,
-            'admin_email'=> $admin->email,
+            'admin_id' => $admin->id,
+            'admin_email' => $admin->email,
             'target_email' => $target->email,
         ], $admin->id);
 
         Log::info('ImpersonationService: admin started impersonating user', [
-            'admin_id'  => $admin->id,
+            'admin_id' => $admin->id,
             'target_id' => $target->id,
         ]);
 
@@ -72,6 +72,7 @@ class ImpersonationService
             ]);
             Auth::logout();
             session()->forget(self::SESSION_KEY);
+
             return true;
         }
 
@@ -86,14 +87,14 @@ class ImpersonationService
         // Audit log
         if ($impersonatedUser) {
             AdminAuditLog::record('impersonation_stopped', $impersonatedUser, [
-                'admin_id'   => $admin->id,
-                'admin_email'=> $admin->email,
+                'admin_id' => $admin->id,
+                'admin_email' => $admin->email,
                 'target_email' => $impersonatedUser->email,
             ]);
         }
 
         Log::info('ImpersonationService: admin stopped impersonating user', [
-            'admin_id'  => $admin->id,
+            'admin_id' => $admin->id,
             'target_id' => $impersonatedUser?->id,
         ]);
 

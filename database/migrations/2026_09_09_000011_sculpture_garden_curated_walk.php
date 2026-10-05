@@ -13,6 +13,7 @@ return new class extends Migration
         if (is_string($from)) {
             return is_string($current) && $current === $from;
         }
+
         return is_numeric($current) && (float) $current === (float) $from;
     }
 
@@ -21,16 +22,16 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'sculpture-garden')
             ->first(['id', 'visual_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
-            'background_color'       => ['from' => '0x87ceeb', 'to' => '0xd6e0e2'],
-            'ambient_intensity'      => ['from' => 0.4,  'to' => 0.16],
-            'tone_mapping_exposure'  => ['from' => 0.7,  'to' => 0.9],
+            'background_color' => ['from' => '0x87ceeb', 'to' => '0xd6e0e2'],
+            'ambient_intensity' => ['from' => 0.4,  'to' => 0.16],
+            'tone_mapping_exposure' => ['from' => 0.7,  'to' => 0.9],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -38,7 +39,7 @@ return new class extends Migration
             }
         }
 
-        if (!array_key_exists('fog_color', $vc) || $vc['fog_color'] === null) {
+        if (! array_key_exists('fog_color', $vc) || $vc['fog_color'] === null) {
             $vc['fog_color'] = '0xd6e0e2';
         }
         if ($this->guardedEquals($vc['fog_near'] ?? null, 0)) {
@@ -49,46 +50,46 @@ return new class extends Migration
         }
 
         // Key adds — only when absent (an admin's declared value wins).
-        if (!array_key_exists('environment', $vc)) {
+        if (! array_key_exists('environment', $vc)) {
             $vc['environment'] = 'none';
         }
-        if (!array_key_exists('env_intensity', $vc)) {
+        if (! array_key_exists('env_intensity', $vc)) {
             $vc['env_intensity'] = 0.22;
         }
-        if (!array_key_exists('hemisphere_intensity', $vc)) {
+        if (! array_key_exists('hemisphere_intensity', $vc)) {
             $vc['hemisphere_intensity'] = 0.4;
         }
-        if (!array_key_exists('hemisphere_sky_color', $vc)) {
+        if (! array_key_exists('hemisphere_sky_color', $vc)) {
             $vc['hemisphere_sky_color'] = '0xbfd9ee';
         }
-        if (!array_key_exists('hemisphere_ground_color', $vc)) {
+        if (! array_key_exists('hemisphere_ground_color', $vc)) {
             $vc['hemisphere_ground_color'] = '0x51663c';
         }
-        if (!array_key_exists('ceiling_fill_light', $vc)) {
+        if (! array_key_exists('ceiling_fill_light', $vc)) {
             $vc['ceiling_fill_light'] = false;
         }
-        if (!array_key_exists('field_radius_bonus', $vc)) {
+        if (! array_key_exists('field_radius_bonus', $vc)) {
             $vc['field_radius_bonus'] = 2.2;
         }
-        if (!array_key_exists('field_radius_min', $vc)) {
+        if (! array_key_exists('field_radius_min', $vc)) {
             $vc['field_radius_min'] = 12.5;
         }
-        if (!array_key_exists('placement_mode', $vc)) {
+        if (! array_key_exists('placement_mode', $vc)) {
             $vc['placement_mode'] = 'garden';
         }
-        if (!array_key_exists('artwork_light_base', $vc)) {
+        if (! array_key_exists('artwork_light_base', $vc)) {
             $vc['artwork_light_base'] = 0.22;
         }
-        if (!array_key_exists('garden', $vc)) {
+        if (! array_key_exists('garden', $vc)) {
             $vc['garden'] = ['sky_environment' => true];
         }
-        if (!array_key_exists('post_fx', $vc)) {
+        if (! array_key_exists('post_fx', $vc)) {
             $vc['post_fx'] = [
-                'bloom'             => false,
-                'vignette'          => true,
+                'bloom' => false,
+                'vignette' => true,
                 'vignette_darkness' => 0.42,
-                'vignette_offset'   => 1.15,
-                'vignette_blend'    => 'black',
+                'vignette_offset' => 1.15,
+                'vignette_blend' => 'black',
             ];
         }
 
@@ -115,16 +116,16 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'sculpture-garden')
             ->first(['id', 'visual_config', 'description', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
 
         $vc = json_decode((string) $row->visual_config, true) ?: [];
 
         $vcRewrites = [
-            'background_color'       => ['from' => '0xd6e0e2', 'to' => '0x87ceeb'],
-            'ambient_intensity'      => ['from' => 0.26, 'to' => 0.4],
-            'tone_mapping_exposure'  => ['from' => 0.72, 'to' => 0.7],
+            'background_color' => ['from' => '0xd6e0e2', 'to' => '0x87ceeb'],
+            'ambient_intensity' => ['from' => 0.16, 'to' => 0.4],
+            'tone_mapping_exposure' => ['from' => 0.9,  'to' => 0.7],
         ];
         foreach ($vcRewrites as $key => ['from' => $from, 'to' => $to]) {
             if ($this->guardedEquals($vc[$key] ?? null, $from)) {
@@ -143,16 +144,16 @@ return new class extends Migration
 
         // Remove the added keys only while they still equal what up() wrote.
         $seededAdds = [
-            'environment'             => 'none',
-            'env_intensity'           => 0.22,
-            'hemisphere_intensity'    => 0.4,
-            'hemisphere_sky_color'    => '0xbfd9ee',
+            'environment' => 'none',
+            'env_intensity' => 0.22,
+            'hemisphere_intensity' => 0.4,
+            'hemisphere_sky_color' => '0xbfd9ee',
             'hemisphere_ground_color' => '0x51663c',
-            'ceiling_fill_light'      => false,
-            'field_radius_bonus'      => 2.2,
-            'field_radius_min'        => 12.5,
-            'placement_mode'          => 'garden',
-            'artwork_light_base'      => 0.22,
+            'ceiling_fill_light' => false,
+            'field_radius_bonus' => 2.2,
+            'field_radius_min' => 12.5,
+            'placement_mode' => 'garden',
+            'artwork_light_base' => 0.22,
         ];
         foreach ($seededAdds as $key => $seeded) {
             if (($vc[$key] ?? null) === $seeded) {
@@ -164,11 +165,11 @@ return new class extends Migration
             unset($vc['garden']);
         }
         $seededPostFx = [
-            'bloom'             => false,
-            'vignette'          => true,
+            'bloom' => false,
+            'vignette' => true,
             'vignette_darkness' => 0.42,
-            'vignette_offset'   => 1.15,
-            'vignette_blend'    => 'black',
+            'vignette_offset' => 1.15,
+            'vignette_blend' => 'black',
         ];
         if (($vc['post_fx'] ?? null) === $seededPostFx) {
             unset($vc['post_fx']);

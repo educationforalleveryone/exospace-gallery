@@ -42,8 +42,8 @@ class RegenerateInvoices extends Command
             // Only invoices with .html paths (or null paths)
             $query->where(function ($q) {
                 $q->whereNull('pdf_path')
-                  ->orWhere('pdf_path', 'like', '%.html')
-                  ->orWhere('pdf_path', '');
+                    ->orWhere('pdf_path', 'like', '%.html')
+                    ->orWhere('pdf_path', '');
             });
         }
         $totalCount = (clone $query)->count();
@@ -52,6 +52,7 @@ class RegenerateInvoices extends Command
         }
         if ($totalCount === 0) {
             $this->info('No invoices need regeneration. All invoices already have .pdf paths.');
+
             return 0;
         }
 
@@ -92,17 +93,19 @@ class RegenerateInvoices extends Command
         $bar->finish();
         $this->info('');
         $this->info('');
-        $this->info("Regeneration complete.");
+        $this->info('Regeneration complete.');
         $this->info("  Processed: {$processed}");
         $this->info("  Succeeded: {$succeeded}");
 
         if ($failed > 0) {
             $this->warn("  Failed:    {$failed}");
             $this->warn('  Check storage/logs/laravel.log for failure details.');
+
             return 1;
         }
 
         $this->info('  Failed:    0');
+
         return 0;
     }
 }

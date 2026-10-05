@@ -24,7 +24,7 @@ class DetectCustomDomain
         $appHost = strtolower($appHost ?? '');
         $appHost = preg_replace('/^www\./', '', $appHost);
 
-        if (!$host || $host === $appHost || $host === 'localhost' || $host === '127.0.0.1') {
+        if (! $host || $host === $appHost || $host === 'localhost' || $host === '127.0.0.1') {
             return $next($request);
         }
 
@@ -46,7 +46,7 @@ class DetectCustomDomain
                 ->with(['venueTemplate:id,updated_at', 'user:id,banned_at'])
                 ->first(['id', 'updated_at', 'venue_template_id', 'user_id']);
             $stamps = $g
-                ? (($g->venueTemplate?->updated_at?->timestamp ?? '0') . ':' . $g->updated_at?->timestamp . ':' . ($g->user?->getRawOriginal('banned_at') ?? '0'))
+                ? (($g->venueTemplate?->updated_at?->timestamp ?? '0').':'.$g->updated_at?->timestamp.':'.($g->user?->getRawOriginal('banned_at') ?? '0'))
                 : 'none';
             $galleryCacheKey = "custom_domain_gallery:{$galleryId}:{$stamps}";
             $gallery = ResilientCache::remember($galleryCacheKey, now()->addMinutes(5), function () use ($galleryId) {

@@ -2,13 +2,11 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\AuthorizesGalleryAccess;
-use App\Models\Artist;
+use App\Http\Controllers\Controller;
 use App\Models\Gallery;
 use App\Models\GalleryImage;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class ImageMetadataController extends Controller
 {
@@ -23,18 +21,18 @@ class ImageMetadataController extends Controller
         }
 
         $validated = $request->validate([
-            'title'           => ['nullable', 'string', 'max:255'],
-            'description'     => ['nullable', 'string', 'max:1000'],
-            'artist_id'       => ['nullable', 'integer', 'exists:artists,id'],
-            'price'           => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
-            'currency'        => ['nullable', 'string', 'size:3', 'alpha'],
-            'for_sale'        => ['boolean'],
-            'medium'          => ['nullable', 'string', 'max:255'],
-            'year'            => ['nullable', 'integer', 'min:1901', 'max:' . (date('Y') + 1)],
-            'dimensions'      => ['nullable', 'string', 'max:100'],
-            'edition_size'    => ['nullable', 'integer', 'min:1', 'max:4294967295'],
-            'edition_number'  => ['nullable', 'string', 'max:50'],
-            'external_url'    => ['nullable', 'string', 'max:500', 'url', 'regex:/^https?:\/\//i'],
+            'title' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'artist_id' => ['nullable', 'integer', 'exists:artists,id'],
+            'price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'currency' => ['nullable', 'string', 'size:3', 'alpha'],
+            'for_sale' => ['boolean'],
+            'medium' => ['nullable', 'string', 'max:255'],
+            'year' => ['nullable', 'integer', 'min:1901', 'max:'.(date('Y') + 1)],
+            'dimensions' => ['nullable', 'string', 'max:100'],
+            'edition_size' => ['nullable', 'integer', 'min:1', 'max:4294967295'],
+            'edition_number' => ['nullable', 'string', 'max:50'],
+            'external_url' => ['nullable', 'string', 'max:500', 'url', 'regex:/^https?:\/\//i'],
         ]);
 
         // Boolean normalization
@@ -50,13 +48,13 @@ class ImageMetadataController extends Controller
         $image->load('artist');
 
         return response()->json([
-            'success'           => true,
-            'message'           => 'Artwork details saved.',
-            'image'             => $image->toArray(),
-            'formatted_price'   => $image->formattedPrice(),
+            'success' => true,
+            'message' => 'Artwork details saved.',
+            'image' => $image->toArray(),
+            'formatted_price' => $image->formattedPrice(),
             'formatted_edition' => $image->formattedEdition(),
-            'artist_name'       => $image->artist?->name,
-            'artist_slug'       => $image->artist?->slug,
+            'artist_name' => $image->artist?->name,
+            'artist_slug' => $image->artist?->slug,
         ]);
     }
 }

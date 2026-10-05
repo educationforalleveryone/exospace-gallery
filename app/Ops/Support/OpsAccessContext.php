@@ -59,8 +59,8 @@ class OpsAccessContext
         }
 
         /**
- * @var \Illuminate\Support\Collection<int, ?string>
- */
+         * @var \Illuminate\Support\Collection<int, ?string>
+         */
         return app(self::MEMO);
     }
 }

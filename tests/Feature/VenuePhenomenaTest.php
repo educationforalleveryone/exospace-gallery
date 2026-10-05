@@ -12,7 +12,7 @@ class VenuePhenomenaTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const VOID_VENUES = ['infinite-void', 'crystal-cathedral', 'nebula-drift', 'mirror-lake'];
+    private const VOID_VENUES = ['infinite-void', 'crystal-cathedral', 'nebula-drift'];
 
     public function test_void_venues_declare_the_phenomena_identity_keys(): void
     {
@@ -54,10 +54,12 @@ class VenuePhenomenaTest extends TestCase
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
-        foreach (['white-cube', 'industrial-loft', 'dark-museum', 'zen-gallery', 'luxury-penthouse', 'cyber-gallery', 'sculpture-garden'] as $slug) {
+        foreach (['white-cube', 'industrial-loft', 'dark-museum', 'zen-gallery', 'luxury-penthouse', 'cyber-gallery'] as $slug) {
             $config = $this->visualConfig($slug);
-            $this->assertArrayNotHasKey('placement_mode', $config, "[{$slug}] must not declare a void placement mode.");
+            $this->assertArrayNotHasKey('placement_mode', $config, "[{$slug}] must not declare a placement mode (legacy easel/wall hang).");
         }
+        $this->assertSame('garden', $this->visualConfig('sculpture-garden')['placement_mode'] ?? null,
+            '[sculpture-garden] declares its curated-walk placement.');
 
         foreach (['industrial-loft' => 'loft', 'dark-museum' => 'museum', 'sculpture-garden' => 'garden'] as $slug => $pass) {
             $config = $this->visualConfig($slug);
@@ -74,8 +76,8 @@ class VenuePhenomenaTest extends TestCase
 
         foreach ($rows as $row) {
             $config = json_decode((string) $row->visual_config, true) ?: [];
-            $desc   = mb_strtolower((string) $row->description);
-            $floats = ($config['placement_mode'] ?? null) === 'float';
+            $desc = mb_strtolower((string) $row->description);
+            $floats = in_array($config['placement_mode'] ?? null, ['float', 'lake'], true);
 
             if ($floats) {
                 $this->assertMatchesRegularExpression(
@@ -109,7 +111,7 @@ class VenuePhenomenaTest extends TestCase
 
         // The garden keeps its easel identity, stated in words (§4.10).
         $garden = DB::table('venue_templates')->where('slug', 'sculpture-garden')->value('description');
-        $this->assertStringContainsStringIgnoringCase('easel', (string) $garden, 'Garden easels are load-bearing identity — the copy must keep saying so.');
+        $this->assertStringContainsStringIgnoringCase('museum stands', (string) $garden, 'The curated walk names its outdoor museum stands — the delivered garden identity.');
 
         // The cathedral copy must name its colonnade (the verticality gate).
         $cathedral = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->value('description');
@@ -128,7 +130,7 @@ class VenuePhenomenaTest extends TestCase
         DB::table('venue_templates')->where('slug', 'infinite-void')->update([
             'visual_config' => json_encode([
                 'background_color' => '0x123456',
-                'placement_mode'   => 'easel',
+                'placement_mode' => 'easel',
             ]),
             'description' => 'Our house void.',
         ]);
@@ -148,10 +150,10 @@ class VenuePhenomenaTest extends TestCase
         // A venue with default rows receives the full identity.
         $mirror = $this->visualConfig('mirror-lake');
         $this->assertSame('planar', $mirror['floor_reflection']);
-        $this->assertSame(
-            'A still, dark lake reflects the floating artworks and the moon. Mist drifts low. Quiet, spacious, meditative.',
-            DB::table('venue_templates')->where('slug', 'mirror-lake')->value('description'),
-            'Pre-pass copy is re-tightened to the delivered phenomena.'
+        $this->assertStringContainsStringIgnoringCase(
+            'hover above the calm water',
+            (string) DB::table('venue_templates')->where('slug', 'mirror-lake')->value('description'),
+            'The migration never rewrites the shipped still-shore copy.'
         );
     }
 
@@ -201,9 +203,9 @@ class VenuePhenomenaTest extends TestCase
         $venue = \App\Models\VenueTemplate::where('slug', 'mirror-lake')->firstOrFail();
         $config = app(\App\Services\VenueConfigExporter::class)->forVenuePreview($venue);
 
-        $this->assertSame('float', $config['visual_config']['placement_mode'] ?? null);
+        $this->assertSame('lake', $config['visual_config']['placement_mode'] ?? null);
         $this->assertSame('planar', $config['visual_config']['floor_reflection'] ?? null);
-        $this->assertSame('phenomena', $config['visual_config']['structure_pass'] ?? null);
+        $this->assertSame('lake', $config['visual_config']['structure_pass'] ?? null);
     }
 
     public function test_new_interpreter_modules_contain_zero_venue_slugs(): void

@@ -120,7 +120,7 @@ class OpsAccessService
         } catch (Throwable $e) {
             // The ledger must never take the management flow down - but the
             // loss must leave a trace.
-            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ' . $action . ' write failed', ['error' => $e->getMessage()]);
+            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: '.$action.' write failed', ['error' => $e->getMessage()]);
         }
     }
 
@@ -130,7 +130,7 @@ class OpsAccessService
             $this->alerts->alert(
                 'OpsCenter access change: '.$change,
                 sprintf(
-                    "operator #%d %s for user #%s — %s",
+                    'operator #%d %s for user #%s — %s',
                     $actor->id,
                     strtolower($change),
                     $target?->id ?? '?',

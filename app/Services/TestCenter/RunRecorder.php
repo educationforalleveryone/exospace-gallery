@@ -8,12 +8,11 @@ use App\Models\QaTestCaseResult;
 use App\Models\QaTestRun;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 
 class RunRecorder
 {
     public function __construct(
-        private readonly JunitParser $parser = new JunitParser(),
+        private readonly JunitParser $parser = new JunitParser,
     ) {}
 
     public function record(array $metadata, ?string $junitPath, array $overrides = []): QaTestRun
@@ -25,7 +24,7 @@ class RunRecorder
         }
 
         $totals = $parsed['totals'] ?? null;
-        $cases  = $parsed['cases'] ?? [];
+        $cases = $parsed['cases'] ?? [];
 
         $status = $overrides['status']
             ?? $this->inferStatus($metadata, $totals);
@@ -41,40 +40,40 @@ class RunRecorder
             }
 
             /**
- * @var QaTestRun $run
- */
+             * @var QaTestRun $run
+             */
             $run = QaTestRun::create([
-                'uuid'          => (string) \Illuminate\Support\Str::uuid(),
-                'profile'       => $metadata['profile'],
-                'environment'   => $metadata['environment'] ?? 'local',
-                'safety'        => $metadata['safety'] ?? 'test-only',
-                'trigger'       => $metadata['trigger'] ?? 'manual',
-                'runner'        => $metadata['runner'] ?? null,
-                'git_commit'    => $metadata['git_commit'] ?? $this->detectGitCommit(),
-                'git_branch'    => $metadata['git_branch'] ?? $this->detectGitBranch(),
-                'git_tag'       => $metadata['git_tag'] ?? null,
-                'app_version'   => $metadata['app_version'] ?? null,
-                'ci_run_url'    => $metadata['ci_run_url'] ?? null,
-                'status'        => $status,
-                'blocked_reason'=> $overrides['blocked_reason'] ?? $metadata['blocked_reason'] ?? null,
-                'started_at'    => $overrides['started_at'] ?? now(),
-                'finished_at'   => $overrides['finished_at'] ?? now(),
-                'duration_ms'   => $overrides['duration_ms'] ?? null,
+                'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                'profile' => $metadata['profile'],
+                'environment' => $metadata['environment'] ?? 'local',
+                'safety' => $metadata['safety'] ?? 'test-only',
+                'trigger' => $metadata['trigger'] ?? 'manual',
+                'runner' => $metadata['runner'] ?? null,
+                'git_commit' => $metadata['git_commit'] ?? $this->detectGitCommit(),
+                'git_branch' => $metadata['git_branch'] ?? $this->detectGitBranch(),
+                'git_tag' => $metadata['git_tag'] ?? null,
+                'app_version' => $metadata['app_version'] ?? null,
+                'ci_run_url' => $metadata['ci_run_url'] ?? null,
+                'status' => $status,
+                'blocked_reason' => $overrides['blocked_reason'] ?? $metadata['blocked_reason'] ?? null,
+                'started_at' => $overrides['started_at'] ?? now(),
+                'finished_at' => $overrides['finished_at'] ?? now(),
+                'duration_ms' => $overrides['duration_ms'] ?? null,
 
-                'total'         => $totals['tests']      ?? 0,
-                'passed'        => max(0, ($totals['tests'] ?? 0) - ($totals['failures'] ?? 0) - ($totals['errors'] ?? 0) - ($totals['skipped'] ?? 0) - ($totals['warnings'] ?? 0)),
-                'failed'        => $totals['failures']   ?? 0,
-                'errored'       => $totals['errors']     ?? 0,
-                'skipped'       => $totals['skipped']    ?? 0,
-                'timed_out'     => 0,                     // enriched by the intelligence pass
+                'total' => $totals['tests'] ?? 0,
+                'passed' => max(0, ($totals['tests'] ?? 0) - ($totals['failures'] ?? 0) - ($totals['errors'] ?? 0) - ($totals['skipped'] ?? 0) - ($totals['warnings'] ?? 0)),
+                'failed' => $totals['failures'] ?? 0,
+                'errored' => $totals['errors'] ?? 0,
+                'skipped' => $totals['skipped'] ?? 0,
+                'timed_out' => 0,                     // enriched by the intelligence pass
 
-                'assertions'    => $totals['assertions'] ?? 0,
-                'db_driver'     => $metadata['db_driver'] ?? config('database.default'),
-                'php_version'   => $metadata['php_version'] ?? PHP_VERSION,
-                'meta'          => array_merge($metadata['meta'] ?? [], [
+                'assertions' => $totals['assertions'] ?? 0,
+                'db_driver' => $metadata['db_driver'] ?? config('database.default'),
+                'php_version' => $metadata['php_version'] ?? PHP_VERSION,
+                'meta' => array_merge($metadata['meta'] ?? [], [
                     'artifact_path' => $artifactRelPath,
-                    'junit_time'    => $totals['time'] ?? null,
-                    'warnings'      => $totals['warnings'] ?? 0,
+                    'junit_time' => $totals['time'] ?? null,
+                    'warnings' => $totals['warnings'] ?? 0,
                 ]),
             ]);
 
@@ -82,15 +81,15 @@ class RunRecorder
                 $rows = [];
                 foreach ($cases as $case) {
                     $rows[] = [
-                        'qa_test_run_id'  => $run->id,
+                        'qa_test_run_id' => $run->id,
                         'test_identifier' => mb_substr($case['identifier'], 0, 500),
-                        'classname'       => mb_substr($case['classname'], 0, 190),
-                        'method_name'     => mb_substr($case['name'], 0, 190),
-                        'data_set'        => $case['data_set'],
-                        'status'          => $case['status'],
-                        'time_ms'         => $case['time_ms'],
-                        'message'         => $case['message'],
-                        'detail'          => $case['detail'],
+                        'classname' => mb_substr($case['classname'], 0, 190),
+                        'method_name' => mb_substr($case['name'], 0, 190),
+                        'data_set' => $case['data_set'],
+                        'status' => $case['status'],
+                        'time_ms' => $case['time_ms'],
+                        'message' => $case['message'],
+                        'detail' => $case['detail'],
                         'exception_class' => mb_substr((string) $case['exception_class'], 0, 180) ?: null,
                     ];
                 }
@@ -159,12 +158,12 @@ class RunRecorder
             ->map(fn ($c) => (new QaTestCaseResult)->forceFill($c->toArray())->failureClass());
 
         $infra = $classes->filter(fn ($c) => $c === 'infrastructure')->count();
-        $app   = $classes->filter(fn ($c) => $c === 'application')->count();
+        $app = $classes->filter(fn ($c) => $c === 'application')->count();
 
         $class = match (true) {
-            $app === 0 && $infra > 0  => 'infrastructure',
-            $infra === 0 && $app > 0  => 'application',
-            default                   => 'mixed',
+            $app === 0 && $infra > 0 => 'infrastructure',
+            $infra === 0 && $app > 0 => 'application',
+            default => 'mixed',
         };
 
         $run->forceFill(['failure_class' => $class])->saveQuietly();

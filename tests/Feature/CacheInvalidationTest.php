@@ -49,7 +49,7 @@ class CacheInvalidationTest extends TestCase
         // Same slug, new address: the custom domain must land on a fresh
         // entry, not serve a code that still encodes the old URL.
         $gallery->forceFill([
-            'custom_domain'             => 'gallery.example.com',
+            'custom_domain' => 'gallery.example.com',
             'custom_domain_verified_at' => now(),
         ])->save();
 
@@ -64,8 +64,8 @@ class CacheInvalidationTest extends TestCase
         $gallery = Gallery::factory()->create();
         $artist = Artist::factory()->create();
         $artwork = GalleryImage::factory()->create([
-            'gallery_id'     => $gallery->id,
-            'artist_id'      => $artist->id,
+            'gallery_id' => $gallery->id,
+            'artist_id' => $artist->id,
             'position_order' => 1,
         ]);
 
@@ -97,7 +97,7 @@ class CacheInvalidationTest extends TestCase
     public function test_custom_domain_payload_drops_when_owner_is_banned(): void
     {
         $gallery = Gallery::factory()->create([
-            'custom_domain'             => 'gallery.example.com',
+            'custom_domain' => 'gallery.example.com',
             'custom_domain_verified_at' => now(),
         ]);
 
@@ -117,7 +117,7 @@ class CacheInvalidationTest extends TestCase
     public function test_custom_domain_payload_drops_when_gallery_is_unpublished(): void
     {
         $gallery = Gallery::factory()->create([
-            'custom_domain'             => 'gallery.example.com',
+            'custom_domain' => 'gallery.example.com',
             'custom_domain_verified_at' => now(),
         ]);
 
@@ -224,9 +224,9 @@ class CacheInvalidationTest extends TestCase
     public function test_slug_map_falls_back_to_the_database_when_the_cache_fails(): void
     {
         $page = SeoPage::create([
-            'type'   => 'landing',
-            'slug'   => 'pricing-fallback',
-            'title'  => 'Pricing fallback',
+            'type' => 'landing',
+            'slug' => 'pricing-fallback',
+            'title' => 'Pricing fallback',
             'status' => 'published',
             'blocks' => [],
         ]);
@@ -242,7 +242,7 @@ class CacheInvalidationTest extends TestCase
     public function test_health_endpoint_reports_coolify_outage_from_the_sync_key(): void
     {
         config([
-            'services.coolify.api_token'    => 'test-token',
+            'services.coolify.api_token' => 'test-token',
             'services.coolify.api_base_url' => 'https://coolify.example.com',
         ]);
 

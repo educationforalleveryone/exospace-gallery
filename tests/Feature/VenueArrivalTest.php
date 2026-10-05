@@ -14,15 +14,16 @@ class VenueArrivalTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const ARRIVAL_JS    = 'resources/js/gallery/Arrival.js';
-    private const ARRIVAL_MATH  = 'resources/js/gallery/ArrivalMath.js';
+    private const ARRIVAL_JS = 'resources/js/gallery/Arrival.js';
+
+    private const ARRIVAL_MATH = 'resources/js/gallery/ArrivalMath.js';
 
     public function test_payloads_carry_arrival_enabled_by_default(): void
     {
         $this->seed(\Database\Seeders\VenueTemplateSeeder::class);
 
         $gallery = $this->liveGallery();
-        $html    = $this->get("/gallery/{$gallery->slug}")->getContent();
+        $html = $this->get("/gallery/{$gallery->slug}")->getContent();
 
         $this->assertStringContainsString('"arrival_enabled":true', $html,
             'The public viewer payload must expose the arrival flag (default on).');
@@ -70,7 +71,7 @@ class VenueArrivalTest extends TestCase
 
         $html = $this->get("/gallery/{$gallery->slug}?artwork={$artwork->id}")->getContent();
 
-        $this->assertStringContainsString('"deepLinkArtworkId":' . $artwork->id, $html,
+        $this->assertStringContainsString('"deepLinkArtworkId":'.$artwork->id, $html,
             'Deep-link payloads must keep carrying the target artwork id…');
         $this->assertStringContainsString('"arrival_enabled":true', $html,
             '…alongside the arrival key — precedence is enforced in the runtime (deep link wins the camera).');
@@ -130,7 +131,7 @@ class VenueArrivalTest extends TestCase
 
     public function test_arrival_modules_contain_zero_venue_slugs(): void
     {
-        $code = file_get_contents(base_path(self::ARRIVAL_JS)) . file_get_contents(base_path(self::ARRIVAL_MATH));
+        $code = file_get_contents(base_path(self::ARRIVAL_JS)).file_get_contents(base_path(self::ARRIVAL_MATH));
 
         foreach ([
             'white-cube', 'dark-museum', 'sculpture-garden', 'industrial-loft',
@@ -156,7 +157,7 @@ class VenueArrivalTest extends TestCase
     {
         $math = file_get_contents(base_path(self::ARRIVAL_MATH));
 
-        $this->assertStringContainsString("duration: 1.5", $math,
+        $this->assertStringContainsString('duration: 1.5', $math,
             'Roadmap contract: 1.5 s ease-out dolly.');
         $this->assertStringContainsString("ease: 'power2.out'", $math,
             'The dolly must ease OUT (fast reveal, gentle settle).');
@@ -189,7 +190,7 @@ class VenueArrivalTest extends TestCase
     public function test_classic_spawn_is_retired_by_nothing(): void
     {
         $roomBuilder = file_get_contents(base_path('resources/js/gallery/RoomBuilder.js'));
-        $arrival     = file_get_contents(base_path(self::ARRIVAL_JS));
+        $arrival = file_get_contents(base_path(self::ARRIVAL_JS));
 
         $this->assertStringContainsString('this.camera.position.set(-length / 2 + 1.5', $roomBuilder,
             'Corridor spawn point untouched (classic spawn retained).');
@@ -206,13 +207,13 @@ class VenueArrivalTest extends TestCase
     private function liveGallery(): Gallery
     {
         $user = User::factory()->create([
-            'plan'          => 'pro',
+            'plan' => 'pro',
             'max_galleries' => 5,
-            'max_images'    => 100,
+            'max_images' => 100,
         ]);
 
         $gallery = Gallery::factory()->create([
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'is_active' => false,
         ]);
 

@@ -51,7 +51,7 @@ class TestProfileRegistry
 
     public function resolvePaths(string $profileKey): array
     {
-        $profile   = $this->profile($profileKey);
+        $profile = $this->profile($profileKey);
         $groupRefs = $profile['groups'] ?? [];
 
         $selectedGroups = $groupRefs === '*'
@@ -106,15 +106,15 @@ class TestProfileRegistry
 
         foreach ($this->profiles() as $key => $profile) {
             $out[$key] = [
-                'label'             => $profile['label'] ?? $key,
-                'icon'              => $profile['icon'] ?? '🧪',
-                'color'             => $profile['color'] ?? 'slate',
-                'safety'            => $profile['safety'] ?? 'test-only',
-                'strategy'          => $profile['strategy'] ?? 'phpunit',
-                'database'          => $profile['database'] ?? null,
-                'description'       => $profile['description'] ?? '',
+                'label' => $profile['label'] ?? $key,
+                'icon' => $profile['icon'] ?? '🧪',
+                'color' => $profile['color'] ?? 'slate',
+                'safety' => $profile['safety'] ?? 'test-only',
+                'strategy' => $profile['strategy'] ?? 'phpunit',
+                'database' => $profile['database'] ?? null,
+                'description' => $profile['description'] ?? '',
                 'estimated_minutes' => $profile['estimated_minutes'] ?? null,
-                'groups'            => (array) ($profile['groups'] ?? []),
+                'groups' => (array) ($profile['groups'] ?? []),
             ];
         }
 

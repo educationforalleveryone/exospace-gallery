@@ -30,6 +30,7 @@ class VenueTemplateRequest extends FormRequest
                 $raw = trim($this->input($field));
                 if ($raw === '') {
                     $this->merge([$field => null]);
+
                     continue;
                 }
                 $decoded = json_decode($raw, true);
@@ -47,110 +48,110 @@ class VenueTemplateRequest extends FormRequest
         $venueId = $this->route('venue')?->id;
 
         return [
-            'name'          => ['required', 'string', 'max:100'],
-            'slug'          => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/',
-                                Rule::unique('venue_templates', 'slug')->ignore($venueId)],
-            'description'   => ['required', 'string', 'max:1000'],
-            'category'      => ['required', 'string', Rule::in(array_keys(VenueTemplate::CATEGORIES))],
+            'name' => ['required', 'string', 'max:100'],
+            'slug' => ['nullable', 'string', 'max:120', 'regex:/^[a-z0-9-]+$/',
+                Rule::unique('venue_templates', 'slug')->ignore($venueId)],
+            'description' => ['required', 'string', 'max:1000'],
+            'category' => ['required', 'string', Rule::in(array_keys(VenueTemplate::CATEGORIES))],
             'plan_required' => ['required', 'string', Rule::in(VenueTemplate::PLANS)],
-            'capacity_min'  => ['required', 'integer', 'min:1'],
-            'capacity_max'  => ['nullable', 'integer', 'min:1', 'gte:capacity_min'],
+            'capacity_min' => ['required', 'integer', 'min:1'],
+            'capacity_max' => ['nullable', 'integer', 'min:1', 'gte:capacity_min'],
 
-            'tags'                => ['nullable', 'array'],
-            'tags.*'              => ['string', 'max:40'],
+            'tags' => ['nullable', 'array'],
+            'tags.*' => ['string', 'max:40'],
 
-            'visual_config'       => ['nullable', 'array'],
-            'visual_config.wall_height'         => ['nullable', 'numeric', 'min:1', 'max:50'],
-            'visual_config.wall_depth'          => ['nullable', 'numeric', 'min:0.05', 'max:5'],
-            'visual_config.ceiling_type'        => ['nullable', 'string', Rule::in(['flat', 'beamed', 'glass', 'none'])],
-            'visual_config.ceiling_height'      => ['nullable', 'numeric', 'min:1', 'max:50'],
-            'visual_config.background_color'    => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
-            'visual_config.fog_color'           => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
-            'visual_config.fog_near'            => ['nullable', 'numeric', 'min:0'],
-            'visual_config.fog_far'             => ['nullable', 'numeric', 'min:0'],
-            'visual_config.ambient_color'       => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
-            'visual_config.ambient_intensity'   => ['nullable', 'numeric', 'min:0', 'max:5'],
-            'visual_config.spot_intensity'      => ['nullable', 'numeric', 'min:0', 'max:10'],
-            'visual_config.fill_intensity'      => ['nullable', 'numeric', 'min:0', 'max:5'],
+            'visual_config' => ['nullable', 'array'],
+            'visual_config.wall_height' => ['nullable', 'numeric', 'min:1', 'max:50'],
+            'visual_config.wall_depth' => ['nullable', 'numeric', 'min:0.05', 'max:5'],
+            'visual_config.ceiling_type' => ['nullable', 'string', Rule::in(['flat', 'beamed', 'glass', 'none'])],
+            'visual_config.ceiling_height' => ['nullable', 'numeric', 'min:1', 'max:50'],
+            'visual_config.background_color' => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'visual_config.fog_color' => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'visual_config.fog_near' => ['nullable', 'numeric', 'min:0'],
+            'visual_config.fog_far' => ['nullable', 'numeric', 'min:0'],
+            'visual_config.ambient_color' => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'visual_config.ambient_intensity' => ['nullable', 'numeric', 'min:0', 'max:5'],
+            'visual_config.spot_intensity' => ['nullable', 'numeric', 'min:0', 'max:10'],
+            'visual_config.fill_intensity' => ['nullable', 'numeric', 'min:0', 'max:5'],
             'visual_config.tone_mapping_exposure' => ['nullable', 'numeric', 'min:0', 'max:3'],
-            'visual_config.frame_override'      => ['nullable', 'string', Rule::in(['gold', 'silver', 'bronze', 'black', 'white'])],
+            'visual_config.frame_override' => ['nullable', 'string', Rule::in(['gold', 'silver', 'bronze', 'black', 'white'])],
 
-            'visual_config.ceiling_color'   => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
-            'visual_config.ceiling_beams'   => ['nullable', 'boolean'],
-            'visual_config.ceiling_neon'    => ['nullable', 'boolean'],
-            'visual_config.open_air'        => ['nullable', 'boolean'],
-            'visual_config.layout_shape'    => ['nullable', 'string', Rule::in(['circular'])],
-            'visual_config.structure_pass'  => ['nullable', 'string', Rule::in(['rooms', 'cube', 'loft', 'museum', 'bays', 'garden', 'phenomena'])],
+            'visual_config.ceiling_color' => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'visual_config.ceiling_beams' => ['nullable', 'boolean'],
+            'visual_config.ceiling_neon' => ['nullable', 'boolean'],
+            'visual_config.open_air' => ['nullable', 'boolean'],
+            'visual_config.layout_shape' => ['nullable', 'string', Rule::in(['circular'])],
+            'visual_config.structure_pass' => ['nullable', 'string', Rule::in(['rooms', 'cube', 'loft', 'museum', 'bays', 'garden', 'phenomena'])],
 
-            'visual_config.environment'     => ['nullable', 'string', Rule::in(VenueTemplate::ENVIRONMENTS)],
-            'visual_config.void_dust'       => ['nullable', 'boolean'],
-            'visual_config.void_starfield'  => ['nullable', 'boolean'],
-            'visual_config.void_colonnade'  => ['nullable', 'boolean'],
-            'visual_config.void_shards'     => ['nullable', 'boolean'],
-            'visual_config.void_lake'       => ['nullable', 'boolean'],
-            'visual_config.void_arcade'     => ['nullable', 'boolean'],
+            'visual_config.environment' => ['nullable', 'string', Rule::in(VenueTemplate::ENVIRONMENTS)],
+            'visual_config.void_dust' => ['nullable', 'boolean'],
+            'visual_config.void_starfield' => ['nullable', 'boolean'],
+            'visual_config.void_colonnade' => ['nullable', 'boolean'],
+            'visual_config.void_shards' => ['nullable', 'boolean'],
+            'visual_config.void_lake' => ['nullable', 'boolean'],
+            'visual_config.void_arcade' => ['nullable', 'boolean'],
 
-            'visual_config.placement'                   => ['nullable', 'array'],
-            'visual_config.placement.density'           => ['nullable', 'string', Rule::in(['intimate', 'standard', 'generous'])],
-            'visual_config.placement.pair_orientation'  => ['nullable', 'boolean'],
-            'visual_config.placement.focal_wall'        => ['nullable', 'string', Rule::in(['front', 'back', 'left', 'right'])],
+            'visual_config.placement' => ['nullable', 'array'],
+            'visual_config.placement.density' => ['nullable', 'string', Rule::in(['intimate', 'standard', 'generous'])],
+            'visual_config.placement.pair_orientation' => ['nullable', 'boolean'],
+            'visual_config.placement.focal_wall' => ['nullable', 'string', Rule::in(['front', 'back', 'left', 'right'])],
 
-            'material_config'     => ['nullable', 'array'],
-            'material_config.wall_color'          => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
-            'material_config.wall_roughness'      => ['nullable', 'numeric', 'min:0', 'max:1'],
-            'material_config.wall_metalness'      => ['nullable', 'numeric', 'min:0', 'max:1'],
-            'material_config.wall_normal_strength'=> ['nullable', 'numeric', 'min:0', 'max:5'],
-            'material_config.floor_color'         => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
-            'material_config.floor_roughness'     => ['nullable', 'numeric', 'min:0', 'max:1'],
-            'material_config.floor_metalness'     => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'material_config' => ['nullable', 'array'],
+            'material_config.wall_color' => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'material_config.wall_roughness' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'material_config.wall_metalness' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'material_config.wall_normal_strength' => ['nullable', 'numeric', 'min:0', 'max:5'],
+            'material_config.floor_color' => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'material_config.floor_roughness' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'material_config.floor_metalness' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'material_config.floor_normal_strength' => ['nullable', 'numeric', 'min:0', 'max:5'],
 
-            'decorations'         => ['nullable', 'array', 'max:100'],
-            'decorations.*.type'          => ['required_with:decorations', 'string'],
-            'decorations.*.model_path'    => ['required_with:decorations', 'string'],
-            'decorations.*.position'      => ['required_with:decorations', 'array', 'size:3'],
-            'decorations.*.position.*'    => ['numeric'],
-            'decorations.*.rotation'      => ['nullable', 'array', 'size:3'],
-            'decorations.*.rotation.*'    => ['numeric'],
-            'decorations.*.scale'         => ['nullable'],
+            'decorations' => ['nullable', 'array', 'max:100'],
+            'decorations.*.type' => ['required_with:decorations', 'string'],
+            'decorations.*.model_path' => ['required_with:decorations', 'string'],
+            'decorations.*.position' => ['required_with:decorations', 'array', 'size:3'],
+            'decorations.*.position.*' => ['numeric'],
+            'decorations.*.rotation' => ['nullable', 'array', 'size:3'],
+            'decorations.*.rotation.*' => ['numeric'],
+            'decorations.*.scale' => ['nullable'],
             'decorations.*.plan_required' => ['nullable', 'string', Rule::in(VenueTemplate::PLANS)],
 
-            'lighting_fixtures'   => ['nullable', 'array', 'max:60'],
-            'lighting_fixtures.*.type'        => ['required_with:lighting_fixtures', 'string', Rule::in(['point', 'spot', 'directional', 'strip'])],
-            'lighting_fixtures.*.position'    => ['required_with:lighting_fixtures', 'array', 'size:3'],
-            'lighting_fixtures.*.position.*'  => ['numeric'],
-            'lighting_fixtures.*.color'       => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
-            'lighting_fixtures.*.intensity'   => ['nullable', 'numeric', 'min:0', 'max:20'],
+            'lighting_fixtures' => ['nullable', 'array', 'max:60'],
+            'lighting_fixtures.*.type' => ['required_with:lighting_fixtures', 'string', Rule::in(['point', 'spot', 'directional', 'strip'])],
+            'lighting_fixtures.*.position' => ['required_with:lighting_fixtures', 'array', 'size:3'],
+            'lighting_fixtures.*.position.*' => ['numeric'],
+            'lighting_fixtures.*.color' => ['nullable', 'string', 'regex:/^0x[0-9a-fA-F]{6}$/'],
+            'lighting_fixtures.*.intensity' => ['nullable', 'numeric', 'min:0', 'max:20'],
             'lighting_fixtures.*.cast_shadow' => ['nullable', 'boolean'],
-            'lighting_fixtures.*.distance'    => ['nullable', 'numeric', 'min:0'],
-            'lighting_fixtures.*.decay'       => ['nullable', 'numeric', 'min:0'],
+            'lighting_fixtures.*.distance' => ['nullable', 'numeric', 'min:0'],
+            'lighting_fixtures.*.decay' => ['nullable', 'numeric', 'min:0'],
 
-            'supported_layouts'   => ['nullable', 'array'],
+            'supported_layouts' => ['nullable', 'array'],
             'supported_layouts.*' => ['string', Rule::in(VenueTemplate::LAYOUTS)],
 
             // Legacy per-gallery defaults JSON — submitted by the authoring
             // form's textarea. Without this rule the field is dropped from
             // validated() and venue creation violates the NOT NULL column.
-            'default_settings'    => ['nullable', 'array'],
+            'default_settings' => ['nullable', 'array'],
 
             'visual_config_advanced' => ['nullable', 'array'],
 
-            'is_active'    => ['boolean'],
-            'is_featured'  => ['boolean'],
-            'is_draft'     => ['boolean'],
-            'sort_order'   => ['integer', 'min:0'],
-            'version'      => ['nullable', 'string', 'max:16', 'regex:/^\d+\.\d+\.\d+$/'],
+            'is_active' => ['boolean'],
+            'is_featured' => ['boolean'],
+            'is_draft' => ['boolean'],
+            'sort_order' => ['integer', 'min:0'],
+            'version' => ['nullable', 'string', 'max:16', 'regex:/^\d+\.\d+\.\d+$/'],
 
             // File uploads
-            'thumbnail_image'  => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'thumbnail_image' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             // glTF (JSON flavor), Radiance .hdr and other model/HDRI formats are
             // not reliably content-sniffable: finfo classifies .gltf as
             // application/json and .hdr as text/plain, so the mimes rule would
             // reject genuine files. These uploads are super-admin gated; the
             // type is enforced by extension allowlist instead.
-            'preview_model'    => ['nullable', 'file', 'extensions:glb,gltf', 'max:51200'], // 50 MB
-            'hdri_file'        => ['nullable', 'file', 'extensions:hdr,exr', 'max:51200'],
-            'default_audio'    => ['nullable', 'file', 'mimes:mp3,wav,m4a', 'max:10240'],
+            'preview_model' => ['nullable', 'file', 'extensions:glb,gltf', 'max:51200'], // 50 MB
+            'hdri_file' => ['nullable', 'file', 'extensions:hdr,exr', 'max:51200'],
+            'default_audio' => ['nullable', 'file', 'mimes:mp3,wav,m4a', 'max:10240'],
         ];
     }
 
@@ -158,23 +159,23 @@ class VenueTemplateRequest extends FormRequest
     {
         return [
             'visual_config.background_color.regex' => 'Background color must be a hex string like 0x0f0f0f.',
-            'visual_config.fog_color.regex'        => 'Fog color must be a hex string like 0x0f0f0f.',
-            'visual_config.ambient_color.regex'    => 'Ambient color must be a hex string like 0x0f0f0f.',
-            'material_config.wall_color.regex'     => 'Wall color must be a hex string like 0xffffff.',
-            'material_config.floor_color.regex'    => 'Floor color must be a hex string like 0xffffff.',
-            'preview_model.mimes'                  => 'Preview model must be a .glb or .gltf file.',
-            'hdri_file.mimes'                      => 'HDRI must be a .hdr or .exr file.',
-            'slug.regex'                           => 'Slug may only contain lowercase letters, numbers, and hyphens.',
-            'visual_config_advanced.array'         => 'The advanced visual_config must be a valid JSON object (e.g. {"structure": []}).',
-            'decorations.max'                      => 'A venue can hold at most 100 decoration props (draw-call budget, §11.4).',
-            'lighting_fixtures.max'                => 'A venue can declare at most 60 custom light fixtures.',
+            'visual_config.fog_color.regex' => 'Fog color must be a hex string like 0x0f0f0f.',
+            'visual_config.ambient_color.regex' => 'Ambient color must be a hex string like 0x0f0f0f.',
+            'material_config.wall_color.regex' => 'Wall color must be a hex string like 0xffffff.',
+            'material_config.floor_color.regex' => 'Floor color must be a hex string like 0xffffff.',
+            'preview_model.mimes' => 'Preview model must be a .glb or .gltf file.',
+            'hdri_file.mimes' => 'HDRI must be a .hdr or .exr file.',
+            'slug.regex' => 'Slug may only contain lowercase letters, numbers, and hyphens.',
+            'visual_config_advanced.array' => 'The advanced visual_config must be a valid JSON object (e.g. {"structure": []}).',
+            'decorations.max' => 'A venue can hold at most 100 decoration props (draw-call budget, §11.4).',
+            'lighting_fixtures.max' => 'A venue can declare at most 60 custom light fixtures.',
             // Consolidation + curation keys
-            'visual_config.ceiling_color.regex'    => 'Ceiling color must be a hex string like 0x080808.',
-            'visual_config.layout_shape.in'        => 'Layout shape may be "circular" (or left empty for the room_layout default).',
-            'visual_config.structure_pass.in'      => 'Structure pass must be one of: rooms, cube, loft, museum, bays, garden, phenomena.',
-            'visual_config.environment.in'         => 'Environment must be one of: studio, rural_evening, night, none.',
-            'visual_config.placement.density.in'   => 'Placement density must be one of: intimate, standard, generous.',
-            'visual_config.placement.focal_wall.in'=> 'Focal wall must be one of: front, back, left, right.',
+            'visual_config.ceiling_color.regex' => 'Ceiling color must be a hex string like 0x080808.',
+            'visual_config.layout_shape.in' => 'Layout shape may be "circular" (or left empty for the room_layout default).',
+            'visual_config.structure_pass.in' => 'Structure pass must be one of: rooms, cube, loft, museum, bays, garden, phenomena.',
+            'visual_config.environment.in' => 'Environment must be one of: studio, rural_evening, night, none.',
+            'visual_config.placement.density.in' => 'Placement density must be one of: intimate, standard, generous.',
+            'visual_config.placement.focal_wall.in' => 'Focal wall must be one of: front, back, left, right.',
         ];
     }
 
@@ -183,7 +184,7 @@ class VenueTemplateRequest extends FormRequest
         $validator->after(function ($validator) {
             $visual = $this->input('visual_config');
 
-            if (!is_array($visual)) {
+            if (! is_array($visual)) {
                 return;
             }
 

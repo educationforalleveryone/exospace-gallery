@@ -11,7 +11,7 @@ class EnsureUserIsSuperAdmin
     public function handle(Request $request, Closure $next): Response
     {
         // If user is not authenticated or not a super admin, kick them out
-        if (!auth()->check() || !auth()->user()->is_super_admin) {
+        if (! auth()->check() || ! auth()->user()->is_super_admin) {
             abort(403, 'Unauthorized. This area is restricted.');
         }
 

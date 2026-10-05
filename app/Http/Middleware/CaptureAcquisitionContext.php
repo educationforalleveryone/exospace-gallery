@@ -26,7 +26,7 @@ class CaptureAcquisitionContext
 
     public function handle(Request $request, Closure $next): Response
     {
-        if ($request->isMethod('get') && !$request->session()->has('acquisition')) {
+        if ($request->isMethod('get') && ! $request->session()->has('acquisition')) {
             $request->session()->put('acquisition', $this->capture($request));
         }
 
@@ -52,7 +52,7 @@ class CaptureAcquisitionContext
         return [
             'channel' => $channel,
             'referrer' => $referrer ? mb_substr($referrer, 0, 500) : null,
-            'landing_page' => mb_substr('/' . ltrim($request->path(), '/'), 0, 500),
+            'landing_page' => mb_substr('/'.ltrim($request->path(), '/'), 0, 500),
             'utm' => $utm,
         ];
     }
@@ -63,12 +63,12 @@ class CaptureAcquisitionContext
             return 'campaign';
         }
 
-        if (!$referrerHost || $referrerHost === $appHost || $referrerHost === 'www.' . $appHost) {
+        if (! $referrerHost || $referrerHost === $appHost || $referrerHost === 'www.'.$appHost) {
             return 'direct';
         }
 
         foreach (self::SEARCH_HOSTS as $host) {
-            if (str_starts_with($referrerHost, $host) || str_contains($referrerHost, '.' . $host) || $referrerHost === $host || str_starts_with($referrerHost, 'www.' . $host)) {
+            if (str_starts_with($referrerHost, $host) || str_contains($referrerHost, '.'.$host) || $referrerHost === $host || str_starts_with($referrerHost, 'www.'.$host)) {
                 return 'organic';
             }
         }

@@ -42,9 +42,9 @@ class BillingController extends Controller
             ->get();
 
         return view('billing.index', [
-            'user'             => $user,
-            'transactions'     => $transactions,
-            'pendingUpgrades'  => $pendingUpgrades,
+            'user' => $user,
+            'transactions' => $transactions,
+            'pendingUpgrades' => $pendingUpgrades,
         ]);
     }
 
@@ -60,6 +60,7 @@ class BillingController extends Controller
             $error = $isRecurring
                 ? "Recurring product not configured for plan: {$plan}. Set TWOCHECKOUT_RECURRING_PRODUCT_ID_{$plan} in .env."
                 : "Unknown plan: {$plan}. Please contact support.";
+
             return redirect()->route('billing.index')
                 ->with('error', $error);
         }
@@ -69,12 +70,12 @@ class BillingController extends Controller
         $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
         if (($planRank[$user->plan] ?? 0) > ($planRank[$plan] ?? 0)) {
             return redirect()->route('billing.index')
-                ->with('warning', "You're currently on the " . ucfirst($user->plan) . " plan, which is a higher tier than " . ucfirst($plan) . ". Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.");
+                ->with('warning', "You're currently on the ".ucfirst($user->plan).' plan, which is a higher tier than '.ucfirst($plan).'. Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.');
         }
 
         return view('billing.upgrade-confirm', [
-            'user'        => $user,
-            'plan'        => $plan,
+            'user' => $user,
+            'plan' => $plan,
             'isRecurring' => $isRecurring,
         ]);
     }
@@ -92,6 +93,7 @@ class BillingController extends Controller
             $error = $isRecurring
                 ? "Recurring product not configured for plan: {$plan}. Set TWOCHECKOUT_RECURRING_PRODUCT_ID_{$plan} in .env."
                 : "Unknown plan: {$plan}. Please contact support.";
+
             return redirect()->route('billing.index')
                 ->with('error', $error);
         }
@@ -99,7 +101,7 @@ class BillingController extends Controller
         $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
         if (($planRank[$user->plan] ?? 0) > ($planRank[$plan] ?? 0)) {
             return redirect()->route('billing.index')
-                ->with('warning', "You're currently on the " . ucfirst($user->plan) . " plan, which is a higher tier than " . ucfirst($plan) . ". Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.");
+                ->with('warning', "You're currently on the ".ucfirst($user->plan).' plan, which is a higher tier than '.ucfirst($plan).'. Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.');
         }
 
         if ($user->plan === $plan) {
@@ -108,9 +110,9 @@ class BillingController extends Controller
             // the replaced 2Checkout subscription once the new payment confirms,
             // so nothing is cancelled before money actually changes hands.
             Log::info('BillingController: same-plan purchase initiated', [
-                'user_id'         => $user->id,
-                'plan'            => $plan,
-                'is_recurring'    => $isRecurring,
+                'user_id' => $user->id,
+                'plan' => $plan,
+                'is_recurring' => $isRecurring,
                 'plan_expires_at' => $user->plan_expires_at?->toIso8601String(),
             ]);
         }
@@ -121,7 +123,7 @@ class BillingController extends Controller
             $planRank = config('plans.rank', ['free' => 0, 'pro' => 1, 'studio' => 2]);
             if (($planRank[$user->plan] ?? 0) > ($planRank[$plan] ?? 0)) {
                 return redirect()->route('billing.index')
-                    ->with('warning', "You're currently on the " . ucfirst($user->plan) . " plan, which is a higher tier than " . ucfirst($plan) . ". Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.");
+                    ->with('warning', "You're currently on the ".ucfirst($user->plan).' plan, which is a higher tier than '.ucfirst($plan).'. Downgrades are not available via the upgrade flow — please contact support if you need to downgrade.');
             }
 
             // Create the pending upgrade
@@ -140,13 +142,13 @@ class BillingController extends Controller
 
             $price = $this->getProductPrice($plan, $isRecurring);
             if ($price !== null && $secretWord) {
-                $signPayload = $sid . $productId . '1' . $price . $secretWord;
+                $signPayload = $sid.$productId.'1'.$price.$secretWord;
                 $sign = strtoupper(md5($signPayload));
-                $buyUrl .= '&sign=' . urlencode($sign);
+                $buyUrl .= '&sign='.urlencode($sign);
             } elseif ($price === null) {
                 Log::warning('BillingController: signed buy link skipped — product price not configured', [
                     'user_id' => $user->id,
-                    'plan'    => $plan,
+                    'plan' => $plan,
                     'is_recurring' => $isRecurring,
                 ]);
             } elseif (! $secretWord) {
@@ -164,14 +166,14 @@ class BillingController extends Controller
                 if (! in_array($couponCode, $allowlist, true)) {
                     Log::info('BillingController: rejected coupon not in allowlist', [
                         'user_id' => $user->id,
-                        'plan'    => $plan,
+                        'plan' => $plan,
                     ]);
                     $couponCode = null;
                 }
             }
             $couponCode ??= config('services.2checkout.coupon_code');
             if ($couponCode) {
-                $buyUrl .= '&coupon=' . urlencode($couponCode);
+                $buyUrl .= '&coupon='.urlencode($couponCode);
             }
 
             $affiliateId = $request->input('ref');
@@ -183,24 +185,24 @@ class BillingController extends Controller
                 if (! in_array($affiliateId, $affiliateAllowlist, true)) {
                     Log::info('BillingController: rejected affiliate ref not in allowlist', [
                         'user_id' => $user->id,
-                        'plan'    => $plan,
+                        'plan' => $plan,
                     ]);
                     $affiliateId = null;
                 }
             }
             $affiliateId ??= config('services.2checkout.affiliate_id');
             if ($affiliateId) {
-                $buyUrl .= '&affiliate=' . urlencode($affiliateId);
+                $buyUrl .= '&affiliate='.urlencode($affiliateId);
                 $pending->forceFill(['affiliate_id' => $affiliateId])->save();
             }
 
             Log::info('BillingController: redirecting user to 2Checkout', [
-                'user_id'           => $user->id,
-                'plan'              => $plan,
-                'pending_upgrade_id'=> $pending->id,
-                'has_coupon'        => ! empty($couponCode),
-                'has_affiliate'     => ! empty($affiliateId),
-                'has_signed_link'   => isset($sign),
+                'user_id' => $user->id,
+                'plan' => $plan,
+                'pending_upgrade_id' => $pending->id,
+                'has_coupon' => ! empty($couponCode),
+                'has_affiliate' => ! empty($affiliateId),
+                'has_signed_link' => isset($sign),
             ]);
 
             return redirect()->away($buyUrl);
@@ -269,38 +271,40 @@ class BillingController extends Controller
 
                 if (! $response->successful()) {
                     Log::error('BillingController: 2Checkout cancel API failed', [
-                        'user_id'         => $user->id,
+                        'user_id' => $user->id,
                         'subscription_id' => $subscriptionId,
-                        'status'          => $response->status(),
-                        'body'            => $response->body(),
+                        'status' => $response->status(),
+                        'body' => $response->body(),
                     ]);
+
                     return redirect()->route('billing.index')
                         ->with('error', 'Failed to cancel subscription via 2Checkout. Please try again or contact support.');
                 }
             } catch (\Throwable $e) {
                 Log::error('BillingController: 2Checkout cancel API exception', [
-                    'user_id'         => $user->id,
+                    'user_id' => $user->id,
                     'subscription_id' => $subscriptionId,
-                    'error'           => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
+
                 return redirect()->route('billing.index')
                     ->with('error', 'Could not reach 2Checkout to cancel your subscription. Please try again or contact support.');
             }
 
             $user->forceFill([
-                'subscription_status'       => 'cancelled',
+                'subscription_status' => 'cancelled',
                 'subscription_cancelled_at' => now(),
             ])->save();
 
             AdminAuditLog::record('subscription.cancelled', $user, [
                 'subscription_id' => $subscriptionId,
-                'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
+                'ends_at' => $user->subscription_ends_at?->toIso8601String(),
             ]);
 
             Log::info('BillingController: subscription cancelled', [
-                'user_id'         => $user->id,
+                'user_id' => $user->id,
                 'subscription_id' => $subscriptionId,
-                'ends_at'         => $user->subscription_ends_at?->toIso8601String(),
+                'ends_at' => $user->subscription_ends_at?->toIso8601String(),
             ]);
 
             return redirect()->route('billing.index')
@@ -335,24 +339,26 @@ class BillingController extends Controller
 
             if (! $response->successful()) {
                 Log::error('BillingController: 2Checkout reactivate API failed', [
-                    'user_id'         => $user->id,
+                    'user_id' => $user->id,
                     'subscription_id' => $subscriptionId,
-                    'status'          => $response->status(),
+                    'status' => $response->status(),
                 ]);
+
                 return redirect()->route('billing.index')
                     ->with('error', 'Failed to reactivate subscription via 2Checkout. Please try again or contact support.');
             }
         } catch (\Throwable $e) {
             Log::error('BillingController: 2Checkout reactivate API exception', [
                 'user_id' => $user->id,
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
+
             return redirect()->route('billing.index')
                 ->with('error', 'Could not reach 2Checkout to reactivate your subscription. Please try again or contact support.');
         }
 
         $user->forceFill([
-            'subscription_status'       => 'active',
+            'subscription_status' => 'active',
             'subscription_cancelled_at' => null,
         ])->save();
 
@@ -362,7 +368,7 @@ class BillingController extends Controller
         ]);
 
         Log::info('BillingController: subscription reactivated', [
-            'user_id'         => $user->id,
+            'user_id' => $user->id,
             'subscription_id' => $subscriptionId,
         ]);
 
@@ -405,35 +411,37 @@ class BillingController extends Controller
                     if (! $response->successful()) {
                         Log::error('BillingController: downgrade cancel API failed', [
                             'user_id' => $user->id,
-                            'status'  => $response->status(),
+                            'status' => $response->status(),
                         ]);
+
                         return redirect()->route('billing.index')
                             ->with('error', 'Failed to cancel subscription via 2Checkout. Please contact support.');
                     }
                 } catch (\Throwable $e) {
                     Log::error('BillingController: downgrade cancel API exception', [
                         'user_id' => $user->id,
-                        'error'   => $e->getMessage(),
+                        'error' => $e->getMessage(),
                     ]);
+
                     return redirect()->route('billing.index')
                         ->with('error', 'Could not reach 2Checkout. Please try again or contact support.');
                 }
 
                 $user->forceFill([
-                    'subscription_status'       => 'cancelled',
+                    'subscription_status' => 'cancelled',
                     'subscription_cancelled_at' => now(),
                 ])->save();
 
                 AdminAuditLog::record('subscription.cancelled', $user, [
-                    'subscription_id'      => $user->subscription_id,
+                    'subscription_id' => $user->subscription_id,
                     'downgrade_target_plan' => $targetPlan,
-                    'ends_at'              => $user->subscription_ends_at?->toIso8601String(),
+                    'ends_at' => $user->subscription_ends_at?->toIso8601String(),
                 ]);
 
                 return redirect()->route('billing.index')
-                    ->with('success', "Your subscription has been cancelled. You'll keep " . ucfirst($user->plan)
-                        . " access until {$user->subscription_ends_at?->format('M j, Y')}, after which your account moves to Free."
-                        . ' To move to ' . ucfirst($targetPlan) . ' right away, use the upgrade options on this page.');
+                    ->with('success', "Your subscription has been cancelled. You'll keep ".ucfirst($user->plan)
+                        ." access until {$user->subscription_ends_at?->format('M j, Y')}, after which your account moves to Free."
+                        .' To move to '.ucfirst($targetPlan).' right away, use the upgrade options on this page.');
             }
 
             // One-time purchase: downgrade immediately
@@ -448,11 +456,11 @@ class BillingController extends Controller
 
             AdminAuditLog::record('plan.downgraded', $user, [
                 'from' => $oldPlan,
-                'to'   => $targetPlan,
+                'to' => $targetPlan,
             ]);
 
             return redirect()->route('billing.index')
-                ->with('success', 'Your plan has been downgraded to ' . ucfirst($targetPlan) . '.');
+                ->with('success', 'Your plan has been downgraded to '.ucfirst($targetPlan).'.');
         });
 
         if ($result instanceof RedirectResponse) {
@@ -488,7 +496,7 @@ class BillingController extends Controller
                 ->with('error', 'You\'ve already used your free trial. Choose a plan to continue.');
         }
 
-        $ipKey = 'trial:' . $request->ip();
+        $ipKey = 'trial:'.$request->ip();
         $maxTrialsPerIp = 2;
         $decayMinutes = 30 * 24 * 60; // 30 days
 
@@ -498,7 +506,7 @@ class BillingController extends Controller
 
             Log::warning('Trial rate limit hit', [
                 'user_id' => $user->id,
-                'ip'      => $request->ip(),
+                'ip' => $request->ip(),
                 'retry_after_seconds' => $retryAfter,
             ]);
 
@@ -512,8 +520,8 @@ class BillingController extends Controller
         $user->startTrial($plan);
 
         AdminAuditLog::record('trial.started', $user, [
-            'plan'              => $plan,
-            'trial_ends_at'     => $user->fresh()->trial_ends_at?->toIso8601String(),
+            'plan' => $plan,
+            'trial_ends_at' => $user->fresh()->trial_ends_at?->toIso8601String(),
             'trial_count_for_ip' => RateLimiter::attempts($ipKey),
         ]);
 
@@ -529,13 +537,13 @@ class BillingController extends Controller
 
         Log::info('Trial started', [
             'user_id' => $user->id,
-            'plan'    => $plan,
-            'ip'      => $request->ip(),
+            'plan' => $plan,
+            'ip' => $request->ip(),
             'trial_count_for_ip' => RateLimiter::attempts($ipKey),
         ]);
 
         return redirect()->route('admin.dashboard')
-            ->with('status', "Your 14-day free trial of " . ucfirst($plan) . " has started! You have full access to all {$plan} features until " . $user->trial_ends_at->format('M j, Y') . '.');
+            ->with('status', 'Your 14-day free trial of '.ucfirst($plan)." has started! You have full access to all {$plan} features until ".$user->trial_ends_at->format('M j, Y').'.');
     }
 
     public function downloadInvoice(Request $request, \App\Models\Invoice $invoice)
@@ -551,7 +559,7 @@ class BillingController extends Controller
             abort(404, 'Invoice PDF not available.');
         }
 
-        $local  = \Illuminate\Support\Facades\Storage::disk('local');
+        $local = \Illuminate\Support\Facades\Storage::disk('local');
         $public = \Illuminate\Support\Facades\Storage::disk('public');
 
         // Legacy rows may carry the public URL prefix.
@@ -564,23 +572,23 @@ class BillingController extends Controller
         } else {
             Log::warning('BillingController: invoice file missing on disk', [
                 'invoice_id' => $invoice->id,
-                'pdf_path'   => $invoice->pdf_path,
+                'pdf_path' => $invoice->pdf_path,
             ]);
             abort(404, 'Invoice file not found.');
         }
 
         $extension = pathinfo($invoice->pdf_path, PATHINFO_EXTENSION);
         $mimeType = match ($extension) {
-            'pdf'  => 'application/pdf',
+            'pdf' => 'application/pdf',
             'html' => 'text/html',
             default => 'application/octet-stream',
         };
         $filename = "{$invoice->invoice_number}.{$extension}";
 
         return response($disk->get($path), 200, [
-            'Content-Type'        => $mimeType,
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-            'Cache-Control'       => 'private, no-cache, no-store, must-revalidate',
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'private, no-cache, no-store, must-revalidate',
         ]);
     }
 }

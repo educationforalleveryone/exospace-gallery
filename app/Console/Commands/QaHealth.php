@@ -52,9 +52,9 @@ class QaHealth extends Command
             }
         });
         $this->add('queue-depth', function () {
-            $pending = DB::table((string) config('queue.connections.' . config('queue.default') . '.table', 'jobs'))->count();
-            $failed  = DB::table('failed_jobs')->count();
-            $limit   = (int) $this->option('max-failed-jobs');
+            $pending = DB::table((string) config('queue.connections.'.config('queue.default').'.table', 'jobs'))->count();
+            $failed = DB::table('failed_jobs')->count();
+            $limit = (int) $this->option('max-failed-jobs');
 
             return [$failed <= $limit, "pending={$pending} failed={$failed} (warn>{$limit})"];
         });
@@ -65,7 +65,7 @@ class QaHealth extends Command
                 return [false, 'no scheduler heartbeat key present — is schedule:work / cron attached?'];
             }
             $ageMin = now()->diffInMinutes(\Illuminate\Support\Carbon::parse($stamp));
-            $limit  = (int) $this->option('max-scheduler-age-min');
+            $limit = (int) $this->option('max-scheduler-age-min');
 
             return [$ageMin <= $limit, "age={$ageMin}min (warn>{$limit})"];
         });
@@ -91,9 +91,9 @@ class QaHealth extends Command
 
             $this->cases[] = [
                 'identifier' => "health::{$name}", 'classname' => 'qa-health', 'name' => $name,
-                'status'     => $ok ? 'passed' : 'failed', 'time_ms' => null,
-                'message'    => $ok ? null : (string) $detail,
-                'data_set'   => null, 'exception_class' => null,
+                'status' => $ok ? 'passed' : 'failed', 'time_ms' => null,
+                'message' => $ok ? null : (string) $detail,
+                'data_set' => null, 'exception_class' => null,
             ];
         }
 
@@ -116,9 +116,10 @@ class QaHealth extends Command
     }
 
     /**
- * @var list<array{0:string,1:callable}>
- */
+     * @var list<array{0:string,1:callable}>
+     */
     private array $probes = [];
+
     private int $problems = 0;
 
     private function add(string $name, callable $fn): void

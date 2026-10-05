@@ -44,6 +44,6 @@ final class SeoData
 
     public function isIndexable(): bool
     {
-        return !str_contains($this->robotsDirective(), 'noindex');
+        return ! str_contains($this->robotsDirective(), 'noindex');
     }
 }

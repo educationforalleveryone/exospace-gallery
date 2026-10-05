@@ -4,17 +4,17 @@ return [
 
     'limits' => [
         'studio' => ['max_galleries' => 999, 'max_images' => 500],
-        'pro'    => ['max_galleries' => 5,   'max_images' => 100],
-        'free'   => ['max_galleries' => 1,   'max_images' => 10],
+        'pro' => ['max_galleries' => 5,   'max_images' => 100],
+        'free' => ['max_galleries' => 1,   'max_images' => 10],
     ],
 
     'display' => [
         'free' => [
-            'name'        => 'Free',
-            'price'       => 0,
+            'name' => 'Free',
+            'price' => 0,
             'price_label' => 'Free',
-            'tagline'     => '1 gallery · 10 images',
-            'features'    => [
+            'tagline' => '1 gallery · 10 images',
+            'features' => [
                 '1 gallery',
                 '10 images per gallery',
                 'Standard venue templates',
@@ -22,13 +22,13 @@ return [
             ],
         ],
         'pro' => [
-            'name'        => 'Pro',
+            'name' => 'Pro',
             // Deriving from the same env the checkout charges keeps the
             // marketing pages and proration math in sync automatically.
-            'price'       => (float) env('TWOCHECKOUT_PRICE_PRO', 29),
+            'price' => (float) env('TWOCHECKOUT_PRICE_PRO', 29),
             'price_label' => '$29',
-            'tagline'     => '5 galleries · 100 images',
-            'features'    => [
+            'tagline' => '5 galleries · 100 images',
+            'features' => [
                 '5 galleries',
                 '100 images per gallery',
                 'Background music',
@@ -37,11 +37,11 @@ return [
             ],
         ],
         'studio' => [
-            'name'        => 'Studio',
-            'price'       => (float) env('TWOCHECKOUT_PRICE_STUDIO', 99),
+            'name' => 'Studio',
+            'price' => (float) env('TWOCHECKOUT_PRICE_STUDIO', 99),
             'price_label' => '$99',
-            'tagline'     => 'Unlimited galleries · 500 images',
-            'features'    => [
+            'tagline' => 'Unlimited galleries · 500 images',
+            'features' => [
                 'Unlimited galleries',
                 '500 images per gallery',
                 'Custom domains',
@@ -57,8 +57,8 @@ return [
     'dunning_grace_days' => (int) env('BILLING_DUNNING_GRACE_DAYS', 14),
 
     'rank' => [
-        'free'   => 0,
-        'pro'    => 1,
+        'free' => 0,
+        'pro' => 1,
         'studio' => 2,
     ],
 ];

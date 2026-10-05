@@ -32,6 +32,7 @@ return new class extends Migration
             $healed = ['id' => $el['id'], 'primitive' => $el['primitive'], 'at' => $at, 'turn' => 'in'] + $healed;
             $out[$id] = $healed;
         }
+
         return $out;
     }
 
@@ -94,11 +95,11 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'the-salon')
             ->first(['id', 'visual_config', 'version']);
-        if (!$row) {
+        if (! $row) {
             return; // venue removed by the operator — respect that
         }
         $vc = json_decode((string) $row->visual_config, true);
-        if (!is_array($vc)) {
+        if (! is_array($vc)) {
             return;
         }
 
@@ -106,7 +107,7 @@ return new class extends Migration
 
         // ── 1. Side-element heal (per-element exact guard) ───────────────
         if (isset($vc['structure']) && is_array($vc['structure'])) {
-            $v2Side  = $this->v2SideElements();
+            $v2Side = $this->v2SideElements();
             $v21Side = $this->v21SideElements();
             foreach ($vc['structure'] as $i => $el) {
                 $id = is_array($el) ? ($el['id'] ?? null) : null;
@@ -127,7 +128,7 @@ return new class extends Migration
             $doorIsV2 = true;
             foreach (array_keys($v2Door) as $doorId) {
                 $i = $byId[$doorId] ?? null;
-                if ($i === null || !$this->arraysEqual($vc['structure'][$i], $v2Door[$doorId])) {
+                if ($i === null || ! $this->arraysEqual($vc['structure'][$i], $v2Door[$doorId])) {
                     $doorIsV2 = false;
                     break;
                 }
@@ -135,11 +136,11 @@ return new class extends Migration
             if ($doorIsV2) {
                 $v21Door = $this->v21DoorElements();
                 $firstIdx = $byId['door-leaf'];
-                $dropIdx  = array_map(fn ($id) => $byId[$id], array_keys($v2Door));
-                $head  = array_slice($vc['structure'], 0, $firstIdx);
-                $tail  = array_values(array_filter(
+                $dropIdx = array_map(fn ($id) => $byId[$id], array_keys($v2Door));
+                $head = array_slice($vc['structure'], 0, $firstIdx);
+                $tail = array_values(array_filter(
                     array_slice($vc['structure'], $firstIdx),
-                    fn ($_, $k) => !in_array($firstIdx + $k, $dropIdx, true),
+                    fn ($_, $k) => ! in_array($firstIdx + $k, $dropIdx, true),
                     ARRAY_FILTER_USE_BOTH
                 ));
                 $vc['structure'] = array_values(array_merge(
@@ -158,7 +159,7 @@ return new class extends Migration
             $changed = true;
         }
 
-        if (!$changed) {
+        if (! $changed) {
             return; // already v2.1, or admin-authored — write nothing
         }
 
@@ -167,7 +168,7 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update([
                 'visual_config' => $vcJson,
-                'version'       => $row->version === '2.0.0' ? '2.1.0' : $row->version,
+                'version' => $row->version === '2.0.0' ? '2.1.0' : $row->version,
             ]);
     }
 
@@ -176,18 +177,18 @@ return new class extends Migration
         $row = DB::table('venue_templates')
             ->where('slug', 'the-salon')
             ->first(['id', 'visual_config', 'version']);
-        if (!$row) {
+        if (! $row) {
             return;
         }
         $vc = json_decode((string) $row->visual_config, true);
-        if (!is_array($vc)) {
+        if (! is_array($vc)) {
             return;
         }
 
         $changed = false;
 
         if (isset($vc['structure']) && is_array($vc['structure'])) {
-            $v2Side  = $this->v2SideElements();
+            $v2Side = $this->v2SideElements();
             $v21Side = $this->v21SideElements();
             foreach ($vc['structure'] as $i => $el) {
                 $id = is_array($el) ? ($el['id'] ?? null) : null;
@@ -207,7 +208,7 @@ return new class extends Migration
             $doorIsV21 = true;
             foreach (array_keys($v21Door) as $doorId) {
                 $i = $byId[$doorId] ?? null;
-                if ($i === null || !$this->arraysEqual($vc['structure'][$i], $v21Door[$doorId])) {
+                if ($i === null || ! $this->arraysEqual($vc['structure'][$i], $v21Door[$doorId])) {
                     $doorIsV21 = false;
                     break;
                 }
@@ -215,11 +216,11 @@ return new class extends Migration
             if ($doorIsV21) {
                 $v2Door = $this->v2DoorElements();
                 $firstIdx = $byId['door-leaf-l'];
-                $dropIdx  = array_map(fn ($id) => $byId[$id], array_keys($v21Door));
+                $dropIdx = array_map(fn ($id) => $byId[$id], array_keys($v21Door));
                 $head = array_slice($vc['structure'], 0, $firstIdx);
                 $tail = array_values(array_filter(
                     array_slice($vc['structure'], $firstIdx),
-                    fn ($_, $k) => !in_array($firstIdx + $k, $dropIdx, true),
+                    fn ($_, $k) => ! in_array($firstIdx + $k, $dropIdx, true),
                     ARRAY_FILTER_USE_BOTH
                 ));
                 $vc['structure'] = array_values(array_merge(
@@ -237,7 +238,7 @@ return new class extends Migration
             $changed = true;
         }
 
-        if (!$changed) {
+        if (! $changed) {
             return;
         }
 
@@ -246,7 +247,7 @@ return new class extends Migration
             ->where('id', $row->id)
             ->update([
                 'visual_config' => $vcJson,
-                'version'       => $row->version === '2.1.0' ? '2.0.0' : $row->version,
+                'version' => $row->version === '2.1.0' ? '2.0.0' : $row->version,
             ]);
     }
 };

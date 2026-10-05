@@ -58,7 +58,7 @@ class QrCodeController extends Controller
     {
         if ($format === 'svg') {
             $result = Builder::create()
-                ->writer(new SvgWriter())
+                ->writer(new SvgWriter)
                 ->data($url)
                 ->encoding(new Encoding('UTF-8'))
                 ->errorCorrectionLevel(ErrorCorrectionLevel::High)
@@ -66,6 +66,7 @@ class QrCodeController extends Controller
                 ->margin(10)
                 ->roundBlockSizeMode(RoundBlockSizeMode::Margin)
                 ->build();
+
             return $result->getString();
         }
 
@@ -77,6 +78,7 @@ class QrCodeController extends Controller
             ->margin(20)
             ->roundBlockSizeMode(RoundBlockSizeMode::Margin)
             ->build();
+
         return $result->getString();
     }
 }

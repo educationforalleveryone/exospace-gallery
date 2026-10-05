@@ -11,11 +11,11 @@ class PendingUpgradeFactory extends Factory
     public function definition(): array
     {
         return [
-            'user_id'    => User::factory(),
-            'token'      => PendingUpgrade::hashToken(PendingUpgrade::generateToken()),
-            'plan'       => fake()->randomElement(['pro', 'studio']),
+            'user_id' => User::factory(),
+            'token' => PendingUpgrade::hashToken(PendingUpgrade::generateToken()),
+            'plan' => fake()->randomElement(['pro', 'studio']),
             'product_id' => (string) fake()->numberBetween(1000, 9999),
-            'status'     => 'pending',
+            'status' => 'pending',
             'expires_at' => now()->addDays(7),
         ];
     }

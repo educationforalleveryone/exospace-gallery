@@ -35,11 +35,11 @@ class VenueFrontierTest extends TestCase
         $user = User::factory()->create();
 
         $gallery = Gallery::create(array_merge([
-            'user_id'           => $user->id,
-            'title'             => 'Show in ' . $venue->name,
-            'slug'              => 'show-' . $venue->slug . '-' . uniqid(),
-            'description'       => 'A public exhibition.',
-            'is_active'         => true,
+            'user_id' => $user->id,
+            'title' => 'Show in '.$venue->name,
+            'slug' => 'show-'.$venue->slug.'-'.uniqid(),
+            'description' => 'A public exhibition.',
+            'is_active' => true,
             'venue_template_id' => $venue->id,
         ], $galleryAttrs));
 
@@ -51,16 +51,16 @@ class VenueFrontierTest extends TestCase
     private function attachArtwork(Gallery $gallery, array $attrs = []): GalleryImage
     {
         return GalleryImage::create(array_merge([
-            'gallery_id'    => $gallery->id,
-            'artist_id'     => null,
-            'filename'      => 'artwork.jpg',
+            'gallery_id' => $gallery->id,
+            'artist_id' => null,
+            'filename' => 'artwork.jpg',
             'original_name' => 'artwork.jpg',
-            'path'          => 'artworks/artwork.jpg',
-            'mime_type'     => 'image/jpeg',
-            'size'          => 1024,
-            'width'         => 1200,
-            'height'        => 800,
-            'orientation'   => 'landscape',
+            'path' => 'artworks/artwork.jpg',
+            'mime_type' => 'image/jpeg',
+            'size' => 1024,
+            'width' => 1200,
+            'height' => 800,
+            'orientation' => 'landscape',
         ], $attrs));
     }
 
@@ -99,7 +99,7 @@ class VenueFrontierTest extends TestCase
 
         // Embedded walkthrough: click-to-load poster carrying the preview URL.
         $this->assertStringContainsString('data-walkthrough-poster', $html);
-        $this->assertStringContainsString('data-preview-url="' . route('venues.preview', 'white-cube') . '"', $html);
+        $this->assertStringContainsString('data-preview-url="'.route('venues.preview', 'white-cube').'"', $html);
         $this->assertStringContainsString('Walk through this venue', $html);
 
         $this->assertStringContainsString('<noscript>', $html);
@@ -158,7 +158,7 @@ class VenueFrontierTest extends TestCase
         $this->bustSitemapCaches();
         $xml = $this->get('/sitemap-venues-1.xml')->assertOk()->getContent();
 
-        $this->assertStringContainsString('<loc>' . url('/venues/white-cube') . '</loc>', $xml);
+        $this->assertStringContainsString('<loc>'.url('/venues/white-cube').'</loc>', $xml);
         $this->assertStringNotContainsString(url('/venues/zen-gallery'), $xml);
         $this->assertStringNotContainsString(url('/venues/dark-museum'), $xml);
     }
@@ -182,7 +182,7 @@ class VenueFrontierTest extends TestCase
         $this->bustSitemapCaches();
         $xml = $this->get('/sitemap-venues-1.xml')->assertOk()->getContent();
 
-        $this->assertStringContainsString('<loc>' . url('/venues/zen-gallery') . '</loc>', $xml);
+        $this->assertStringContainsString('<loc>'.url('/venues/zen-gallery').'</loc>', $xml);
         $this->assertStringNotContainsString(url('/venues/dark-museum'), $xml, 'draft venues are never listed');
         $this->assertStringNotContainsString(url('/venues/crystal-cathedral'), $xml, 'paused venues are never listed');
         $this->assertStringNotContainsString(url('/venues/nebula-drift'), $xml, 'archived venues are never listed');
@@ -195,10 +195,10 @@ class VenueFrontierTest extends TestCase
         $this->attachPublicGallery($venue);
 
         SeoProfile::create([
-            'subject_type'    => VenueTemplate::class,
-            'subject_id'      => $venue->id,
+            'subject_type' => VenueTemplate::class,
+            'subject_id' => $venue->id,
             'sitemap_include' => false,
-            'updated_by'      => null,
+            'updated_by' => null,
         ]);
 
         $this->bustSitemapCaches();
@@ -227,10 +227,10 @@ class VenueFrontierTest extends TestCase
         $this->attachPublicGallery($whiteCube, ['title' => 'Public show']);
         $privateOwner = User::factory()->create();
         Gallery::create([
-            'user_id'           => $privateOwner->id,
-            'title'             => 'Private show',
-            'slug'              => 'private-show-' . uniqid(),
-            'is_active'         => false,
+            'user_id' => $privateOwner->id,
+            'title' => 'Private show',
+            'slug' => 'private-show-'.uniqid(),
+            'is_active' => false,
             'venue_template_id' => $whiteCube->id,
         ]);
         VenueTemplate::where('slug', 'white-cube')->update(['view_count' => 500]);

@@ -87,13 +87,13 @@ class ArtworkController extends Controller
         $alsoByArtist = $this->linking->relatedArtworks($artwork);
 
         return view('artworks.show', [
-            'artwork'     => $artwork,
-            'gallery'     => $gallery,
-            'seoData'     => $seo,
+            'artwork' => $artwork,
+            'gallery' => $gallery,
+            'seoData' => $seo,
             'breadcrumbs' => $breadcrumbs,
-            'siblings'    => $siblings,
+            'siblings' => $siblings,
             'alsoByArtist' => $alsoByArtist,
-            'gatePassed'  => $gatePassed,
+            'gatePassed' => $gatePassed,
             // Preload the LCP image (the artwork itself).
             'preloadImage' => $artwork->public_url,
         ]);
@@ -102,17 +102,16 @@ class ArtworkController extends Controller
     public static function passesQualityGate(GalleryImage $image): bool
     {
         // Must have a derivable title.
-        if (!trim((string) ($image->title ?: $image->original_name))) {
+        if (! trim((string) ($image->title ?: $image->original_name))) {
             return false;
         }
 
         $minDescription = (int) config('seo.artwork_gate.min_description_chars', 80);
         $hasDepth = mb_strlen(trim((string) $image->description)) >= $minDescription
-            || !empty($image->medium)
-            || !empty($image->year)
-            || !empty($image->artist_id);
+            || ! empty($image->medium)
+            || ! empty($image->year)
+            || ! empty($image->artist_id);
 
         return $hasDepth;
     }
-
 }

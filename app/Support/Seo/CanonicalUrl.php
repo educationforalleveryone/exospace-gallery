@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Support\Seo;
 
-use Illuminate\Support\Arr;
-
 final class CanonicalUrl
 {
     public static function clean(string $url, array $preserve = [], bool $allowPagination = false): string
@@ -28,6 +26,7 @@ final class CanonicalUrl
             // Explicitly preserved params always win.
             if (in_array($key, $preserve, true)) {
                 $keep[$key] = $value;
+
                 continue;
             }
             // Known tracking/display params always drop.
@@ -39,6 +38,7 @@ final class CanonicalUrl
                 if ($allowPagination && self::isMeaningfulPagination($value)) {
                     $keep[$key] = $value;
                 }
+
                 continue;
             }
         }
@@ -57,12 +57,12 @@ final class CanonicalUrl
             }
         }
 
-        return $base . '?' . http_build_query($ordered);
+        return $base.'?'.http_build_query($ordered);
     }
 
     public static function path(string $path): string
     {
-        $path = '/' . ltrim($path, '/');
+        $path = '/'.ltrim($path, '/');
 
         return url($path);
     }
@@ -82,10 +82,10 @@ final class CanonicalUrl
         if ($page > 1) {
             $prev = $page === 2
                 ? $baseUrl // page 1 is the clean URL
-                : $baseUrl . '?' . $paginationParam . '=' . ($page - 1);
+                : $baseUrl.'?'.$paginationParam.'='.($page - 1);
         }
         if ($hasMore) {
-            $next = $baseUrl . '?' . $paginationParam . '=' . ($page + 1);
+            $next = $baseUrl.'?'.$paginationParam.'='.($page + 1);
         }
 
         return ['prev' => $prev, 'next' => $next];
@@ -105,9 +105,9 @@ final class CanonicalUrl
     {
         $scheme = $parts['scheme'] ?? 'https';
         $host = $parts['host'] ?? parse_url(config('app.url'), PHP_URL_HOST) ?? '';
-        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $port = isset($parts['port']) ? ':'.$parts['port'] : '';
         $path = $parts['path'] ?? '/';
 
-        return $scheme . '://' . $host . $port . $path;
+        return $scheme.'://'.$host.$port.$path;
     }
 }

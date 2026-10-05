@@ -66,7 +66,7 @@ class DashboardStateTest extends TestCase
     {
         $user = User::factory()->create(['created_at' => now()->subDays(7)]);
         $gallery = Gallery::factory()->create([
-            'user_id'   => $user->id,
+            'user_id' => $user->id,
             'is_active' => false,
             'view_count' => 0,
         ]);

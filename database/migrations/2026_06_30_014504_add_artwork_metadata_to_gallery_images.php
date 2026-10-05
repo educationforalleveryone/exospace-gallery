@@ -33,7 +33,7 @@ return new class extends Migration
         }
         $drop = array_values(array_filter(
             ['price', 'currency', 'for_sale', 'medium', 'year',
-             'dimensions', 'edition_size', 'edition_number', 'external_url'],
+                'dimensions', 'edition_size', 'edition_number', 'external_url'],
             fn ($col) => Schema::hasColumn('gallery_images', $col),
         ));
         if ($drop === []) {
@@ -45,6 +45,7 @@ return new class extends Migration
             ->all();
         if ($remaining === []) {
             Schema::dropIfExists('gallery_images');
+
             return;
         }
         Schema::table('gallery_images', function (Blueprint $table) use ($drop) {
