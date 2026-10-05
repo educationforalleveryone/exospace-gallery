@@ -126,17 +126,46 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+          # Isolate the PARENT process (qa:doctor / qa:run) the same way the
+          # phpunit subprocess is isolated by phpunit.xml: .env.example ships
+          # redis drivers for production parity, but the CI runner has no
+          # Redis service — Cache::lock() and the session-poison tripwire in
+          # qa:doctor would both fail against it. The suite child keeps its
+          # own forced values (generated suite XML); the mysql DB_* block
+          # below still points the record store at the default connection.
+          # (echo-append, not a heredoc: an indented heredoc terminator is not
+          # recognized by bash and would swallow the rest of the step.)
+          {
+            echo "APP_ENV=testing"
+            echo "CACHE_STORE=array"
+            echo "QUEUE_CONNECTION=sync"
+            echo "SESSION_DRIVER=array"
+            echo "MAIL_MAILER=array"
+          } >> .env
+
+      - name: Provision Control Center record store (default connection)
+        # qa:run persists run records — including BLOCKED attempts — through the
+        # DEFAULT DB connection, which on CI resolves to `.env.example`'s
+        # mysql/exospace. The service container only creates `exospace_test`
+        # (the SUITE's TEST_MYSQL database), so without this step the first
+        # record() call dies on an unknown database / missing qa_test_runs
+        # table — AFTER the tests themselves already ran. Provisioning here
+        # mirrors what the deploy pipeline does in production (docker-start.sh
+        # runs `migrate --force` on every container start).
+        run: |
+          mysql -h127.0.0.1 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS exospace CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          php artisan migrate --force
 
       - name: Configure database (MySQL 8)
         if: steps.params.outputs.database == 'mysql8'
         run: |
-          cat >> .env <<'ENV'
-          TEST_MYSQL_HOST=127.0.0.1
-          TEST_MYSQL_PORT=3306
-          TEST_MYSQL_DATABASE=exospace_test
-          TEST_MYSQL_USERNAME=root
-          TEST_MYSQL_PASSWORD=root
-          ENV
+          {
+            echo "TEST_MYSQL_HOST=127.0.0.1"
+            echo "TEST_MYSQL_PORT=3306"
+            echo "TEST_MYSQL_DATABASE=exospace_test"
+            echo "TEST_MYSQL_USERNAME=root"
+            echo "TEST_MYSQL_PASSWORD=root"
+          } >> .env
 
       - name: Build frontend assets
         # Page-rendering feature tests 500 without a Vite manifest — building

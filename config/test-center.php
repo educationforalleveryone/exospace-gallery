@@ -69,6 +69,11 @@ return [
     'timeout_seconds' => (int) env('QA_TIMEOUT_SECONDS', 1800),
     'phpunit_binary' => env('QA_PHPUNIT_BINARY', 'vendor/bin/phpunit'),
 
+    // Memory ceiling for the PHPUnit subprocess qa:run spawns. The full
+    // suites peak above PHP's CLI memory_limit default — CI documents the
+    // same requirement (`php -d memory_limit=2G vendor/bin/phpunit` in ci.yml).
+    'phpunit_memory_limit' => env('QA_PHPUNIT_MEMORY_LIMIT', '2G'),
+
     // Directory (relative to storage_path) where artifacts are stored.
     'artifact_disk' => 'control-center',
 

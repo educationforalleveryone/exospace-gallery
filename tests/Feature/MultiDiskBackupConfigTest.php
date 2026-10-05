@@ -27,9 +27,8 @@ class MultiDiskBackupConfigTest extends TestCase
 
     public function test_audit_p19_1_backup_disks_defaults_to_local(): void
     {
-        putenv('BACKUP_DISKS');
-        unset($_ENV['BACKUP_DISKS'], $_SERVER['BACKUP_DISKS']);
-        $this->app['config']->set('backup', require config_path('backup.php'));
+        $this->setBackupDisksEnvironment(null);
+        $this->reloadBackupConfig();
 
         $disks = config('backup.backup.destination.disks');
 
@@ -39,8 +38,8 @@ class MultiDiskBackupConfigTest extends TestCase
 
     public function test_audit_p19_1_backup_disks_env_var_enables_multiple_disks(): void
     {
-        putenv('BACKUP_DISKS=local,r2');
-        $this->refreshApplication();
+        $this->setBackupDisksEnvironment('local,r2');
+        $this->reloadBackupConfig();
 
         $disks = config('backup.backup.destination.disks');
 
@@ -50,13 +49,13 @@ class MultiDiskBackupConfigTest extends TestCase
         $this->assertCount(2, $disks);
 
         // Restore.
-        putenv('BACKUP_DISKS');
+        $this->setBackupDisksEnvironment(null);
     }
 
     public function test_audit_p19_1_backup_disks_trims_whitespace(): void
     {
-        putenv('BACKUP_DISKS=local, r2');
-        $this->refreshApplication();
+        $this->setBackupDisksEnvironment('local, r2');
+        $this->reloadBackupConfig();
 
         $disks = config('backup.backup.destination.disks');
 
@@ -64,13 +63,13 @@ class MultiDiskBackupConfigTest extends TestCase
         $this->assertContains('r2', $disks, 'r2 should not have a leading space.');
 
         // Restore.
-        putenv('BACKUP_DISKS');
+        $this->setBackupDisksEnvironment(null);
     }
 
     public function test_audit_p19_1_monitor_backups_uses_env_driven_disks(): void
     {
-        putenv('BACKUP_DISKS=local,r2');
-        $this->refreshApplication();
+        $this->setBackupDisksEnvironment('local,r2');
+        $this->reloadBackupConfig();
 
         $monitorDisks = config('backup.monitor_backups.0.disks');
 
@@ -79,7 +78,35 @@ class MultiDiskBackupConfigTest extends TestCase
         $this->assertContains('r2', $monitorDisks);
 
         // Restore.
-        putenv('BACKUP_DISKS');
+        $this->setBackupDisksEnvironment(null);
+    }
+
+    /**
+     * Mirror BACKUP_DISKS into every source the Env repository reads
+     * ($_SERVER, $_ENV, putenv), or clear it with null.
+     *
+     * The former putenv() + refreshApplication() approach was racy: once a
+     * boot's dotenv reload records BACKUP_DISKS as "loaded", the immutable
+     * writer treats the .env value as its own and overwrites the putenv on
+     * the next app refresh, so the env-driven expectations lost.
+     */
+    private function setBackupDisksEnvironment(?string $value): void
+    {
+        if ($value === null) {
+            putenv('BACKUP_DISKS');
+            unset($_ENV['BACKUP_DISKS'], $_SERVER['BACKUP_DISKS']);
+
+            return;
+        }
+
+        $_SERVER['BACKUP_DISKS'] = $value;
+        $_ENV['BACKUP_DISKS'] = $value;
+        putenv('BACKUP_DISKS='.$value);
+    }
+
+    private function reloadBackupConfig(): void
+    {
+        $this->app['config']->set('backup', require config_path('backup.php'));
     }
 
     public function test_audit_p19_1_check_backup_health_iterates_all_disks_without_throwing(): void

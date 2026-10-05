@@ -58,7 +58,9 @@ class QaRunProfile extends Command
 
         $verdict = $safety->evaluate($key, $profile, $targetEnv);
         if (! $verdict['allowed']) {
-            $run = $this->recordBlocked($recorder, $key, $profile, $targetEnv, $verdict['reason']);
+            $run = $this->shouldRecord()
+                ? $this->recordBlocked($recorder, $key, $profile, $targetEnv, $verdict['reason'])
+                : null;
 
             $this->components->error('EXECUTION REFUSED');
             $this->components->twoColumnDetail('Reason', (string) $verdict['reason']);
@@ -66,7 +68,9 @@ class QaRunProfile extends Command
                 $this->components->twoColumnDetail('How to fix', (string) $verdict['remediation']);
             }
             $this->newLine();
-            $this->info("Recorded as BLOCKED (run #{$run->id}) so history reflects the attempt honestly.");
+            $this->info($run !== null
+                ? "Recorded as BLOCKED (run #{$run->id}) so history reflects the attempt honestly."
+                : 'Attempt not recorded (--no-record).');
 
             return self::INVALID;
         }
@@ -86,14 +90,18 @@ class QaRunProfile extends Command
         $dbPreference = $this->option('database') ?: ($profile['database'] ?? 'sqlite');
         $prereq = $this->checkPrerequisites($dbPreference);
         if ($prereq !== null) {
-            $run = $this->recordBlocked($recorder, $key, $profile, $targetEnv, $prereq['reason']);
+            $run = $this->shouldRecord()
+                ? $this->recordBlocked($recorder, $key, $profile, $targetEnv, $prereq['reason'])
+                : null;
             $this->components->error('TEST ENVIRONMENT NOT READY');
             $this->components->twoColumnDetail('Missing / failing', $prereq['reason']);
             $this->components->twoColumnDetail('How to fix', $prereq['fix']);
             foreach (($prereq['required'] ?? []) as $req) {
                 $this->components->bulletList([$req]);
             }
-            $this->line("Recorded as BLOCKED (run #{$run->id}).");
+            if ($run !== null) {
+                $this->line("Recorded as BLOCKED (run #{$run->id}).");
+            }
 
             return self::INVALID;
         }
@@ -212,19 +220,22 @@ class QaRunProfile extends Command
             default => QaTestRun::STATUS_FAILED,
         };
 
-        $run = $recorder->record([
-            'profile' => $key,
-            'environment' => $targetEnv,
-            'safety' => $profile['safety'] ?? 'prod-safe-read',
-            'trigger' => 'manual',
-            'runner' => $this->runnerName(),
-            'meta' => ['target_url' => config('test-center.environments.'.$targetEnv.'.base_url')],
-        ], $artifactPath, [
-            'status' => $status,
-            'started_at' => now()->subMilliseconds((int) round((microtime(true) - $started) * 1000)),
-            'finished_at' => now(),
-            'duration_ms' => (int) round((microtime(true) - $started) * 1000),
-        ]);
+        $run = $this->shouldRecord()
+            ? $recorder->record([
+                'profile' => $key,
+                'environment' => $targetEnv,
+                'safety' => $profile['safety'] ?? 'prod-safe-read',
+                'trigger' => 'manual',
+                'runner' => $this->runnerName(),
+                'meta' => ['target_url' => config('test-center.environments.'.$targetEnv.'.base_url')],
+            ], $artifactPath, [
+                'status' => $status,
+                'started_at' => now()->subMilliseconds((int) round((microtime(true) - $started) * 1000)),
+                'finished_at' => now(),
+                'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+            ])
+            : $this->transientRun($parser, $key, $artifactPath, $status,
+                (int) round((microtime(true) - $started) * 1000));
 
         $this->renderSummary($parser, $key, $run, $status);
 
@@ -295,6 +306,11 @@ class QaRunProfile extends Command
         $phpBinary = PHP_BINARY;
         $args = [
             $phpBinary,
+            // The full suites peak above PHP's CLI memory_limit default (CI
+            // runs `php -d memory_limit=2G vendor/bin/phpunit` for the same
+            // reason) — carry that ceiling into the subprocess or a mid-run
+            // OOM truncates the JUnit artifact and the run reads as a crash.
+            '-d', 'memory_limit='.(string) config('test-center.phpunit_memory_limit', '2G'),
             base_path($phpunitBinary),
             '--configuration', $suiteXmlPath,
             '--log-junit', $artifactPath,
@@ -372,12 +388,15 @@ class QaRunProfile extends Command
             'meta' => ['suite_xml' => basename($suiteXmlPath), 'exit_code' => $exitCode],
         ];
 
-        $run = $recorder->record($metadata, $artifactPath, [
-            'status' => $status,
-            'started_at' => $startedAt,
-            'finished_at' => $finishedAt,
-            'duration_ms' => $wallClockMs,
-        ]);
+        $run = $this->shouldRecord()
+            ? $recorder->record($metadata, $artifactPath, [
+                'status' => $status,
+                'started_at' => $startedAt,
+                'finished_at' => $finishedAt,
+                'duration_ms' => $wallClockMs,
+            ])
+            : $this->transientRun($parser, $key, $artifactPath, $status, $wallClockMs,
+                $envOverrides['DB_CONNECTION'] ?? 'sqlite');
 
         $this->renderSummary($parser, $key, $run, $status);
 
@@ -419,10 +438,28 @@ class QaRunProfile extends Command
         // Without force=true phpunit.xml yields to pre-existing env, which is
         // exactly how a local run quietly turned on production CSRF/session
         // middleware and produced 400 bogus 419 failures. (Hardening fix)
+        //
+        // DB_* entries are only forced for SQLITE-based passes: a mysql
+        // fidelity pass relies on the DB_* process-env overrides built below,
+        // and forcing phpunit.xml's sqlite values over them silently
+        // downgraded every mysql run to :memory:.
         $xpath = new \DOMXPath($dom);
+        $forceable = ['APP_ENV', 'SESSION_DRIVER', 'CACHE_STORE', 'QUEUE_CONNECTION', 'MAIL_MAILER'];
+        if ($dbPreference === 'mysql' && (string) config('test-center.mysql_test.host') === '') {
+            // Mirror checkPrerequisites' degrade rule: a mysql-preferred
+            // profile without TEST_MYSQL_HOST falls back to SQLite — the
+            // subprocess env must agree, or the mysql DB_* overrides poison
+            // every suite (TestCase eagerly connects the sqlite connection,
+            // which then reads the mysql database name as a file path).
+            $dbPreference = 'sqlite';
+        }
+        if (! in_array($dbPreference, ['mysql', 'mysql-required'], true)) {
+            $forceable[] = 'DB_CONNECTION';
+            $forceable[] = 'DB_DATABASE';
+        }
         foreach ($xpath->query('//php/env') as $envNode) {
             $name = $envNode->getAttribute('name');
-            if (in_array($name, ['APP_ENV', 'DB_CONNECTION', 'DB_DATABASE', 'SESSION_DRIVER', 'CACHE_STORE', 'QUEUE_CONNECTION', 'MAIL_MAILER'], true)) {
+            if (in_array($name, $forceable, true)) {
                 $envNode->setAttribute('force', 'true');
             }
         }
@@ -578,7 +615,9 @@ class QaRunProfile extends Command
             ['Skipped',       number_format($run->skipped)],
             ['Duration',      gmdate('i:s', (int) ($run->duration_ms / 1000)).' min'],
             ['Failure class', $run->failure_class ?? '—'],
-            ['Recorded',      "run #{$run->id} · commit ".substr((string) $run->git_commit, 0, 7)],
+            ['Recorded',      $run->exists
+                ? "run #{$run->id} · commit ".substr((string) $run->git_commit, 0, 7)
+                : 'not persisted (--no-record)'],
         ];
 
         $this->table(['Metric', 'Value'], $rows);
@@ -643,8 +682,12 @@ class QaRunProfile extends Command
         ], null, ['status' => QaTestRun::STATUS_BLOCKED]);
     }
 
-    private function recordNotReady(RunRecorder $recorder, string $key, array $profile, string $env, string $reason, string $fix): QaTestRun
+    private function recordNotReady(RunRecorder $recorder, string $key, array $profile, string $env, string $reason, string $fix): ?QaTestRun
     {
+        if (! $this->shouldRecord()) {
+            return null;
+        }
+
         return $recorder->record([
             'profile' => $key,
             'environment' => $env,
@@ -653,5 +696,42 @@ class QaRunProfile extends Command
             'runner' => $this->runnerName(),
             'blocked_reason' => "{$reason} — fix: {$fix}",
         ], null, ['status' => QaTestRun::STATUS_NOT_EXECUTED]);
+    }
+
+    private function shouldRecord(): bool
+    {
+        return ! (bool) $this->option('no-record');
+    }
+
+    /**
+     * --no-record: hydrate an unsaved QaTestRun so the summary still renders
+     * from the JUnit artifact without touching the record store.
+     */
+    private function transientRun(
+        JunitParser $parser,
+        string $key,
+        string $artifactPath,
+        string $status,
+        int $durationMs,
+        ?string $dbDriver = null,
+    ): QaTestRun {
+        $totals = $parser->parseFile($artifactPath)['totals'];
+        $problems = (int) $totals['failures'] + (int) $totals['errors'];
+
+        // setAttribute, not mass assignment: guarded-attribute checks
+        // introspect the table columns over the default connection, which
+        // --no-record must never touch.
+        $run = new QaTestRun;
+        $run->setAttribute('profile', $key);
+        $run->setAttribute('status', $status);
+        $run->setAttribute('total', (int) $totals['tests']);
+        $run->setAttribute('passed', max(0, (int) $totals['tests'] - $problems - (int) $totals['skipped']));
+        $run->setAttribute('failed', (int) $totals['failures']);
+        $run->setAttribute('errored', (int) $totals['errors']);
+        $run->setAttribute('skipped', (int) $totals['skipped']);
+        $run->setAttribute('duration_ms', $durationMs);
+        $run->setAttribute('db_driver', $dbDriver);
+
+        return $run;
     }
 }

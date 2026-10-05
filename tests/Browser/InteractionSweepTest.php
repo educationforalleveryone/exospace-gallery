@@ -35,12 +35,13 @@ use PragmaRX\Google2FA\Google2FA;
 class InteractionSweepTest extends DuskTestCase
 {
     private const DESKTOP = [1440, 900];
+
     private const MOBILE = [390, 844];
 
     /** A valid 1×1 JPEG so cover/artwork sources genuinely resolve. */
     private const ONE_PIXEL_JPEG = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a'
         .'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAA'
-        'AAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AKgA//9k=';
+        .'AAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAwDAQACEQMRAD8AKgA//9k=';
 
     protected function setUp(): void
     {

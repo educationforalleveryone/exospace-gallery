@@ -26,7 +26,16 @@ abstract class TestCase extends BaseTestCase
                 continue;
             }
 
-            $pdo = $connection->getPdo();
+            try {
+                $pdo = $connection->getPdo();
+            } catch (\Throwable) {
+                // This run points the sqlite connection at something
+                // unconnectable (e.g. a mysql-fidelity pass leaves DB_DATABASE
+                // pointing at a mysql database name). The compat functions
+                // only matter once a sqlite query actually runs — skip here
+                // instead of failing every setUp.
+                continue;
+            }
 
             if (! method_exists($pdo, 'sqliteCreateFunction')) {
                 continue;
