@@ -37,5 +37,6 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="CONTROL_CENTER_ADMINS" value="cc-sweep@example.com"/>
     </php>
 </phpunit>

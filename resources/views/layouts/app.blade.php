@@ -17,6 +17,15 @@
         @include('layouts.partials.monitoring-bootstrap')
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
+        {{-- Favicon: same block as the public layout — without it the
+             browser tab icon is blank on every authenticated page. --}}
+        <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicon-16x16.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}">
+        <link rel="manifest" href="{{ asset('site.webmanifest') }}">
+        <meta name="theme-color" content="#0f1117">
+
     </head>
     <body class="font-sans antialiased bg-ink-900 text-gray-100">
         <!-- Skip to main content (accessibility) -->

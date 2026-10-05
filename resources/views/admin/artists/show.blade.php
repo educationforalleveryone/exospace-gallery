@@ -14,7 +14,7 @@
             <div class="flex items-start gap-6">
                 <div class="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-brand-900/40 to-gray-900 flex items-center justify-center flex-shrink-0">
                     @if($artist->portrait_url)
-                        <img src="{{ $artist->portrait_url }}" alt="{{ $artist->name }}" class="w-full h-full object-cover">
+                        <img src="{{ $artist->portrait_url }}" alt="{{ $artist->name }}" data-fallback-hide class="w-full h-full object-cover">
                     @else
                         <span class="text-3xl font-bold text-gray-600">{{ $artist->initials }}</span>
                     @endif
@@ -85,7 +85,7 @@
                 <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                     @foreach($entry['images'] as $img)
                         <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-700 group relative">
-                            <img src="{{ asset($img->path) }}" alt="{{ $img->title ?: $img->original_name }}" class="w-full h-full object-cover">
+                            <img src="{{ asset($img->path) }}" alt="{{ $img->title ?: $img->original_name }}" data-fallback-hide class="w-full h-full object-cover">
                             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/60 group-focus-within:bg-black/60 transition flex items-end p-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
                                 <p class="text-white text-xs truncate">{{ $img->title ?: $img->original_name }}</p>
                             </div>

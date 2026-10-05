@@ -28,7 +28,7 @@
                         {{-- Portrait or initials --}}
                         <div class="aspect-square bg-gradient-to-br from-brand-900/20 to-gray-900 flex items-center justify-center overflow-hidden">
                             @if($artist->portrait_url)
-                                <img src="{{ $artist->portrait_url }}" alt="{{ $artist->name }}" class="w-full h-full object-cover">
+                                <img src="{{ $artist->portrait_url }}" alt="{{ $artist->name }}" data-fallback-hide class="w-full h-full object-cover">
                             @else
                                 <span class="text-5xl font-bold text-gray-600">{{ $artist->initials }}</span>
                             @endif

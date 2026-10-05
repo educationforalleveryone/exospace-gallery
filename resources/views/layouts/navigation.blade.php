@@ -1,4 +1,4 @@
-<nav x-data="{ open: false }" aria-label="Primary" class="bg-ink-900/95 backdrop-blur border-b border-gray-800 relative z-40">
+<nav x-data="{ open: false }" @keydown.escape.window="open = false" @click.outside="open = false" aria-label="Primary" class="bg-ink-900/95 backdrop-blur border-b border-gray-800 relative z-40">
     <div class="max-w-page mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
             <div class="flex">

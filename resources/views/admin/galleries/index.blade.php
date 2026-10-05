@@ -57,7 +57,16 @@
     <div class="page-shell">
 
             @if(session('upgrade'))
-                <script nonce="@nonce">document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));</script>
+                {{-- Turbo visits never fire DOMContentLoaded (it fired on the
+                     initial page load), so open directly whenever the document
+                     is already parsed — that covers every Turbo navigation. --}}
+                <script nonce="@nonce">
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', () => openModal('upgrade-modal'));
+                } else {
+                    openModal('upgrade-modal');
+                }
+                </script>
             @endif
 
             @if(!$canCreate && !$activeTeam)
@@ -99,6 +108,7 @@
                                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                                          alt="{{ $gallery->title }}"
                                          loading="lazy" decoding="async"
+                                         data-fallback-hide
                                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
                                     <div class="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/20 to-transparent"></div>
                                 @else

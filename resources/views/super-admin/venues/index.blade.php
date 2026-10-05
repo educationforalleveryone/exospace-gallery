@@ -57,7 +57,7 @@
                             <td class="px-4 py-3">
                                 <div class="w-16 h-12 rounded overflow-hidden bg-gray-900 border border-gray-700 flex items-center justify-center">
                                     @if($venue->thumbnail_url)
-                                        <img src="{{ $venue->thumbnail_url }}" alt="{{ $venue->name }}" class="w-full h-full object-cover">
+                                        <img src="{{ $venue->thumbnail_url }}" alt="{{ $venue->name }}" data-fallback-hide class="w-full h-full object-cover">
                                     @else
                                         <span class="text-gray-600 text-xs">no img</span>
                                     @endif

@@ -582,6 +582,7 @@
                                     <img id="logo-preview-image"
                                          src="{{ $gallery->custom_logo_path ? asset('storage/' . $gallery->custom_logo_path) : '' }}"
                                          alt="Custom Logo"
+                                         data-fallback-hide
                                          class="max-h-20 object-contain">
                                 </div>
 
@@ -762,7 +763,7 @@
                                     <p class="text-xs text-gray-500 mt-1">PNG / JPG / WEBP, max 2 MB. Recommended: wide aspect, transparent background.</p>
                                     @if($gallery->curtain_logo_path)
                                         <div class="mt-2 flex items-center gap-3">
-                                            <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}" alt="Curtain logo" class="h-10 max-w-[160px] object-contain bg-gray-900 rounded border border-gray-700 px-2">
+                                            <img src="{{ asset('storage/' . $gallery->curtain_logo_path) }}" alt="Curtain logo" data-fallback-hide class="h-10 max-w-[160px] object-contain bg-gray-900 rounded border border-gray-700 px-2">
                                             <label class="text-xs text-gray-400 flex items-center gap-1">
                                                 <input type="checkbox" name="clear_curtain_logo" value="1" class="checkbox-base">
                                                 Remove
@@ -964,6 +965,7 @@
                                          sizes="150px"
                                          alt="{{ $image->original_name }}"
                                          loading="lazy" decoding="async"
+                                         data-fallback-hide
                                          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105">
                                 </div>
 
@@ -1139,28 +1141,18 @@
 
             init: function() {
                 let uploadedCount = 0;
-                let totalFiles = 0;
-                let hasErrors = false;
                 let failedFiles = [];
 
-                this.on("addedfiles", function(files) {
-                    totalFiles = files.length;
+                this.on("addedfiles", function() {
                     uploadedCount = 0;
-                    hasErrors = false;
                     failedFiles = [];
-                    console.log(`📤 Starting upload of ${totalFiles} images...`);
                 });
 
-                this.on("success", function(file, response) {
-                    if(response.success) {
-                        uploadedCount++;
-                        console.log(`Uploaded ${uploadedCount}/${totalFiles}: ${file.name}`);
-                    }
+                this.on("success", function() {
+                    uploadedCount++;
                 });
 
                 this.on("error", function(file, errorMessage, xhr) {
-                    hasErrors = true;
-
                     let cleanError = 'Unknown error';
 
                     if (typeof errorMessage === 'object' && errorMessage.error) {
@@ -1188,8 +1180,6 @@
                 });
 
                 this.on("queuecomplete", function() {
-                    console.log(`Queue complete! Uploaded: ${uploadedCount}/${totalFiles}`);
-
                     if (failedFiles.length > 0) {
                         const banner = document.createElement('div');
                         banner.className = 'mt-3 p-3 bg-red-950/60 border border-red-700/60 rounded-lg text-sm';
@@ -1800,6 +1790,10 @@
                 e.returnValue = '';
             }
         };
+        // In-app link clicks are intercepted by the custom modal below; this
+        // guards refresh / tab close / hard navigation while unsaved reorder
+        // changes are pending.
+        window.addEventListener('beforeunload', window._reorderHandler);
         // Intercept nav links to show custom modal when reorder bar is visible
         document.addEventListener('click', function(e) {
             const link = e.target.closest('a[href]');

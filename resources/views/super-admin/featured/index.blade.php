@@ -35,7 +35,7 @@
                             <td class="px-4 py-3">
                                 <div class="w-12 h-12 rounded overflow-hidden bg-gray-900 border border-gray-700">
                                     @if($gallery->coverImage)
-                                        <img src="{{ asset($gallery->coverImage->path) }}" alt="{{ $gallery->title ?: 'Featured gallery cover' }}" class="w-full h-full object-cover">
+                                        <img src="{{ asset($gallery->coverImage->path) }}" alt="{{ $gallery->title ?: 'Featured gallery cover' }}" data-fallback-hide class="w-full h-full object-cover">
                                     @endif
                                 </div>
                             </td>

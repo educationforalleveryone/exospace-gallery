@@ -358,6 +358,7 @@
                             <div class="aspect-video rounded-lg overflow-hidden -mt-1 mb-4 bg-gray-700">
                                 <img src="{{ asset($topCover->path) }}"
                                      alt="{{ $topGallery->title }}"
+                                     data-fallback-hide
                                      class="w-full h-full object-cover">
                             </div>
                         @endif

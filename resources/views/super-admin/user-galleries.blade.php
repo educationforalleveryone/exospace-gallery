@@ -70,8 +70,9 @@
                                 <div class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-12 gap-2">
                                     @foreach($gallery->images->take(12) as $image)
                                         <div class="aspect-square bg-gray-800 rounded overflow-hidden">
-                                            <img src="{{ asset($image->path) }}" 
+                                            <img src="{{ asset($image->path) }}"
                                                  alt="{{ $image->title }}"
+                                                 data-fallback-hide
                                                  class="w-full h-full object-cover">
                                         </div>
                                     @endforeach

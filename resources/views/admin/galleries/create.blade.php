@@ -34,7 +34,7 @@
         @php $venueTemplates ??= collect(); @endphp
             <div class="card card-pad overflow-hidden">
                 
-                <form action="{{ route('admin.galleries.store') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('admin.galleries.store') }}" method="POST" enctype="multipart/form-data" id="create-gallery-form">
     @if(isset($team))
         <input type="hidden" name="team_id" value="{{ $team->id }}">
     @endif
@@ -498,8 +498,11 @@ if (preselectedId) {
     if (firstFree) selectVenue(firstFree);
 }
 
-// Submit: show spinner and attach debug data capture
-document.querySelector('form').addEventListener('submit', function(e) {
+// Submit: show spinner and attach debug data capture.
+// Bind by id — the first <form> in the document is a navigation form
+// (notifications / team switcher / logout), never this one.
+const createGalleryForm = document.getElementById('create-gallery-form');
+if (createGalleryForm) createGalleryForm.addEventListener('submit', function(e) {
     const btn = document.getElementById('create-gallery-btn');
     const label = document.getElementById('create-gallery-label');
     const spinner = document.getElementById('create-gallery-spinner');

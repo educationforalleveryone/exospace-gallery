@@ -391,6 +391,8 @@ jobs:
           # still fine because the cache never carries CSRF/session state.
           sed -i 's/^SESSION_DRIVER=.*/SESSION_DRIVER=file/' .env
           sed -i 's/^MAIL_MAILER=.*/MAIL_MAILER=array/' .env
+          # Allow-list for the control-center interaction sweep user.
+          sed -i 's|^CONTROL_CENTER_ADMINS=.*|CONTROL_CENTER_ADMINS=cc-sweep@example.com|' .env
           # .env.example ships bcrypt cost 12 (~500ms per hash); with a
           # throwaway sqlite DB the cheap cost declared in phpunit.dusk.xml
           # is the intended value — keeps login/register smoke flows fast

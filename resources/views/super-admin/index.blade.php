@@ -565,9 +565,17 @@
 
     <script nonce="@nonce">
 
-        // CSP-safe delegated change handler: styled confirm + guarded submit
+        // CSP-safe delegated change handler: styled confirm + guarded submit.
+        // `this` is the select (the element carrying data-change). When the
+        // admin cancels, snap back to the server-rendered selection so the
+        // control never displays a plan that was never applied.
         window.confirmChangePlan = function(message, e) {
-            window.exospaceConfirm(e, message);
+            const select = this;
+            window.exospaceConfirm(e, message).then((confirmed) => {
+                if (confirmed) return;
+                const current = select.querySelector('option[selected]');
+                if (current) select.value = current.value;
+            });
         };
 
         function openBanModal(userId, userName) {
