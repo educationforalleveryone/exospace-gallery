@@ -8,6 +8,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
+        "test": "node --test scripts/harness/governor-core.test.mjs",
         "optimize-glbs": "bash scripts/optimize-glbs.sh",
         "fetch-assets": "bash scripts/download-cc0-assets.sh"
     },

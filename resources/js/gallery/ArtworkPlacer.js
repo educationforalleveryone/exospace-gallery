@@ -787,6 +787,8 @@ export function applyArtworkTexture(img) {
 
     canvasMesh.material.map = img.texture;
     canvasMesh.material.needsUpdate = true;
+    // Streaming artwork swaps must show even while render-on-demand idles.
+    this._forceRenderUntil = performance.now() + 800;
 
     if (img.thumbTexture) {
         img.thumbTexture.dispose();

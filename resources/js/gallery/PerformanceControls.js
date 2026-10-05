@@ -1,4 +1,5 @@
 import { Analytics } from './Analytics.js';
+import { createGovernorCore, DEFAULT_LADDER } from './GovernorCore.js';
 
 const QUALITY_LEVELS = {
     high:   { pixelRatio: 1.5,  bloom: true,  maxLights: 8, hdri: true,  label: 'High' },
@@ -6,6 +7,34 @@ const QUALITY_LEVELS = {
     low:    { pixelRatio: 1.0,  bloom: false, maxLights: 4, hdri: false, label: 'Low' },
     mobile: { pixelRatio: 1.25, bloom: false, maxLights: 4, hdri: false, label: 'Mobile' },
 };
+
+/**
+ * Governor ladder → renderer settings. Index 0 is full quality, the last
+ * entry is the floor. Each step below carries only its DELTA against the
+ * device tier; _applyStep() folds steps 1..N cumulatively on top of the
+ * tier defaults, so a device can never end up above its tier ceiling.
+ *
+ * Step order follows measured cost in this renderer: dynamic resolution is
+ * the cheapest big win (fill rate), then the composer's extra full-frame
+ * passes (bloom), then per-light shading, then the per-fragment environment
+ * lookup + CPU-side update throttles at the floor. Antialiasing, shadows,
+ * texture size/anisotropy and decor density are deliberately NOT runtime
+ * steps: AA is fixed at context creation (and the composer path carries no
+ * MSAA), shadows are venue/build-time, textures re-upload on change, and
+ * decor density is tiered at build time (structure_pass tier_floor).
+ */
+const GOV_STEPS = [
+    { label: 'Full' },
+    { label: 'DSR 0.85', scale: 0.85 },
+    { label: 'DSR 0.72', scale: 0.72 },
+    { label: 'No bloom', bloom: false },
+    { label: 'DSR 0.60', scale: 0.60 },
+    { label: 'Lights 2', lights: 2 },
+    { label: 'Floor', hdri: false, throttle: { light: 4, focus: 6 } },
+];
+
+const GOV_STORE_KEY = 'exospace_gov_tier_v1';
+const TIER_CHANGE_SEND_GAP_MS = 60000;
 
 export class PerformanceControls {
     constructor(scene) {
@@ -16,18 +45,54 @@ export class PerformanceControls {
         this._quality = this._loadSavedQuality() || 'auto';
 
         this._prScale = 1;
-        this._adaptSamples = [];
-        this._adaptHoldUntil = performance.now() + 6000;
+
+        // ── Governor wiring ────────────────────────────────────────────────
+        this._gov = createGovernorCore({ now: () => performance.now() });
+        this._bootAt = performance.now();
+        this._bootDpr = window.devicePixelRatio || 1;
+        this._govArmed = false;
+        this._lastTierSentAt = 0;
 
         this._debugMode = window.EXOSPACE_DEBUG === true;
 
         // Always apply the quality setting (even if the panel is hidden)
-        this._applyQuality(this._quality);
+        if (this._quality === 'auto') {
+            // Low-end devices start at their static floor; the QA baseline
+            // flag (?gov=0 probes) freezes auto behaviour for comparisons.
+            if (scene.isLowEnd || window.__EXOSPACE_GOVERNOR_OFF === true) {
+                this._gov.setOverride(true);
+            } else {
+                // Learned tier from a previous visit — re-validated by
+                // measurement (fast downgrade if it was too optimistic).
+                this._gov.restore(this._loadGovernorStep());
+            }
+            this._applyStep(this._gov.stepIndex(), { initial: true });
+        } else {
+            this._gov.setOverride(true);
+            this._applyQuality(this._quality);
+        }
 
-        // Only create the visible panel in debug mode
         if (this._debugMode) {
             this._createPanel();
         }
+
+        // DPR / window changes invalidate the measured window and the PR cap;
+        // a big DPR jump (monitor move, zoom) also forgets the learned tier.
+        this._onGovResize = () => {
+            const dpr = window.devicePixelRatio || 1;
+            if (Math.abs(dpr - this._bootDpr) > 0.25) {
+                this._bootDpr = dpr;
+                this._clearGovernorStep();
+            }
+            if (this._quality === 'auto') {
+                this._applyStep(this._gov.stepIndex(), { initial: true });
+            } else {
+                this._applyQuality(this._quality);
+            }
+            this._gov.notifyResize();
+            scene._forceRenderUntil = performance.now() + 500;
+        };
+        window.addEventListener('resize', this._onGovResize);
 
         // Always hook into the animate loop for FPS counting
         const origAnimate = scene.animate.bind(scene);
@@ -54,6 +119,7 @@ export class PerformanceControls {
                 <span style="color:#8b5cf6; font-weight:700;">FPS</span>
                 <span id="perf-fps" style="color:#4ade80; font-weight:700; font-size:13px;">--</span>
             </div>
+            <div id="perf-gov" style="color:#8b5cf6; font-size:10px;">Gov: --</div>
             <div style="display:flex; align-items:center; gap:4px;">
                 <span style="color:#6b7280;">Q:</span>
                 <select id="perf-quality" style="background:rgba(0,0,0,0.5); color:#e5e7eb; border:1px solid rgba(139,92,246,0.3); border-radius:4px; padding:1px 4px; font-size:10px; font-family:monospace; cursor:pointer;">
@@ -71,6 +137,7 @@ export class PerformanceControls {
         document.body.appendChild(panel);
 
         this._fpsEl = panel.querySelector('#perf-fps');
+        this._govEl = panel.querySelector('#perf-gov');
         this._lightsEl = panel.querySelector('#perf-lights');
         this._drawsEl = panel.querySelector('#perf-draws');
         this._prEl = panel.querySelector('#perf-pr');
@@ -79,22 +146,171 @@ export class PerformanceControls {
         this._qualitySelect.addEventListener('change', (e) => {
             this._quality = e.target.value;
             this._saveQuality(this._quality);
-            this._applyQuality(this._quality);
+            if (this._quality === 'auto') {
+                this._gov.restore(this._loadGovernorStep());
+                this._gov.setOverride(false);
+                this._applyStep(this._gov.stepIndex());
+            } else {
+                this._gov.setOverride(true);
+                this._applyQuality(this._quality);
+            }
         });
     }
 
     _tick() {
-        this._frames++;
         const now = performance.now();
+
+        // Governor consumes every rendered frame's delta.
+        const dt = now - (this._lastFrameAt ?? now);
+        this._lastFrameAt = now;
+
+        // Safety arm for pages that never fire the Enter handler.
+        if (!this._govArmed && now - this._bootAt >= 20000) this._armGovernor();
+        if (this._govArmed) {
+            for (const e of this._gov.frame(dt)) this._handleGovernorEvent(e);
+        }
+
+        this._frames++;
         const elapsed = now - this._lastFpsUpdate;
         if (elapsed >= 500) {
             this._currentFps = Math.round((this._frames * 1000) / elapsed);
             this._frames = 0;
             this._lastFpsUpdate = now;
             this._updateDisplay();
-            this._maybeAdapt(this._currentFps, now);
             this._maybeSamplePerf(this._currentFps);
         }
+    }
+
+    _armGovernor() {
+        if (this._govArmed) return;
+        this._govArmed = true;
+        this._gov.arm();
+    }
+
+    _handleGovernorEvent(e) {
+        if (e.type === 'down' || e.type === 'up-confirm' || e.type === 'up-revert') {
+            this._applyStep(e.to);
+        }
+        if (e.type === 'down' || e.type === 'up-confirm') {
+            this._saveGovernorStep(e.to);
+            this._sendTierTelemetry();
+        } else if (e.type === 'floor') {
+            this._sendTierTelemetry();
+        }
+        if (this._debugMode) {
+            const p95 = e.stats?.p95 != null ? `${e.stats.p95.toFixed(1)}ms` : '--';
+            console.log(`⚡ Governor ${e.type} → ${e.step?.label ?? '?'} (target ${e.target}fps, p95 ${p95})`);
+        }
+    }
+
+    /**
+     * Fold ladder steps 1..index cumulatively on top of the device tier
+     * defaults and push the result into the renderer.
+     */
+    _applyStep(index, { initial = false } = {}) {
+        const scene = this.scene;
+        const tier = scene.isLowEnd ? 'low' : (scene._isMobileTier ? 'mobile' : 'high');
+        const tierCfg = QUALITY_LEVELS[tier] || QUALITY_LEVELS.high;
+
+        let scale = 1;
+        let bloom = tierCfg.bloom;
+        let lights = tierCfg.maxLights;
+        let hdri = tierCfg.hdri;
+        let throttle = null;
+        for (let k = 1; k <= index && k < GOV_STEPS.length; k++) {
+            const s = GOV_STEPS[k];
+            if (s.scale !== undefined)    scale = s.scale;
+            if (s.bloom !== undefined)    bloom = s.bloom;
+            if (s.lights !== undefined)   lights = s.lights;
+            if (s.hdri !== undefined)     hdri = s.hdri;
+            if (s.throttle)               throttle = s.throttle;
+        }
+
+        this._basePR = Math.min(window.devicePixelRatio || 1, tierCfg.pixelRatio);
+        this._prScale = scale;
+        this._applyPixelRatio();
+
+        scene._maxActiveLights = lights;
+        if (scene._postFx) scene._postFx.setBloomEnabled(bloom);
+
+        if (!hdri) {
+            scene._skipHdri = true;
+            if (scene.scene?.environment) scene.scene.environment = null;
+        } else if (scene._skipHdri && !scene.isLowEnd && tierCfg.hdri) {
+            // Only a tier that ships HDRI may buy it back after the floor.
+            scene._skipHdri = false;
+            scene.loadEnvironmentMap();
+        }
+
+        scene._govThrottle = throttle;
+
+        if (!initial) {
+            // Tier changes must be visible even in an otherwise static scene.
+            scene._forceRenderUntil = performance.now() + 500;
+        }
+        if (this._debugMode && !initial) {
+            console.log(`⚡ Governor applied ${GOV_STEPS[index]?.label ?? index}: scale=${scale} bloom=${bloom} lights=${lights} hdri=${hdri}`);
+        }
+    }
+
+    // ── Learned-tier persistence (per device, versioned key) ──────────────
+
+    _loadGovernorStep() {
+        try {
+            const raw = localStorage.getItem(GOV_STORE_KEY);
+            if (!raw) return 0;
+            const parsed = JSON.parse(raw);
+            const step = Number(parsed?.step);
+            if (!Number.isInteger(step) || step < 0 || step >= DEFAULT_LADDER.length) return 0;
+            return step;
+        } catch {
+            return 0;
+        }
+    }
+
+    _saveGovernorStep(step) {
+        try {
+            localStorage.setItem(GOV_STORE_KEY, JSON.stringify({ step, t: Date.now() }));
+        } catch {
+            // localStorage might be blocked (private browsing)
+        }
+    }
+
+    _clearGovernorStep() {
+        try {
+            localStorage.removeItem(GOV_STORE_KEY);
+        } catch {
+            // ignore
+        }
+    }
+
+    // ── Aggregated telemetry (existing `perf` schema, rate-limited) ───────
+
+    _governorQ() {
+        if (this._quality !== 'auto' || this._gov.override()) {
+            return String(this._quality).slice(0, 8);
+        }
+        const floorMarker = this._gov.atFloor() ? 'f' : '';
+        return `auto:t${this._gov.stepIndex()}${floorMarker}`.slice(0, 8);
+    }
+
+    _sendTierTelemetry() {
+        const now = Date.now();
+        if (now - this._lastTierSentAt < TIER_CHANGE_SEND_GAP_MS) return;
+        this._lastTierSentAt = now;
+        const st = this._gov.stats();
+        const info = this.scene.renderer?.info;
+        Analytics.send('perf', {
+            perf: {
+                tier: this.scene.isLowEnd ? 'low' : (this.scene._isMobileTier ? 'mobile' : 'high'),
+                q: this._governorQ(),
+                fps: st?.median ? Math.round(1000 / st.median) : null,
+                adapt: Math.round(this._prScale * 100) / 100,
+                draws: info?.render?.calls ?? null,
+                n: this.scene.artworks?.length ?? null,
+                partial: 1,
+            },
+        });
     }
 
     startPerfSampling(enterMs) {
@@ -106,6 +322,7 @@ export class PerformanceControls {
             listener: () => this._flushPerf(true),
         };
         window.addEventListener('pagehide', this._perfState.listener, { once: true });
+        this._armGovernor();
     }
 
     _maybeSamplePerf(fps) {
@@ -129,12 +346,17 @@ export class PerformanceControls {
         const scene = this.scene;
         const info = scene.renderer?.info;
         const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        const govStats = this._gov.stats();
 
         Analytics.send('perf', {
             perf: {
                 tier: scene.isLowEnd ? 'low' : (scene._isMobileTier ? 'mobile' : 'high'),
-                q: String(this._quality).slice(0, 8),
-                fps: s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : null,
+                q: this._governorQ(),
+                // Median frame time of the measured window (fallback: the
+                // 500 ms FPS samples average), expressed as fps.
+                fps: govStats?.median
+                    ? Math.round(1000 / govStats.median)
+                    : (s.length ? Math.round(s.reduce((a, b) => a + b, 0) / s.length) : null),
                 fps_min: s.length ? Math.min(...s) : null,
                 draws: info?.render?.calls ?? null,
                 tris: info?.render ? Math.round(info.render.triangles / 1000) : null,
@@ -147,33 +369,6 @@ export class PerformanceControls {
                 partial: early ? 1 : 0,
             },
         });
-    }
-
-    _maybeAdapt(fps, now) {
-        if (this._quality !== 'auto') return;
-        if (this.scene.isLowEnd) return;
-        if (now < this._adaptHoldUntil) {
-            this._adaptSamples.length = 0;
-            return;
-        }
-
-        this._adaptSamples.push(fps);
-        if (this._adaptSamples.length < 3) return;
-
-        const s = this._adaptSamples;
-        this._adaptSamples = [];
-
-        if (s.every(f => f < 26) && this._prScale > 0.6) {
-            this._prScale = Math.max(0.6, this._prScale - 0.15);
-            this._applyPixelRatio();
-            this._adaptHoldUntil = now + 3000;
-            if (this._debugMode) console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
-        } else if (s.every(f => f > 55) && this._prScale < 1) {
-            this._prScale = Math.min(1, this._prScale + 0.1);
-            this._applyPixelRatio();
-            this._adaptHoldUntil = now + 3000;
-            if (this._debugMode) console.log(`⚡ Adaptive resolution: ${s.join('/')} fps → render scale ${this._prScale.toFixed(2)}`);
-        }
     }
 
     _applyPixelRatio() {
@@ -190,6 +385,13 @@ export class PerformanceControls {
             if (fps >= 50)      this._fpsEl.style.color = '#4ade80';
             else if (fps >= 30) this._fpsEl.style.color = '#fbbf24';
             else                this._fpsEl.style.color = '#f87171';
+        }
+        if (this._govEl && this._gov) {
+            const st = this._gov.stats();
+            const p95 = st?.p95 != null ? st.p95.toFixed(1) : '--';
+            const stepLabel = GOV_STEPS[this._gov.stepIndex()]?.label ?? '?';
+            this._govEl.textContent =
+                `Gov: ${stepLabel} · tgt ${this._gov.targetHz()} · p95 ${p95}ms`;
         }
         if (this._lightsEl) {
             const pool = this.scene._lightPool;
@@ -214,18 +416,12 @@ export class PerformanceControls {
     }
 
     _applyQuality(quality) {
-        let cfg;
-        if (quality === 'auto') {
-            if (this.scene.isLowEnd)          cfg = QUALITY_LEVELS.low;
-            else if (this.scene._isMobileTier) cfg = QUALITY_LEVELS.mobile;
-            else                               cfg = QUALITY_LEVELS.high;
-        } else {
-            cfg = QUALITY_LEVELS[quality];
-        }
+        // Manual pins only — auto quality routes through _applyStep().
+        const cfg = QUALITY_LEVELS[quality];
         if (!cfg) return;
 
         this._basePR = Math.min(window.devicePixelRatio || 1, cfg.pixelRatio);
-        this._prScale = 1;
+        this._prScale = 1; // manual pin — no dynamic resolution
         this._applyPixelRatio();
 
         // Max active lights
@@ -247,6 +443,9 @@ export class PerformanceControls {
             this.scene._skipHdri = false;
             this.scene.loadEnvironmentMap();
         }
+
+        // Manual pin releases the governor's throttle override
+        this.scene._govThrottle = null;
 
         if (this._debugMode) {
             console.log(`⚡ Quality set to ${quality} → pixelRatio=${cfg.pixelRatio}, bloom=${cfg.bloom}, maxLights=${cfg.maxLights}, hdri=${cfg.hdri}`);

@@ -152,6 +152,8 @@ export async function loadDecorations(decorations) {
     };
 
     await Promise.allSettled(decorations.map(place));
+    // Decoration pop-in must be visible even while render-on-demand idles.
+    this._forceRenderUntil = performance.now() + 1000;
 }
 
 export function addVenueStructure(data) {

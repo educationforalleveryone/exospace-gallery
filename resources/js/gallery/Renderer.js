@@ -155,9 +155,6 @@ export function detectLowEnd() {
         reasons.push(`RAM: ${navigator.deviceMemory}GB`);
     }
 
-    this._scheduleFpsBenchmark = _scheduleFpsBenchmark;
-    this._scheduleFpsBenchmark();
-
     const reducedMotion = window.EXOSPACE_REDUCED_MOTION === true;
     this.reducedMotion = reducedMotion;
 
@@ -175,90 +172,6 @@ export function detectLowEnd() {
     }
 
     return isLowEnd;
-}
-
-function _scheduleFpsBenchmark() {
-    // Already flagged low-end? Skip — no point burning 3s of rAF to confirm.
-    if (this.isLowEnd) return;
-
-    const SETTLE_POLL_MS   = 250;
-    const SETTLE_TIMEOUT_MS = 30000; // loader never settled (empty state/error) — abort
-    const WARMUP_MS    = 2000;
-    const SAMPLE_FRAMES = 60;
-    const SAMPLE_MIN_MS = 1000;      // never decide on a shorter window
-    const SAMPLE_CAP_MS = 5000;      // ultra-slow devices still get a verdict
-    const FPS_THRESHOLD = 35;
-
-    let waitStart = null;
-
-    const waitLoop = () => {
-        if (this._disposed) return;
-        if (this._assetsSettledAt == null) {
-            if (waitStart == null) waitStart = performance.now();
-            if (performance.now() - waitStart > SETTLE_TIMEOUT_MS) {
-                if (window.EXOSPACE_DEBUG) console.warn('⚡ FPS benchmark: loader never settled — skipping');
-                return;
-            }
-            setTimeout(waitLoop, SETTLE_POLL_MS);
-            return;
-        }
-        requestAnimationFrame(measureFrame);
-    };
-
-    let warmupStart = null;
-    let sampleStart = null;
-    let frames      = 0;
-    let hideTs      = null;
-    const hiddenRanges = []; // [start, end] wall-clock spans while tab was hidden
-
-    const onVisibility = () => {
-        if (document.hidden)      hideTs = performance.now();
-        else if (hideTs != null) { hiddenRanges.push([hideTs, performance.now()]); hideTs = null; }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
-    const hiddenWithin = (start, end) => {
-        let t = 0;
-        for (const [a, b] of hiddenRanges) {
-            const lo = Math.max(a, start);
-            const hi = Math.min(b, end);
-            if (hi > lo) t += hi - lo;
-        }
-        return t;
-    };
-
-    const measureFrame = (ts) => {
-        if (this._disposed) {
-            document.removeEventListener('visibilitychange', onVisibility);
-            return;
-        }
-
-        if (warmupStart == null) warmupStart = ts;
-        if (ts - warmupStart - hiddenWithin(warmupStart, ts) < WARMUP_MS) {
-            requestAnimationFrame(measureFrame);
-            return;
-        }
-
-        if (sampleStart == null) sampleStart = ts;
-        frames++;
-
-        const elapsed = (ts - sampleStart) - hiddenWithin(sampleStart, ts);
-        if (frames >= SAMPLE_FRAMES || elapsed >= SAMPLE_CAP_MS) {
-            document.removeEventListener('visibilitychange', onVisibility);
-            const measuredFps = frames / (Math.max(elapsed, 1) / 1000);
-            if (measuredFps < FPS_THRESHOLD && !this.isLowEnd) {
-                if (window.EXOSPACE_DEBUG) console.log(`⚡ FPS benchmark: ${measuredFps.toFixed(1)} fps < ${FPS_THRESHOLD} — downgrading to low-end mode`);
-                applyLowEndSettings.call(this);
-            } else if (window.EXOSPACE_DEBUG) {
-                console.log(`✅ FPS benchmark: ${measuredFps.toFixed(1)} fps — high-end confirmed`);
-            }
-            return;
-        }
-
-        requestAnimationFrame(measureFrame);
-    };
-
-    waitLoop();
 }
 
 // Apply all low-end quality reductions in one place

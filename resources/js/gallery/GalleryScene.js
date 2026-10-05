@@ -59,6 +59,12 @@ export class GalleryScene {
         this._reusableVector = new THREE.Vector2(0, 0);
         this._lightingFrameCount = 0;
 
+        // Render-only-when-changed: last camera pose + stillness tracking
+        this._lastRenderPos = new THREE.Vector3();
+        this._lastRenderQuat = new THREE.Quaternion();
+        this._stillSince = 0;
+        this._forceRenderUntil = 0;
+
         // Low-end flags (populated by detectLowEnd)
         this.isLowEnd         = false;
         this._skipHdri        = false;
@@ -323,15 +329,8 @@ export class GalleryScene {
         // S-7: Skip rendering when context is lost
         if (this._contextLost || !this._isVisible || !this.scene) return;
 
-        // Cap to ~30fps on low-end (skip every other frame)
-        if (this.isLowEnd) {
-            this._lowEndFrameSkip = !this._lowEndFrameSkip;
-            if (this._lowEndFrameSkip) return;
-        }
-
-        this._lightingFrameCount++;
-
-        // Reuse pre-allocated Euler — clamp pitch to prevent gimbal lock
+        // Camera pose must always advance: input and scripted motion land here
+        // so a frame that carries real changes can never be idled away.
         const euler = this._reusableEuler;
         euler.setFromQuaternion(this.camera.quaternion);
         const maxPitch = 1.4; // ~80 degrees
@@ -343,15 +342,30 @@ export class GalleryScene {
         if (this.isMobile) this.updateMovementMobile();
         else                this.updateMovement();
 
+        // Render only when something changed: a visitor standing still in a
+        // fully static venue (no particles, no reactive media, no scripted
+        // camera, no active tween) keeps the last rendered image on screen.
+        // Governor tier changes, resize and live patches punch through via
+        // _forceRenderUntil.
+        if (this._isRenderIdle()) return;
+
+        // Cap to ~30fps on low-end (skip every other frame)
+        if (this.isLowEnd) {
+            this._lowEndFrameSkip = !this._lowEndFrameSkip;
+            if (this._lowEndFrameSkip) return;
+        }
+
+        this._lightingFrameCount++;
+
         if (this._reactive) this.updateArtworkReactive();
 
         if (this._gardenTick) this._gardenTick();
 
         if (this._lakeTick) this._lakeTick();
 
-        // Throttle expensive per-frame work
-        const lightThrottle = this.isLowEnd ? 4 : 2;
-        const focusThrottle = this.isLowEnd ? 6 : 3;
+        // Throttle expensive per-frame work (governor may raise the floor)
+        const lightThrottle = this._govThrottle?.light ?? (this.isLowEnd ? 4 : 2);
+        const focusThrottle = this._govThrottle?.focus ?? (this.isLowEnd ? 6 : 3);
         if (this._lightingFrameCount % lightThrottle === 0) this.updateProximityLighting();
         if (this._lightingFrameCount % focusThrottle === 0) this.checkArtworkFocus();
 
@@ -380,6 +394,42 @@ export class GalleryScene {
         } else {
             this.renderer.render(this.scene, this.camera);
         }
+    }
+
+    /**
+     * True when nothing visible changed since the last rendered frame: the
+     * camera pose is identical and every self-animating system is absent or
+     * dormant. Deliberately conservative — garden/lake/reactive venues and
+     * particle venues never idle. The 300 ms stillness delay lets light
+     * fades and frame-highlight tweens run out before the loop sleeps.
+     */
+    _isRenderIdle() {
+        const now = performance.now();
+        if (now < this._forceRenderUntil) {
+            this._stillSince = now;
+            return false;
+        }
+
+        const cam = this.camera;
+        if (!cam) return false;
+        const p = cam.position, lp = this._lastRenderPos;
+        const q = cam.quaternion, lq = this._lastRenderQuat;
+        const moved = Math.abs(p.x - lp.x) + Math.abs(p.y - lp.y) + Math.abs(p.z - lp.z) > 1e-4
+            || Math.abs(q.x - lq.x) + Math.abs(q.y - lq.y)
+             + Math.abs(q.z - lq.z) + Math.abs(q.w - lq.w) > 1e-4;
+        lp.copy(p);
+        lq.copy(q);
+        if (moved) {
+            this._stillSince = now;
+            return false;
+        }
+
+        if (this._reactive || this._gardenTick || this._lakeTick) return false;
+        if (this._particleSystems?.length && !this.reducedMotion && !this.isLowEnd) return false;
+        if (this.arrivalActive || this._cameraScripted) return false;
+        if (this.focusTween?.isActive?.()) return false;
+
+        return now - this._stillSince >= 300;
     }
 
     updateProgress(percent, text) {
@@ -418,6 +468,9 @@ export class GalleryScene {
 
     applyLiveOverride(patch) {
         if (!patch || typeof patch !== 'object') return;
+
+        // Punched-through materials must show even while the idle-skip holds.
+        this._forceRenderUntil = performance.now() + 2000;
 
         const now = performance.now();
         if (this._lastTraverseTime && (now - this._lastTraverseTime) < 100) {

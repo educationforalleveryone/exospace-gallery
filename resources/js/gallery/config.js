@@ -70,8 +70,6 @@ export const CONFIG = {
     },
 
     performance: {
-        autoDetectQuality: true,
-        lowEndThreshold: 30, // FPS
         textureMaxSize: 2048,
         shadowsEnabled: false, // globally off — venue can opt-in via visual_config
     },

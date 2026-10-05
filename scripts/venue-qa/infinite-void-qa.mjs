@@ -241,14 +241,15 @@ ok('panel no longer renders a background color control',
 const sceneSrc = readFileSync(rel('resources/js/gallery/GalleryScene.js'), 'utf8');
 ok('live-patch handler drops background_color before any consumer sees it',
     /delete v\.background_color/.test(sceneSrc));
-ok('hideLoader marks the assets-settled instant (benchmark anchor)',
+ok('hideLoader marks the assets-settled instant',
     /_assetsSettledAt\s*=\s*performance\.now\(\)/.test(sceneSrc));
 
-const rendererSrc = readFileSync(rel('resources/js/gallery/Renderer.js'), 'utf8');
-ok('FPS benchmark waits for the loader to settle (no measuring DURING load)',
-    /_assetsSettledAt == null/.test(rendererSrc) && /SETTLE_TIMEOUT_MS/.test(rendererSrc));
-ok('FPS benchmark excludes hidden-tab time (background throttling cannot fake a downgrade)',
-    /hiddenWithin\(/.test(rendererSrc));
+const perfControlsSrc = readFileSync(rel('resources/js/gallery/PerformanceControls.js'), 'utf8');
+const governorSrc = readFileSync(rel('resources/js/gallery/GovernorCore.js'), 'utf8');
+ok('performance governor arms on enter and never judges the loading/first-seconds window',
+    /_armGovernor/.test(perfControlsSrc) && /armDelayMs/.test(governorSrc));
+ok('governor excludes hidden-tab/stall gaps from its rolling window',
+    /maxFrameMs/.test(governorSrc));
 
 const swSrc = readFileSync(rel('public/sw.js'), 'utf8');
 ok('service worker only caches HTTP 200 (206 partial responses are rejectable by Cache.put)',
