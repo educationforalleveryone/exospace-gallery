@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -75,10 +76,29 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('gallery_images');
-        Schema::dropIfExists('analytics_events');
-        Schema::dropIfExists('event_rsvps');
-        Schema::dropIfExists('gallery_schedule_events');
-        Schema::dropIfExists('galleries');
+        // Older analytics tables still point foreign keys INTO the tables
+        // this migration drops: analytics_events (created as gallery_events
+        // by 2026_04_21_201844, renamed by 2026_06_30_014503) references
+        // gallery_images via gallery_events_image_id_foreign. It rolls back
+        // LATER than this migration, so no drop order inside this list can
+        // satisfy MySQL's error 3730 ("Cannot drop table referenced by a
+        // foreign key constraint"). The graph is intentionally dismantled
+        // with FK checks suspended and immediately rebuilt by the
+        // re-migrate; SQLite resolves drops by rebuilding tables and has no
+        // standalone FK objects, so the plain sequential drop stays correct
+        // there.
+        $dropGraph = function (): void {
+            Schema::dropIfExists('analytics_events');
+            Schema::dropIfExists('event_rsvps');
+            Schema::dropIfExists('gallery_schedule_events');
+            Schema::dropIfExists('gallery_images');
+            Schema::dropIfExists('galleries');
+        };
+
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            Schema::withoutForeignKeyConstraints($dropGraph);
+        } else {
+            $dropGraph();
+        }
     }
 };

@@ -484,15 +484,32 @@ jobs:
       - name: Start Laravel Server
         run: |
           # PHP_CLI_SERVER_WORKERS: the built-in server forks N workers that
-          # all accept on the same socket. If one worker dies mid-run (the
-          # 2026-10-06 CI run lost the whole server right after /master-control
-          # and every later test failed with net::ERR_CONNECTION_REFUSED), the
-          # remaining workers keep serving instead of the run cascading down.
+          # all accept on the same socket, so one dead worker no longer
+          # cascades the run. That alone was not enough: on 2026-10-06 the
+          # whole `php artisan serve` master died TWICE right after
+          # /master-control (no laravel.log, no shutdown message — a process
+          # death, not an app error), and every later Dusk test failed with
+          # net::ERR_CONNECTION_REFUSED. The supervisor below restarts the
+          # server within a second of any death so the suite keeps testing
+          # instead of cascading, and logs every death for the diagnostics
+          # step to correlate.
           export PHP_CLI_SERVER_WORKERS=8
-          nohup php artisan serve --host=127.0.0.1 --port=8000 > serve.log 2>&1 &
+          cat > serve-supervisor.sh <<'SUPERVISOR'
+          #!/usr/bin/env bash
+          trap 'exit 0' TERM INT
+          while true; do
+            php artisan serve --host=127.0.0.1 --port=8000 >> serve.log 2>&1
+            code=$?
+            echo "[$(date -u '+%Y-%m-%d %H:%M:%SZ')] artisan serve exited code=$code — restarting in 1s" >> serve-supervisor.log
+            sleep 1
+          done
+          SUPERVISOR
+          chmod +x serve-supervisor.sh
+          nohup ./serve-supervisor.sh > /dev/null 2>&1 &
+          echo $! > serve-supervisor.pid
           for i in $(seq 1 30); do
             if curl -s -o /dev/null http://127.0.0.1:8000/up; then
-              echo "Laravel server ready after ${i}s"
+              echo "Laravel server ready after ${i}s (supervisor pid $(cat serve-supervisor.pid))"
               break
             fi
             sleep 1
@@ -500,6 +517,7 @@ jobs:
           if ! curl -s -o /dev/null http://127.0.0.1:8000/up; then
             echo "::error::artisan serve did not become ready on port 8000"
             cat serve.log
+            cat serve-supervisor.log 2>/dev/null || true
             exit 1
           fi
 
@@ -515,6 +533,10 @@ jobs:
         run: |
           echo "---- serve process ----"
           ps aux | grep -E '[a]rtisan serve|[p]hp -S' || echo "(artisan serve NOT running — the server died during the run)"
+          echo "---- serve supervisor restarts (server deaths) ----"
+          cat serve-supervisor.log 2>/dev/null || echo "(no restarts recorded)"
+          echo "---- OOM / kill evidence ----"
+          (sudo dmesg 2>/dev/null || dmesg 2>/dev/null || true) | grep -iE "oom|out of memory|killed process" | tail -n 10 || echo "(no OOM/kill entries visible to this user)"
           echo "---- chromedriver.log ----"; cat chromedriver.log || true
           echo "---- serve.log ----"; tail -n 120 serve.log || true
           echo "---- laravel.log ----"; tail -n 80 storage/logs/laravel.log 2>/dev/null || echo "(no laravel.log)"
