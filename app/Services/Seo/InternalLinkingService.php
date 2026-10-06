@@ -38,7 +38,14 @@ class InternalLinkingService
         return ResilientCache::remember($key, self::CACHE_TTL, function () use ($gallery, $limit) {
             $artistIds = $gallery->relationLoaded('images')
                 ? $gallery->images->pluck('artist_id')->filter()->unique()->values()
-                : $gallery->images()->whereNotNull('artist_id')->distinct()->pluck('artist_id');
+                : $gallery->images()
+                    // The relation carries ORDER BY position_order; MySQL 8
+                    // rejects DISTINCT with an ORDER BY column that is not in
+                    // the SELECT list (error 3065), so drop the ordering.
+                    ->reorder()
+                    ->whereNotNull('artist_id')
+                    ->distinct()
+                    ->pluck('artist_id');
 
             $query = Gallery::query()
                 ->publiclyViewable()

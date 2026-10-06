@@ -3,10 +3,10 @@
 **Date:** Tuesday 6 October 2026
 **Run window:** about 00:30–00:40 UTC
 **Where:** Coolify app container (`/app`), production, Laravel 12.69.2, PHP 8.2.27
-**Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 and 3)
+**Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 to 5)
 **Not yet covered:** Phase 6 (browser flows), Phase 7 (payments), a passing automated test suite run
 
-## Overall verdict: NOT READY. 4 failures, 1 unconfirmed
+## Overall verdict: NOT READY. 4 failures, 1 unconfirmed (CI is progressing)
 
 | Area | Status |
 |---|---|
@@ -14,8 +14,11 @@
 | Backups (encryption policy) | ❌ FAILING |
 | robots.txt via smoke test | ❌ FAILING |
 | GitHub CI: install step (F8) | ✅ Fixed and deployed. Jobs now get past `composer install` |
-| GitHub CI: MySQL migration (F9) | ❌ FAILING, fix prepared |
-| GitHub CI: Dusk browser tests (F10) | ❌ FAILING, fix prepared |
+| GitHub CI: MySQL migration (F9) | ✅ Fixed and deployed. The job now reaches and fails at "Run tests" (F12) |
+| GitHub CI: Dusk ChromeDriver (F10) | ✅ Fixed and deployed. Browser connects; SmokeTest 10/10 pass |
+| GitHub CI: green today | ✅ SQLite suite (2,774 tests, 12,819 assertions), Pint lint, Frontend Build, Preflight, Dependency Audit |
+| GitHub CI: Dusk InteractionSweepTest (F11) | ❌ 13 of 16 failing. Fixes prepared (update 5) |
+| GitHub CI: MySQL phpunit run (F12) | ❌ 10 errors + 193 failures. 133 come from one cause (no frontend build); fix prepared. About 60 real MySQL differences remain |
 | Slack and Sentry delivery | ❓ Unconfirmed |
 
 ## Results by command
@@ -108,6 +111,35 @@
 - **Confirm:** if the driver still does not start, the failure will now print the reason (for example a Chrome/ChromeDriver version mismatch). Paste that output.
 - **Expect:** once the browser connects, the real page tests run for the first time, so new failures are likely.
 
+### F11. Dusk `InteractionSweepTest`: 13 of 16 fail (fixes prepared, update 5)
+Full log read. These are mostly bugs in the test file, not in the app:
+- **`waitForVisible` does not exist in Dusk** (5 tests: upgrade modal x2, feedback widget, dropdowns, mobile menu). Replaced with `waitFor`, which already waits for the element to be displayed (15 call sites).
+- **`keys('body', ...)` never matches** ("Unable to locate element: body body"; command palette, turbo back/forward). Dusk prefixes every selector with `body`. Replaced with a `pressBody()` macro that sends keys to the real `<body>` element (11 call sites).
+- **Create-gallery "handler not bound":** the injected script returned nothing (the function was called but its value was never returned), so the test saw `null`. Added `return`.
+- **MFA tests (super admin, plan select) crashed with "Invalid characters in the base32 string":** the factory stores the secret with `encrypt()` (serialised payload) but the test decrypted it with `Crypt::decryptString()`, leaving a serialised string. Now uses `decrypt()`, as `MfaController` does.
+- **Team member "Did not see Galleries":** in a team workspace the page heading is the team name, not "My Galleries". The test now expects the team name.
+- **Still unexplained (2 tests):** "pro user pages are clean" and "missing image falls back" both time out after 15 s waiting for every `<img>` to finish loading. The log does not say which page or image stalled. `settlePage()` now reports the URL and the pending image sources when it times out. Expect these two to still fail next run, but with an actionable message.
+- **Confirmed fine:** ChromeDriver and `artisan serve` start correctly now; SmokeTest passes 10/10.
+- **Pint risk:** I could not run Pint here. If the PHP Lint job flags `InteractionSweepTest.php`, run `vendor/bin/pint tests/Browser/InteractionSweepTest.php` and commit.
+
+### F12. MySQL job: 10 errors and 193 failures (partly fixed, update 5)
+Full log read (2,774 tests, 12,200 assertions). The same suite passes completely on SQLite.
+- **133 failures: one cause.** The MySQL job never builds the frontend, so `public/build/manifest.json` does not exist and every page render throws `ViteManifestNotFoundException` (HTTP 500). The SQLite job has the build step; the MySQL job did not. Fixed by adding Node setup, `npm ci` and `npm run build`.
+- **4 failures: a genuine MySQL 8 bug in app code.** `InternalLinkingService::relatedGalleries()` runs `SELECT DISTINCT artist_id ... ORDER BY position_order` (the images relation carries that ordering). MySQL 8 rejects it with error 3065. Fixed with `->reorder()`. **Production note:** this only fires when the gallery's images are not already loaded. Check whether production is MySQL 8 (`SELECT VERSION(), @@sql_mode;`); MariaDB and relaxed `sql_mode` accept the query.
+- **About 60 remaining failures are real MySQL-versus-SQLite differences** (counts approximate; a few more are Vite-related and will clear with the build step):
+  - ~44 `Venue*Test`: MySQL JSON columns reorder object keys (shortest key first, then alphabetical), so order-sensitive `assertSame`/string comparisons fail. This is a test-assertion issue. Separately, several migrations compare raw JSON strings to decide whether to rewrite a row; that is worth a closer look.
+  - 5 `AdminAuditChainTest`: chain verification fails on MySQL (cause not yet known; needs its own look because it guards audit-log integrity).
+  - 4 tests create a user pointing at a team that does not exist; MySQL's foreign key rejects it (that state cannot exist in production on MySQL).
+  - 2 tests that only make sense on non-MySQL databases, 1 test using SQLite-only `PRAGMA`, 1 query on `password_reset_tokens.id` (that table has no `id`).
+  - About 5 others (OpsCredentialInventory, Analytics perf beacon, registration rollback, digest-recipient concurrency, artist covers query count, webhook ledger).
+- **Recommendation:** push update 5, re-run, and send the new MySQL failure list. The real remaining set will be smaller and exact. Then decide per group whether to fix the app, fix the test, or skip on MySQL. Until then, consider the SQLite job as the merge gate and MySQL as informational.
+
+### How to send CI logs
+- Attach the log file directly in the chat. The GitHub run page does not expose logs without sign-in, even for this public repo.
+- Whole run: Actions, open the run, the `...` menu at top right, "Download log archive".
+- One job: open the job, gear icon at top right, "View raw logs", save as .txt.
+- If the file is huge, filter locally (PowerShell): `Select-String -Path log.txt -Pattern '^\d+\) |FAILURES!|ERRORS!|Tests:|Exception' -Context 0,4 | Out-File short.txt`
+
 ## Diagnostic steps for F1 (run in the container)
 
 ```bash
@@ -133,7 +165,9 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | Priority | Action | Status |
 |---|---|---|
 | P0 | Apply F8 CI fix | Done, verified |
-| P0 | Apply update-3 zip (F9 migration, F10 Dusk), push, read the next GitHub run | Open, fix prepared |
+| P0 | Update-3 zip (F9 migration, F10 ChromeDriver) | Done, verified |
+| P0 | Apply update-5 zip (Dusk test fixes, MySQL frontend build, MySQL-8 query fix), push, send the new MySQL failure list and Dusk output | Open, fix prepared |
+| P1 | Check production DB version and sql_mode (`SELECT VERSION(), @@sql_mode;`) | Open |
 | P0 | Rotate all credentials that were pasted into chat | Not confirmed |
 | P0 | Diagnose and fix backup encryption (F1), re-run `backup db` and `backup:verify` until both disks show Encrypted: yes | Open |
 | P0 | After fix, delete or replace the unencrypted 2026-10-06-00-35-52.zip on R2 and local, and decide what to do about older unencrypted archives | Open |
@@ -148,7 +182,7 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 
 - Phase 6: browser flows (signup/email, login, MFA, gallery create/upload/publish, maintenance drill, mobile 3D)
 - Phase 7: payments (2Checkout test order, webhook, invoice, refund)
-- A passing run of the full automated suite (`phpunit`) in GitHub Actions or locally. Blocked until F9 and F10 are verified fixed
+- A passing run of the full automated suite (`phpunit`) in GitHub Actions or locally. Blocked until F11 and F12 are fixed (SQLite suite already passes)
 - Restore drill on a separate staging app
 - Morning digest (08:15 UTC) received
 
@@ -159,3 +193,5 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | 2026-10-06 ~00:40 | Initial report. Phases 1–5 run. Two failures (F1, F2), one unconfirmed (F3) |
 | 2026-10-06 (update 2) | Reviewed two failing GitHub CI logs. Added F8 (all jobs fail at `composer install` because `.env` is created after it). Prepared workflow patch plus test file move. Not yet pushed or verified |
 | 2026-10-06 (update 3) | F8 fix deployed and verified (jobs pass `composer install`). New CI failures found: F9 (MySQL migration, 67-char index name) and F10 (Dusk, ChromeDriver unreachable). Fixes prepared, not yet pushed or verified |
+| 2026-10-06 (update 4) | F9 and F10 fixes verified by CI: MySQL migrations pass, Dusk connects (SmokeTest 10/10). New failures: F11 (Dusk sweep, 13 of 16 failing) and F12 (MySQL phpunit). Root causes not yet known; waiting on log excerpts |
+| 2026-10-06 (update 5) | Read the full log archive. SQLite suite 2,774 tests pass; Pint, Frontend Build, Preflight, Dependency Audit pass. Dusk: 6 root causes found in the test file (waitForVisible, keys('body'), missing return, decryptString vs decrypt, team heading) plus diagnostics for 2 unexplained timeouts. MySQL: 133 failures from missing frontend build, 4 from a real MySQL-8 query bug (fixed), about 60 genuine MySQL differences to triage. Fixes prepared, not yet pushed |

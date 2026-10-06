@@ -320,6 +320,22 @@ jobs:
           APP_ENV: testing
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        # CI FIX (2026-10-06): page-rendering feature tests resolve Vite entries
+        # through public/build/manifest.json (gitignored). Without this build
+        # 133 tests failed with ViteManifestNotFoundException (HTTP 500). The
+        # SQLite job already builds; the MySQL job must too.
+        run: npm run build
+
       - name: Prepare environment
         run: |
           cp .env.example .env

@@ -8,7 +8,6 @@ use App\Models\GalleryImage;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\VenueTemplate;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Dusk\Browser;
 use PHPUnit\Framework\Assert;
@@ -46,6 +45,22 @@ class InteractionSweepTest extends DuskTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // `$browser->keys('body', ...)` resolves to the selector "body body"
+        // (Dusk prefixes every selector with `body`) and never matches. Send
+        // keystrokes to the real <body> element instead; chainable like keys().
+        Browser::macro('pressBody', function (string $keys) {
+            $map = [
+                '{escape}' => \Facebook\WebDriver\WebDriverKeys::ESCAPE,
+                '{enter}' => \Facebook\WebDriver\WebDriverKeys::ENTER,
+            ];
+
+            $this->driver
+                ->findElement(\Facebook\WebDriver\WebDriverBy::tagName('body'))
+                ->sendKeys($map[$keys] ?? $keys);
+
+            return $this;
+        });
 
         $this->artisan('migrate:fresh');
 
@@ -170,7 +185,8 @@ class InteractionSweepTest extends DuskTestCase
 
         $routes = [
             '/admin/dashboard' => 'Good',
-            '/admin/galleries' => 'Galleries',
+            // In a team workspace the page heading is the team name.
+            '/admin/galleries' => $team->name,
             "/admin/teams/{$team->id}" => $team->name,
             '/billing' => 'Billing',
         ];
@@ -270,7 +286,7 @@ class InteractionSweepTest extends DuskTestCase
 
             // Open via the dashboard trigger.
             $browser->click('[data-click="showUpgradeModal"]')
-                ->waitForVisible('#upgrade-modal', 5)
+                ->waitFor('#upgrade-modal', 5)
                 ->assertSee('You\'ve reached your gallery limit');
 
             // Focus moves inside the dialog (openModal focuses the first
@@ -294,12 +310,12 @@ class InteractionSweepTest extends DuskTestCase
             $this->assertScrollUnlocked($browser);
 
             // Reopen, close via Escape.
-            $browser->click('[data-click="showUpgradeModal"]')->waitForVisible('#upgrade-modal', 5);
-            $browser->keys('body', '{escape}')->waitUntilMissing('#upgrade-modal', 5);
+            $browser->click('[data-click="showUpgradeModal"]')->waitFor('#upgrade-modal', 5);
+            $browser->pressBody('{escape}')->waitUntilMissing('#upgrade-modal', 5);
             $this->assertScrollUnlocked($browser);
 
             // Reopen, close via backdrop click (click lands on the overlay itself).
-            $browser->click('[data-click="showUpgradeModal"]')->waitForVisible('#upgrade-modal', 5);
+            $browser->click('[data-click="showUpgradeModal"]')->waitFor('#upgrade-modal', 5);
             $browser->driver->executeScript(
                 'document.getElementById("upgrade-modal").dispatchEvent('
                 .'new MouseEvent("click", {bubbles: true}));'
@@ -333,8 +349,8 @@ class InteractionSweepTest extends DuskTestCase
             $this->settlePage($browser);
 
             // "/" opens the palette from anywhere outside an input.
-            $browser->keys('body', '/')
-                ->waitForVisible('[aria-labelledby="command-palette-title"]', 5);
+            $browser->pressBody('/')
+                ->waitFor('[aria-labelledby="command-palette-title"]', 5);
 
             // Typing filters the command list; Enter executes the selection.
             $browser->type('[aria-labelledby="command-palette-title"] input[type="text"]', 'galleries')
@@ -342,17 +358,17 @@ class InteractionSweepTest extends DuskTestCase
                 ->waitForLocation('/admin/galleries', 10);
 
             // Escape closes it (reopen first).
-            $browser->keys('body', '/')
-                ->waitForVisible('[aria-labelledby="command-palette-title"]', 5);
-            $browser->keys('body', '{escape}')
+            $browser->pressBody('/')
+                ->waitFor('[aria-labelledby="command-palette-title"]', 5);
+            $browser->pressBody('{escape}')
                 ->waitUntilMissing('[aria-labelledby="command-palette-title"]', 5);
 
             // The palette still works after a Turbo visit (Alpine re-initialised).
             $browser->click('a[href="'.route('admin.dashboard').'"]');
             $this->settlePage($browser);
-            $browser->keys('body', '/')
-                ->waitForVisible('[aria-labelledby="command-palette-title"]', 5)
-                ->keys('body', '{escape}')
+            $browser->pressBody('/')
+                ->waitFor('[aria-labelledby="command-palette-title"]', 5)
+                ->pressBody('{escape}')
                 ->waitUntilMissing('[aria-labelledby="command-palette-title"]', 5);
 
             $this->assertPageSweepClean($browser, 'command palette');
@@ -374,7 +390,7 @@ class InteractionSweepTest extends DuskTestCase
             $this->settlePage($browser);
 
             $browser->click('[aria-label="Send feedback"]')
-                ->waitForVisible('[aria-labelledby="feedback-widget-title"]', 5)
+                ->waitFor('[aria-labelledby="feedback-widget-title"]', 5)
                 ->type('#feedback-message', 'Sweep probe: feedback widget works.')
                 ->press('Send Feedback')
                 ->waitForText('Thank you!', 10);
@@ -408,7 +424,7 @@ class InteractionSweepTest extends DuskTestCase
 
             // Notification bell: toggles open, closes on outside click.
             $browser->click('#notif-dropdown-trigger')
-                ->waitForVisible('#notif-dropdown-panel', 5);
+                ->waitFor('#notif-dropdown-panel', 5);
             $browser->driver->executeScript(
                 'document.getElementById("main-content").dispatchEvent('
                 .'new MouseEvent("click", {bubbles: true}));'
@@ -417,13 +433,13 @@ class InteractionSweepTest extends DuskTestCase
                 ->assertAttribute('aria-expanded', '#notif-dropdown-trigger', 'false');
 
             // …and closes on Escape.
-            $browser->click('#notif-dropdown-trigger')->waitForVisible('#notif-dropdown-panel', 5);
-            $browser->keys('body', '{escape}')->waitUntilMissing('#notif-dropdown-panel', 5);
+            $browser->click('#notif-dropdown-trigger')->waitFor('#notif-dropdown-panel', 5);
+            $browser->pressBody('{escape}')->waitUntilMissing('#notif-dropdown-panel', 5);
 
             // Team switcher: same contract.
             $browser->click('#team-dropdown-trigger')
-                ->waitForVisible('#team-dropdown-panel', 5);
-            $browser->keys('body', '{escape}')->waitUntilMissing('#team-dropdown-panel', 5);
+                ->waitFor('#team-dropdown-panel', 5);
+            $browser->pressBody('{escape}')->waitUntilMissing('#team-dropdown-panel', 5);
 
             $this->assertPageSweepClean($browser, 'dropdowns');
         });
@@ -445,15 +461,15 @@ class InteractionSweepTest extends DuskTestCase
             $this->settlePage($browser);
 
             $browser->click('#mobile-nav-toggle')
-                ->waitForVisible('#mobile-nav', 5)
+                ->waitFor('#mobile-nav', 5)
                 ->assertAttribute('aria-expanded', '#mobile-nav-toggle', 'true');
 
             // Escape closes (keyboard parity with the desktop dropdowns).
-            $browser->keys('body', '{escape}')
+            $browser->pressBody('{escape}')
                 ->waitUntilMissing('#mobile-nav', 5);
 
             // Reopen and close on outside click.
-            $browser->click('#mobile-nav-toggle')->waitForVisible('#mobile-nav', 5);
+            $browser->click('#mobile-nav-toggle')->waitFor('#mobile-nav', 5);
             $browser->driver->executeScript(
                 'document.getElementById("main-content").dispatchEvent('
                 .'new MouseEvent("click", {bubbles: true}));'
@@ -501,9 +517,9 @@ class InteractionSweepTest extends DuskTestCase
             $this->settlePage($browser);
 
             // Alpine must still be fully live after back/forward/revisits.
-            $browser->keys('body', '/')
-                ->waitForVisible('[aria-labelledby="command-palette-title"]', 5)
-                ->keys('body', '{escape}')
+            $browser->pressBody('/')
+                ->waitFor('[aria-labelledby="command-palette-title"]', 5)
+                ->pressBody('{escape}')
                 ->waitUntilMissing('[aria-labelledby="command-palette-title"]', 5);
 
             $this->assertPageSweepClean($browser, 'turbo back/forward');
@@ -542,7 +558,7 @@ class InteractionSweepTest extends DuskTestCase
 
             $browser->click('a[href="'.route('admin.galleries.create').'"]')
                 ->waitForLocation('/admin/galleries', 10)
-                ->waitForVisible('#upgrade-modal', 5)
+                ->waitFor('#upgrade-modal', 5)
                 ->assertSee('You\'ve reached your gallery limit');
 
             $this->assertPageSweepClean($browser, 'turbo auto-open upgrade modal');
@@ -569,7 +585,7 @@ class InteractionSweepTest extends DuskTestCase
             // Pick PRO on the managed user's plan select — the confirm dialog
             // appears and must be cancellable.
             $browser->select('select[aria-label="Change plan"]', 'pro')
-                ->waitForVisible('#exospace-confirm-cancel', 5)
+                ->waitFor('#exospace-confirm-cancel', 5)
                 ->press('Cancel');
 
             $browser->waitUntilMissing('#exospace-confirm-cancel', 5);
@@ -609,7 +625,7 @@ class InteractionSweepTest extends DuskTestCase
             $this->settlePage($browser);
 
             $result = $browser->driver->executeScript(<<<'JS'
-                (function () {
+                return (function () {
                     const form = document.getElementById('create-gallery-form');
                     const btn = document.getElementById('create-gallery-btn');
                     if (!form || !btn) return 'missing';
@@ -702,7 +718,7 @@ class InteractionSweepTest extends DuskTestCase
     /** Complete the real MFA verification flow in the browser session. */
     private function verifyMfaInBrowser(Browser $browser, User $admin): void
     {
-        $secret = Crypt::decryptString($admin->google2fa_secret);
+        $secret = decrypt($admin->google2fa_secret);
         $code = (new Google2FA)->getCurrentOtp($secret);
 
         // Successful verification redirects super admins to Master Control.
@@ -769,15 +785,27 @@ class InteractionSweepTest extends DuskTestCase
 
     private function settlePage(Browser $browser): void
     {
-        // readyState "complete" also guarantees deferred module scripts
-        // (app.js → Alpine/Turbo) have run on layouts that include them;
-        // layouts without app.js (control-center) still reach it.
-        $browser->waitUntil('document.readyState === "complete"', 15);
-        $browser->waitUntil(
-            'Array.prototype.every.call(document.images, '
-            .'function (i) { return i.complete || (i.loading === "lazy" && !i.currentSrc); })',
-            15
-        );
+        try {
+            // readyState "complete" also guarantees deferred module scripts
+            // (app.js → Alpine/Turbo) have run on layouts that include them;
+            // layouts without app.js (control-center) still reach it.
+            $browser->waitUntil('document.readyState === "complete"', 15);
+            $browser->waitUntil(
+                'Array.prototype.every.call(document.images, '
+                .'function (i) { return i.complete || (i.loading === "lazy" && !i.currentSrc); })',
+                15
+            );
+        } catch (\Facebook\WebDriver\Exception\TimeoutException $e) {
+            // A bare "Waited 15 seconds for callback" says nothing about WHICH
+            // page or image stalled. Report it so the CI log is actionable.
+            $detail = $browser->driver->executeScript(
+                'return JSON.stringify({url: location.href, ready: document.readyState, '
+                .'pending: Array.prototype.filter.call(document.images, function (i) { return !i.complete; })'
+                .'.slice(0, 10).map(function (i) { return {src: i.currentSrc || i.getAttribute("src"), loading: i.loading}; })});'
+            );
+
+            throw new \RuntimeException('settlePage timed out: '.$detail, 0, $e);
+        }
     }
 
     private function assertPageSweepClean(Browser $browser, string $context): void
