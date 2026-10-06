@@ -23,6 +23,17 @@ return new class extends Migration
 
     public function down(): void
     {
+        // The consolidated users migration (2026_07_02_160000) already
+        // dropped galleries earlier in the rollback, so the table can be
+        // gone by the time this runs; the re-migrate re-creates it from the
+        // base migration with the original ENUM columns.
+        if (! Schema::hasTable('galleries')
+            || ! Schema::hasColumn('galleries', 'wall_texture')
+            || ! Schema::hasColumn('galleries', 'frame_style')
+            || ! Schema::hasColumn('galleries', 'floor_material')) {
+            return;
+        }
+
         if (DB::getDriverName() === 'sqlite') {
         } else {
             DB::statement("ALTER TABLE galleries MODIFY COLUMN wall_texture ENUM('white','concrete','brick','wood') NOT NULL DEFAULT 'white'");

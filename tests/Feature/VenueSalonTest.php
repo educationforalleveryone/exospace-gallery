@@ -369,8 +369,10 @@ class VenueSalonTest extends TestCase
         // the hang respects the wider assembly
         $this->assertSame(1.9, $config['placement']['keep_clear']['width']);
         $this->assertSame(1.2, $config['placement']['keep_clear']['max_width']);
-        // untouched blocks stay byte-identical
-        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Material')), json_decode((string) $venue->material_config, true));
+        // untouched blocks stay identical. Key-order-insensitive on purpose:
+        // MySQL re-serialises JSON columns on storage, so byte identity is
+        // not something a stored column can honor — canonical equality is.
+        $this->assertSameJson($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Material')), json_decode((string) $venue->material_config, true));
     }
 
     public function test_the_turn_migration_respects_admin_edits(): void

@@ -57,8 +57,16 @@ return new class extends Migration
 
     public function down(): void
     {
-        // Drop team_user user_id index
+        // Drop team_user.user_id FK + index. The pivot's foreign key to users
+        // runs on this index on MySQL, which refuses to drop an index a
+        // foreign key constraint still needs (error 1553), so the FK goes
+        // first — same order the users.current_team_id block below uses.
         Schema::table('team_user', function (Blueprint $table) {
+            $hasFk = collect(Schema::getForeignKeys('team_user'))
+                ->contains(fn ($fk) => in_array('user_id', $fk['columns']));
+            if ($hasFk) {
+                $table->dropForeign(['user_id']);
+            }
             if (Schema::hasIndex('team_user', 'team_user_user_id_index')) {
                 $table->dropIndex('team_user_user_id_index');
             }

@@ -86,13 +86,31 @@ return new class extends Migration
 
     public function down(): void
     {
-        foreach (['galleries', 'team_user', 'team_invitations', 'teams',
-            'pending_upgrades', 'invoices', 'transactions',
-            'newsletter_signups', 'gdpr_deletion_requests',
-            'personal_access_tokens', 'password_histories',
-            'user_notifications', 'user_feedback', 'survey_responses'] as $dependent) {
-            Schema::dropIfExists($dependent);
+        // The consolidated tables are the hub of the FK graph: galleries,
+        // users and teams are referenced by older migrations that roll back
+        // later (gallery_analytics, gallery_schedule_events, analytics_daily,
+        // admin_audit_logs, artists, ...) and the drop order inside this list
+        // cannot satisfy every constraint direction. MySQL therefore refuses
+        // the sequential drop with error 3730 long before the list finishes.
+        // The graph is intentionally dismantled with FK checks suspended and
+        // immediately rebuilt by the re-migrate. SQLite resolves drops by
+        // rebuilding tables and does not enforce standalone FK objects, so
+        // the plain sequential drop stays correct there.
+        $dropGraph = function (): void {
+            foreach (['galleries', 'team_user', 'team_invitations', 'teams',
+                'pending_upgrades', 'invoices', 'transactions',
+                'newsletter_signups', 'gdpr_deletion_requests',
+                'personal_access_tokens', 'password_histories',
+                'user_notifications', 'user_feedback', 'survey_responses'] as $dependent) {
+                Schema::dropIfExists($dependent);
+            }
+            Schema::dropIfExists('users');
+        };
+
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            Schema::withoutForeignKeyConstraints($dropGraph);
+        } else {
+            $dropGraph();
         }
-        Schema::dropIfExists('users');
     }
 };

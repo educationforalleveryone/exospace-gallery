@@ -6,7 +6,7 @@
 **Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 to 7)
 **Not yet covered:** Phase 6 (browser flows), Phase 7 (payments), a fully green CI run on the update-7 fixes
 
-## Overall verdict: NOT READY, but close. 3 production failures remain; update 6 shipped one self-inflicted regression (F18) — fixed in update 7
+## Overall verdict: NOT READY, but close. Update 7 recovered the F18 regression — 4 unit-test problems remain (all fixed in update 8); Dusk improved 23→7 failures
 
 | Area | Status |
 |---|---|
@@ -15,12 +15,13 @@
 | robots.txt via smoke test | ❌ FAILING |
 | GitHub CI: install, MySQL migrations, Dusk ChromeDriver (F8–F10) | ✅ Fixed and verified by later runs |
 | GitHub CI: Pint, Frontend Build, Preflight, Dependency Audit | ✅ Green |
-| GitHub CI: SQLite suite | ❌ Was green (2,774 tests) before update 6 → update 6 introduced one bug (F18) that broke 215 tests on BOTH engines; fixed in update 7 |
-| GitHub CI: MySQL suite (F12–F20) | ❌ 29 errors + 192 failures after update 6 (was 6 errors + 55 failures) — but 42 previously-failing tests genuinely fixed, and ~215 of the 221 failures trace to the ONE new F18 bug; fixed in update 7 |
-| GitHub CI: Dusk (F11/F16) | ⚠️ 23 failed / 3 passed — byte-identical failure list before and after update 6; neither better nor worse |
-| **NEW: audit chain verification on MySQL (F13)** | 🔧 Broken on every fresh MySQL DB; fix shipped. Production unaffected only by schema drift — re-verify after deploy |
-| **NEW: venue JSON migrations on MySQL (F14)** | 🔧 Several `up()` passes silently skipped on MySQL; fix shipped. Production already ran them — see note |
-| **NEW: audit rows for string-key targets (F15)** | 🔧 MySQL rejected the insert outright; fix shipped (code + migration) |
+| GitHub CI: SQLite suite | ⚠️ 1 failure after update 7 (was 187 after update 6, 0 at baseline) — penthouse drift-guard semantics, fixed in update 8 |
+| GitHub CI: MySQL suite (F12–F23) | ⚠️ 1 error + 2 failures after update 7 (was 221 after update 6, 61 at baseline) — all three root-caused and fixed in update 8 |
+| GitHub CI: Dusk (F11/F16) | ✅→⚠️ 7 failed / 19 passed after update 7 (was 23/3 for two runs) — the F18 fix released 16 browser tests; the 7 remaining are InteractionSweepTest harness timing (own work item) |
+| **NEW: audit chain verification on MySQL (F13)** | 🔧 Fixed in update 6, verified by update-7 CI run |
+| **NEW: venue JSON migrations on MySQL (F14)** | 🔧 Fixed; drift-refusal semantics restored for SQLite in update 8 (F21) |
+| **NEW: audit rows for string-key targets (F15)** | 🔧 Fixed in update 6, confirmed by update-7 CI run |
+| **NEW: rollback path integrity on MySQL (F22)** | 🔧 Full-chain down() audit done; four latent defects fixed in update 8 |
 | Slack and Sentry delivery | ❓ Unconfirmed |
 
 ## Results by command
@@ -143,13 +144,13 @@ The update-5 MySQL run failed all five `AdminAuditChainTest` tests with "3 is id
 - **Fix (update 6):** the hash now covers a canonical (key-sorted) JSON form of the payload, which is stable under MySQL's re-serialisation; `verifyChain()` additionally accepts the legacy raw-string hash so already-stored rows keep verifying. New rows are always written canonically.
 - **After deploy:** run `php artisan exospace:verify-data-integrity` and confirm 0 violations, then re-run it on a fresh MySQL database (CI now covers this automatically).
 
-### F18. CRITICAL, introduced by update 6, found in update 7: `AdminAuditLog::record()` died on every audit write
+### F18. CRITICAL, introduced by update 6, found in update 7: `AdminAuditLog::record()` died on every audit write — **FIXED AND VERIFIED by the update-7 CI run**
 Update 6's F15 change computed `$targetKey` outside the `DB::transaction` closure but forgot to add it to the closure's `use (...)` clause. PHP raised `Undefined variable $targetKey` inside every single audit write, the transaction rolled back, and the calling action failed:
 - **MySQL job:** 29 errors + 192 failures (was 6 errors + 55 failures before update 6). ~215 of the 221 problems trace to this one line — directly (ErrorException in the trace) or as cascades (audit row missing → "Failed asserting that null is not null", request 500s, "The response is not a streamed response" on the billing exports, mailables queued 0 times, MFA flows dying mid-write).
 - **SQLite job:** 28 errors + 187 failures (was fully green). The bug is engine-independent, which is why a previously green job went red.
 - **What is genuinely fixed from update 6 (confirmed by this run):** 42 previously-failing tests now pass — the F14 venue-guard fixes, the F17 test defects and the F15 `_target_key` behaviour all work as designed.
-- **Dusk:** the 23-failure list is byte-identical to the pre-update-6 run (same tests, same error classes) — no regression and no improvement there.
-- **Production impact:** the deployed update 6 breaks every audit-logged action — admin actions, MFA changes, credential rotations — with a 500 the moment they write an audit row. Deploy update 7 immediately.
+- **Dusk:** the update-7 run confirms the cascade — 23 failures collapsed to 7 (19 passing) once audit writes stopped 500ing; the F18 fix released 16 browser tests.
+- **Production impact:** resolved — the deployed update 7 ends it. (Before that deploy, every audit-logged action 500ed.)
 - **Fix (update 7):** add `$targetKey` to the closure `use` clause — one line in `app/Models/AdminAuditLog.php`.
 
 ### F19. MEDIUM, found in update 7: `ops_incidents` down() cannot roll back on MySQL (error 1553)
@@ -164,7 +165,24 @@ Re-reading the still-failing venue tests against the migrations found four remai
 3. **Cathedral `down()` compared nested arrays with `===`** (`post_fx`, `placement`) — MySQL reorders those keys, so the removal guards never fired and a rolled-back row was never equal to its pristine state. Now uses `json_arrays_equal()`.
 4. **`VenueLakeTest` still used order-sensitive `assertSame` on two decoded JSON blocks** (lines 65–66, the lake block and post_fx) — converted to the project's `assertSameJson()` like their siblings at lines 156/157/276.
 
+### F21. MEDIUM, found in update 8: update 7's key-order fix made the penthouse guards fire on drifted (admin-resaved) rows
+The F20 key-sort fix for `residence`/`evening_light` was too broad: it normalised key order on **both** engines, but only MySQL needs that (it re-serialises JSON on storage). SQLite stores the bytes verbatim, so on SQLite the strict order-sensitive compare was the *mechanism that refuses editor drift* — an admin re-save reorders the payload, and the migration guards must treat that row as admin-customised and leave it alone (the `convergence` migration owns those rows). With update 7's ksort in place the drifted row matched the migration constants again, every structure/fixture swap fired through the drift, and `VenuePenthouseTest::test_the_drifted_production_row_converges_to_the_double_volume` failed on BOTH engines (structure came out 61 descriptors instead of the pinned 17, fixtures 5 instead of 2).
+- **Production impact:** on MySQL production the behaviour is unchanged (the MySQL path is byte-for-byte the update-7 logic — and on MySQL a re-saved row is *byte-identical* to a never-edited row once stored, so the drift is not even representable there). Only the SQLite/dev path changes, back to the original author intent.
+- **Fix (update 8):** `residence`/`evening_light` `jsonCanonical()` takes a `$normaliseKeyOrder` flag; `jsonEquals()` enables it only on mysql/mariadb. The drift test now documents both behaviours: refuse-and-converge on SQLite (17/2), heal-through-the-drift on MySQL (61/5).
+
+### F22. MEDIUM, found in update 8: three more latent rollback defects past `ops_incidents` on MySQL
+`MigrateFreshTest` rolls back the whole batch, so every `down()` must succeed on MySQL. The update-7 run got past `ops_incidents` (F19 fixed) and failed at the next layer. A full audit of the remaining rollback path found and fixed four defects:
+1. **`2026_07_04_000003` team_user error 1553 (the run's failure):** down() dropped `team_user_user_id_index` while the pivot's FK to `users` still needed it. Now drops FK → index in the same statement, mirroring the file's own `users.current_team_id` block.
+2. **`2026_07_02_160001` (venue_templates consolidated) error 3730:** down() did `dropIfExists('venue_templates')` while `galleries.venue_template_id` still referenced it. Now suspends FK checks for the drop (the graph is rebuilt by the re-migrate) — `Schema::withoutForeignKeyConstraints()`, the project's established idiom.
+3. **`2026_07_02_160000` (users consolidated) error 3730:** the dependent list drops `galleries`/`users` while `gallery_analytics`, `gallery_schedule_events`, `analytics_daily`, `admin_audit_logs`, `artists`, etc. still reference them — no ordering of the list can satisfy every constraint direction. MySQL now drops the graph with FK checks suspended; SQLite keeps the plain sequential drop (it rebuilds tables and has no standalone FK objects).
+4. **`2026_07_01_070923` (varchar conversion) table-missing error:** down() ran `ALTER TABLE galleries` without a guard, but the consolidated users migration drops `galleries` earlier in the rollback. Now guarded on table + columns.
+- Everything else in the rollback path (01_19 → 10_05) was audited: either already guarded, already FK-safe, verified by this CI run, or a child-side drop that MySQL allows.
+
+### F23. LOW, found in update 8: salon turn test asserted byte-identical JSON on MySQL
+`VenueSalonTest::test_the_turn_migration_heals_a_v2_production_row` asserted the untouched `material_config` block with `assertSame` — insertion-order sensitive. On MySQL the stored block comes back with reordered keys (all values identical), so the assertion failed purely on representation. Converted to `assertSameJson()` like its siblings.
+
 ### F14. HIGH, found in update 6: venue JSON migrations silently skipped on MySQL (update-6 fix confirmed working; residuals fixed in update 7 — see F20)
+
 Every venue pass that guards a rewrite with an exact array/string match (`===` on decoded JSON, `array_keys($a) === array_keys($b)`, or a byte-stable `jsonEquals`) can never fire on MySQL, because the JSON column reorders keys before the migration reads it back. Concretely: the salon v2.1 door/side heal (7 doors never became 11), the penthouse v2.1 structure/fixture swap ("the cheap glass still arrives"), the nebula fixture swap, and every venue `down()` that removes what `up()` added (cyber `artwork_reactive`/`post_fx`, dark-museum `post_fx`/`placement`, zen `bays`, industrial-loft, sculpture-garden `garden`/assets, mirror-lake `lake`/`post_fx`, white-cube, rooms, infinite-void).
 - **Production impact:** production already ran these migrations (they are marked Ran), so the guarded rewrites **did not apply there**: production's salon still has the v2 doorcase, the penthouse the v2.0 glass, and rollbacks on production will leave the migration-added keys behind. If those venues look wrong, the fix is a follow-up healing command or re-running the payloads manually — say the word and it gets built.
 - **Fix (update 6):** a shared `json_arrays_equal()` helper (content equality, order-insensitive, list order preserved) in `app/helpers.php`, used by every affected migration guard. Value drift is still refused; only key order stopped mattering, because key order is not something MySQL lets us control.
@@ -225,8 +243,9 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | P0 | Update-3 zip (F9 migration, F10 ChromeDriver) | Done, verified |
 | P0 | Apply update-5 zip (Dusk test fixes, MySQL frontend build, MySQL-8 query fix) | Done — its CI run produced the logs reviewed in update 6 |
 | P0 | Apply update-6 zip (F13 audit chain, F14 venue guards, F15 target_id, F16 Dusk resilience, F17 test defects) | Done — but its CI run exposed F18/F19/F20, see update 7 |
-| P0 | **Apply update-7 zip (F18 audit closure, F19 rollback 1553, F20 residual guards) — production is currently broken for audit-logged actions** | Open |
-| P0 | After the update-7 deploy: re-run CI (expect SQLite green again; MySQL green apart from F20-class items if any remain; Dusk unchanged until its own work) and run `exospace:verify-data-integrity` in production | Open |
+| P0 | Apply update-7 zip (F18 audit closure, F19 rollback 1553, F20 residual guards) | Done, deployed — its CI run confirmed F18 fixed (221→3 MySQL, 215→1 SQLite, Dusk 23→7) and exposed F21/F22/F23, see update 8 |
+| P0 | **Apply update-8 zip (F21 drift-refusal semantics, F22 rollback-tail defects, F23 salon assertion)** | Open |
+| P0 | After the update-8 deploy: re-run CI (expect SQLite fully green; MySQL green apart from the 2 legitimate skips; Dusk unchanged at 7/19 until InteractionSweepTest harness work) | Open |
 | P1 | Decide on a healing pass for the venue rewrites that silently skipped on production MySQL (F14): salon v2.1 doors, penthouse v2.1 glass, nebula fixtures | Open |
 | P1 | Check production DB version and sql_mode (`SELECT VERSION(), @@sql_mode;`) | Open |
 | P0 | Rotate all credentials that were pasted into chat | Not confirmed |
@@ -258,3 +277,4 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | 2026-10-06 (update 5) | Read the full log archive. SQLite suite 2,774 tests pass; Pint, Frontend Build, Preflight, Dependency Audit pass. Dusk: 6 root causes found in the test file (waitForVisible, keys('body'), missing return, decryptString vs decrypt, team heading) plus diagnostics for 2 unexplained timeouts. MySQL: 133 failures from missing frontend build, 4 from a real MySQL-8 query bug (fixed), about 60 genuine MySQL differences to triage. Fixes prepared, not yet pushed |
 | 2026-10-06 (update 6) | Read the update-5 CI logs. SQLite 2,774 green; MySQL now 6 errors + 55 failures; Dusk 23 failed / 3 passed. Three production-grade causes found and fixed: **F13** audit-chain hashes broke on MySQL JSON normalisation (canonical hash + legacy fallback), **F14** venue migration guards never matched MySQL's reordered JSON (shared `json_arrays_equal()`), **F15** string-PK audit targets rejected by `target_id` BIGINT (`_target_key` payload + nullable migration). Dusk: `settlePage()` lazy-image deadlock fixed, server resilience via `PHP_CLI_SERVER_WORKERS`, richer diagnostics (F16). All remaining MySQL failures fixed as test defects (F17). Update-6 zip ships only changed files. Not yet pushed or verified |
 | 2026-10-06 (update 7) | Read the update-6 CI logs and compared against the update-5 baseline. **The suite got worse in raw numbers — one self-inflicted bug:** MySQL 29 errors + 192 failures, SQLite 28 errors + 187 failures (was green), Dusk byte-identical. Root cause: **F18**, a missing `$targetKey` in the `AdminAuditLog::record()` closure `use` clause (update 6's F15 change) — every audit write died and cascaded into ~215 of the 221 MySQL problems. **42 tests are genuinely fixed** (F14/F15/F17 work confirmed). New findings fixed: **F19** `ops_incidents` down() error 1553 (FK dropped after its index; blocks rollback on MySQL), **F20** residual venue guards — integral-float representation (`1.0` stored as `1`) disabled the salon heal, penthouse `residence`/`evening_light` private canonicals lacked key sorting (cascaded into the v3 pass and full chain), Cathedral `down()` used `===` on nested arrays, Lake test used `assertSame` on decoded JSON. Update-7 zip ships only the 7 changed code files + this report. **Deploy update 7 immediately — deployed update 6 breaks audit-logged actions in production.** |
+| 2026-10-06 (update 8) | Read the update-7 CI logs. **Dramatically better:** MySQL 3 problems (was 221; baseline 61), SQLite 1 failure (was 215; baseline 0), Dusk 7 failed / 19 passed (was 23/3 — the F18 fix released 16 browser tests). The F18 fix is confirmed working. Remaining problems, all root-caused and fixed: **F21** update 7's key-sort for `residence`/`evening_light` also normalised SQLite, dissolving the guard that refuses editor re-save drift — now key-order normalisation is MySQL-only, restoring the author's refuse-drift semantics where they are representable, with the drift test documenting both engine behaviours; **F22** full rollback-path audit found four more latent MySQL defects — `2026_07_04_000003` team_user FK/1553 (this run's failure), `2026_07_02_160001` venue_templates drop vs galleries FK/3730, `2026_07_02_160000` consolidated graph drop vs many incoming FKs/3730, `2026_07_01_070923` unguarded ALTER on an already-dropped table — all fixed (FK-before-index pattern; `Schema::withoutForeignKeyConstraints()` for the consolidated graph dismantling; guards); **F23** salon turn test used order-sensitive `assertSame` on a stored JSON block — now `assertSameJson()`. Update-8 zip ships only the 9 changed files (8 code + this report). Expected next run: SQLite fully green, MySQL green with the 2 legitimate skips, Dusk unchanged at 7/19 until its harness work. |

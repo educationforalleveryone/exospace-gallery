@@ -117,20 +117,22 @@ return new class extends Migration
         ['id' => 'lounge-wash', 'type' => 'point', 'anchor' => ['from' => 'glazing', 'offset' => [0, 3.9, 3.4]], 'color' => '0xffe2b8', 'intensity' => 1.8, 'distance' => 8, 'decay' => 1.8, 'cast_shadow' => false],
     ];
 
-    private function jsonCanonical($value)
+    private function jsonCanonical($value, bool $normaliseKeyOrder = true)
     {
         if (is_array($value)) {
             // Key-order canonical: MySQL reorders JSON object keys on storage
             // (the structure written by the previous pass comes back with a
             // different key order), so the exact-match guard must normalise
-            // key order or it can never fire on MySQL. An editor's VALUE
-            // drift is still refused — only representation is normalised.
-            if (! array_is_list($value)) {
+            // key order or it can never fire on MySQL. Engines that store the
+            // bytes verbatim (SQLite) must NOT normalise: an editor re-save
+            // reorders keys, and that drift is exactly what the exact-match
+            // guard must refuse to touch.
+            if ($normaliseKeyOrder && ! array_is_list($value)) {
                 ksort($value);
             }
             $out = [];
             foreach ($value as $key => $item) {
-                $out[$key] = $this->jsonCanonical($item);
+                $out[$key] = $this->jsonCanonical($item, $normaliseKeyOrder);
             }
 
             return $out;
@@ -143,7 +145,16 @@ return new class extends Migration
 
     private function jsonEquals($current, $canonical): bool
     {
-        return json_encode($this->jsonCanonical($current)) === json_encode($this->jsonCanonical($canonical));
+        // Only MySQL reorders object keys on storage; there the guard must
+        // compare key-order-independently or it can never fire. Everywhere
+        // else the stored bytes are authoritative: a pristine seeded row
+        // matches the constant in insertion order, while an editor re-save
+        // (which reorders keys and re-encodes numbers) drifts the order and
+        // is refused — the convergence pass owns those rows instead.
+        $normaliseKeyOrder = in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true);
+
+        return json_encode($this->jsonCanonical($current, $normaliseKeyOrder))
+            === json_encode($this->jsonCanonical($canonical, $normaliseKeyOrder));
     }
 
     public function up(): void

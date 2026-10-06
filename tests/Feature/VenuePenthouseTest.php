@@ -419,12 +419,26 @@ class VenuePenthouseTest extends TestCase
 
         $drifted = $this->visualConfig('luxury-penthouse');
         $this->assertSame(6.3, $drifted['wall_height'] ?? null, 'The scalar guards fire through the drift (4.5 → 5.2 → 6.3).');
-        $this->assertCount(17, $drifted['structure'] ?? [],
-            'The strict === structure guards skip the drifted row: the v1.0.0 body survives the whole chain (the bug).');
-        $this->assertSame('3.0.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
-            'The version string claims v3.0.0 over a v1.0.0 building — the silent-skip signature.');
         $driftedFixtures = json_decode((string) DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('lighting_fixtures'), true) ?: [];
-        $this->assertCount(2, $driftedFixtures, 'The fixtures froze at the v2.0.0 pair (production state).');
+
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            // MySQL re-serialises JSON columns on storage (key order, spacing)
+            // and PHP's json_encode() already writes integral floats as ints,
+            // so a re-saved row is byte-identical to a never-edited row once
+            // stored: the representation drift the guards refuse on SQLite is
+            // not even representable on MySQL. The exact-match guards there
+            // heal the row straight through the drift instead of skipping it.
+            $this->assertCount(61, $drifted['structure'] ?? [],
+                'MySQL heals the drifted row through the chain — storage normalisation erases re-save drift.');
+            $this->assertCount(5, $driftedFixtures, 'MySQL heals the fixtures through the chain (the v3.0.0 five-light rig).');
+        } else {
+            $this->assertCount(17, $drifted['structure'] ?? [],
+                'The strict === structure guards skip the drifted row: the v1.0.0 body survives the whole chain (the bug).');
+            $this->assertCount(2, $driftedFixtures, 'The fixtures froze at the v2.0.0 pair (production state).');
+        }
+
+        $this->assertSame('3.0.0', DB::table('venue_templates')->where('slug', 'luxury-penthouse')->value('version'),
+            'The version marker lands on v3.0.0 — claimed over a v1.0.0 building on SQLite (the silent-skip signature), earned on MySQL.');
 
         // 4. The convergence pass repairs the row.
         $this->penthouseMigration8()->up();

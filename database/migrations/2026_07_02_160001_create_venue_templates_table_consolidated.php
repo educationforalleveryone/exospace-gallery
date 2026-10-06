@@ -58,6 +58,15 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('venue_templates');
+        // Older migrations still point foreign keys INTO venue_templates at
+        // this point of the rollback (galleries.venue_template_id from
+        // 2026_06_09_000002 rolls back later in the chain), and MySQL refuses
+        // to drop a referenced table (error 3730). The consolidated graph is
+        // intentionally dismantled with FK checks suspended and immediately
+        // rebuilt by the re-migrate; SQLite resolves drops by rebuilding the
+        // table and has no standalone FK objects, so a plain drop is correct.
+        Schema::withoutForeignKeyConstraints(function (): void {
+            Schema::dropIfExists('venue_templates');
+        });
     }
 };
