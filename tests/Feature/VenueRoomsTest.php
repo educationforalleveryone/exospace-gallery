@@ -154,7 +154,7 @@ class VenueRoomsTest extends TestCase
         $zen = $this->visualConfig('zen-gallery');
         $this->assertSame('0x223344', $zen['background_color'], 'Admin-tuned config values must never be overwritten.');
         $this->assertSame('rooms', $zen['structure_pass'], 'Absent keys are still added around the admin edits.');
-        $this->assertSame(
+        $this->assertSameJson(
             [['id' => 'admin-panel', 'primitive' => 'box', 'at' => [0, 1, 0], 'size' => [1, 1, 1], 'material' => 'stone']],
             $zen['structure'],
             'An admin-authored structure array is NEVER replaced by the seeded one.'

@@ -123,12 +123,14 @@ return new class extends Migration
             }
         }
         // Remove the added keys only while they still equal what up() wrote.
-        if (($vc['post_fx'] ?? null) === [
+        // json_arrays_equal: MySQL JSON columns reorder object keys on storage,
+        // so the decoded guard can never byte-match the seeded shape.
+        if (json_arrays_equal($vc['post_fx'] ?? null, [
             'bloom' => false,
             'vignette' => true,
             'vignette_darkness' => 0.35,
             'vignette_offset' => 1.0,
-        ]) {
+        ])) {
             unset($vc['post_fx']);
         }
         foreach (['artwork_light_base' => 0.22, 'artwork_light_pool_cap' => 12, 'env_intensity' => 0.25, 'corridor_width' => 9] as $key => $seeded) {

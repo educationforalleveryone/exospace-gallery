@@ -138,7 +138,7 @@ class VenueZenTest extends TestCase
         $this->assertSame(0.1, $vc['hemisphere_intensity'] ?? null);
 
         // The procession rhythm.
-        $this->assertSame([
+        $this->assertSameJson([
             'density' => 'generous',
             'focal_wall' => 'front',
             'pair_orientation' => true,
@@ -268,7 +268,7 @@ class VenueZenTest extends TestCase
         $downVc = json_decode((string) $row->visual_config, true);
         $v1Vc = json_decode($v1['visual_config'], true);
         unset($v1Vc['structure']);   // one-way removal (see the pin below)
-        $this->assertSame(
+        $this->assertSameJson(
             $v1Vc,
             $downVc,
             'down() restores the v1 visual_config (structure_pass rooms, pre-polish rig, studio environment).'

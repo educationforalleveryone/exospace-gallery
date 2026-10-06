@@ -144,7 +144,7 @@ return new class extends Migration
             'intensity' => 0.6,
             'cast_shadow' => false,
         ]];
-        if (json_decode((string) $row->lighting_fixtures, true) === $v1Fixtures) {
+        if (json_arrays_equal(json_decode((string) $row->lighting_fixtures, true), $v1Fixtures)) {
             DB::table('venue_templates')
                 ->where('id', $row->id)
                 ->update(['lighting_fixtures' => json_encode([])]);
@@ -215,13 +215,13 @@ return new class extends Migration
                 unset($vc[$key]);
             }
         }
-        if (($vc['placement'] ?? null) === ['focal_wall' => 'lake-hero']) {
+        if (json_arrays_equal($vc['placement'] ?? null, ['focal_wall' => 'lake-hero'])) {
             unset($vc['placement']);
         }
-        if (($vc['lake'] ?? null) === $this->v3LakeBlock()) {
+        if (json_arrays_equal($vc['lake'] ?? null, $this->v3LakeBlock())) {
             unset($vc['lake']);
         }
-        if (($vc['post_fx'] ?? null) === $this->v3PostFx()) {
+        if (json_arrays_equal($vc['post_fx'] ?? null, $this->v3PostFx())) {
             unset($vc['post_fx']);
         }
 

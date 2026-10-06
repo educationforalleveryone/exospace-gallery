@@ -57,7 +57,7 @@ class VenueSculptureGardenTest extends TestCase
         $garden = $config['garden'] ?? [];
         $this->assertSame(true, $garden['sky_environment'] ?? null, '[sculpture-garden] the garden block must gate the PMREM sky environment (rollback switch).');
         $this->assertSame('/assets/venues/sculpture-garden/', $garden['assets_base'] ?? null, '[sculpture-garden] assets_base must be ROOT-RELATIVE — a page-relative base breaks on every nested route.');
-        $this->assertSame(self::V4_ASSETS, $garden['assets'] ?? null, '[sculpture-garden] the asset manifest must declare all 7 roles (the owner fills these exact filenames).');
+        $this->assertSameJson(self::V4_ASSETS, $garden['assets'] ?? null, '[sculpture-garden] the asset manifest must declare all 7 roles (the owner fills these exact filenames).');
 
         $postFx = $config['post_fx'] ?? [];
         $this->assertFalse($postFx['bloom'] ?? true, '[sculpture-garden] bloom must be OFF — it milked the daylight sky (the grey-veil defect class).');
@@ -147,7 +147,7 @@ class VenueSculptureGardenTest extends TestCase
         $this->assertSame(2.6, $config['field_radius_bonus'] ?? null, 'up() must enlarge the declared field (the gate corridor needs the lawn).');
         $this->assertSame(14, $config['field_radius_min'] ?? null);
         $this->assertSame('/assets/venues/sculpture-garden/', $config['garden']['assets_base'] ?? null, 'up() must add the root-relative asset base.');
-        $this->assertSame(self::V4_ASSETS, $config['garden']['assets'] ?? null, 'up() must add the 7-role asset manifest.');
+        $this->assertSameJson(self::V4_ASSETS, $config['garden']['assets'] ?? null, 'up() must add the 7-role asset manifest.');
         $this->assertSame(true, $config['garden']['sky_environment'] ?? null, 'up() must preserve the v3 sky_environment switch.');
         $this->assertSame('0x5e7a46', $material['floor_color'] ?? null, 'up() must retune the lawn colour.');
         $this->assertSame(3.0, (float) ($material['floor_tile_meters'] ?? 0.0));
@@ -324,7 +324,7 @@ class VenueSculptureGardenTest extends TestCase
         $this->migration()->down();
 
         $config = json_decode((string) DB::table('venue_templates')->where('slug', 'sculpture-garden')->value('visual_config'), true);
-        $this->assertSame(['sky_environment' => false, 'terrain_scale' => 0.5], $config['garden'] ?? null, 'down() must preserve an admin post-pass edit of the landscape block.');
+        $this->assertSameJson(['sky_environment' => false, 'terrain_scale' => 0.5], $config['garden'] ?? null, 'down() must preserve an admin post-pass edit of the landscape block.');
     }
 
     public function test_the_landscape_declaration_is_venue_owned(): void
@@ -356,7 +356,7 @@ class VenueSculptureGardenTest extends TestCase
         );
         $this->assertSame('none', $config['visual_config']['environment'] ?? null);
         $this->assertSame('/assets/venues/sculpture-garden/', $config['visual_config']['garden']['assets_base'] ?? null, 'The asset manifest must reach the client payload (preview and public view share the exporter).');
-        $this->assertSame(self::V4_ASSETS, $config['visual_config']['garden']['assets'] ?? null);
+        $this->assertSameJson(self::V4_ASSETS, $config['visual_config']['garden']['assets'] ?? null);
         $this->assertSame('0x5e7a46', $config['material_config']['floor_color'] ?? null);
     }
 

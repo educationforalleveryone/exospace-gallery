@@ -59,6 +59,16 @@ class AdminAuditLog extends Model
             $payload['_changed'] = static::scrubPii($target->getDirty());
         }
 
+        // target_id backs a BIGINT morph column. Models with string primary
+        // keys (e.g. OpsCredential keyed by 'db-password') cannot go in there:
+        // MySQL strict mode rejects the value outright, which lost the audit
+        // row entirely. Keep the identifying key in the payload instead.
+        $targetKey = $target->getKey();
+        if (! is_numeric($targetKey)) {
+            $payload['_target_key'] = (string) $targetKey;
+            $targetKey = null;
+        }
+
         $payload = static::scrubPii($payload);
 
         $log = DB::transaction(function () use ($action, $target, $payload, $actorId) {
@@ -71,7 +81,7 @@ class AdminAuditLog extends Model
                 'actor_id' => $actorId ?? Auth::id(),
                 'action' => $action,
                 'target_type' => get_class($target),
-                'target_id' => $target->getKey(),
+                'target_id' => $targetKey,
                 'payload' => $payload ?: null,
                 'ip' => Request::ip(),
                 'created_at' => now(),
@@ -136,7 +146,12 @@ class AdminAuditLog extends Model
 
                     $expected = static::expectedChainHash($row->getAttributes(), $previousHash);
 
-                    if (! hash_equals($expected, $row->chain_hash)) {
+                    // Rows written before the canonical-payload scheme verify
+                    // against the raw stored payload string; on MySQL a JSON
+                    // column re-serialises that string on storage, so those
+                    // rows are only verifiable through the legacy scheme.
+                    if (! hash_equals($expected, $row->chain_hash)
+                        && ! hash_equals(static::legacyExpectedChainHash($row->getAttributes(), $previousHash), $row->chain_hash)) {
                         $broken++;
                     }
 
@@ -156,7 +171,34 @@ class AdminAuditLog extends Model
         return static::expectedChainHash($this->getAttributes(), $previousHash);
     }
 
+    /**
+     * The row hash. The payload is hashed in a canonical (key-sorted) JSON
+     * form: MySQL re-serialises JSON columns on storage (reordering keys and
+     * normalising spacing), so hashing the raw stored string would mark every
+     * payload row as tampered on every fresh MySQL database.
+     */
     private static function expectedChainHash(array $rawAttributes, ?string $previousHash): string
+    {
+        $canonical = implode('|', [
+            $previousHash ?? 'genesis',
+            (string) ($rawAttributes['actor_id'] ?? ''),
+            (string) ($rawAttributes['action'] ?? ''),
+            (string) ($rawAttributes['target_type'] ?? ''),
+            (string) ($rawAttributes['target_id'] ?? ''),
+            static::canonicalPayload((string) ($rawAttributes['payload'] ?? '')),
+            (string) ($rawAttributes['ip'] ?? ''),
+            (string) ($rawAttributes['created_at'] ?? ''),
+        ]);
+
+        return hash_hmac('sha256', $canonical, (string) config('app.key'));
+    }
+
+    /**
+     * The pre-canonicalisation scheme: the payload member was the raw stored
+     * string, exactly as the engine returned it. Kept so rows written before
+     * the canonical scheme (on engines that store JSON verbatim) still verify.
+     */
+    private static function legacyExpectedChainHash(array $rawAttributes, ?string $previousHash): string
     {
         $canonical = implode('|', [
             $previousHash ?? 'genesis',
@@ -170,5 +212,23 @@ class AdminAuditLog extends Model
         ]);
 
         return hash_hmac('sha256', $canonical, (string) config('app.key'));
+    }
+
+    private static function canonicalPayload(string $raw): string
+    {
+        if ($raw === '') {
+            return '';
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if (! is_array($decoded)) {
+            return $raw; // not JSON (legacy/edge values) — hash as-is
+        }
+
+        return (string) json_encode(
+            json_canonical($decoded),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
     }
 }

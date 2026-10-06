@@ -120,9 +120,10 @@ return new class extends Migration
         }
 
         // Remove the asset manifest only while it still equals what up() wrote.
+        // json_arrays_equal: MySQL JSON columns reorder object keys on storage.
         if (is_array($vc['garden'] ?? null)
             && ($vc['garden']['assets_base'] ?? null) === '/assets/venues/sculpture-garden/'
-            && ($vc['garden']['assets'] ?? null) === $this->gardenAssets()) {
+            && json_arrays_equal($vc['garden']['assets'] ?? null, $this->gardenAssets())) {
             unset($vc['garden']['assets_base'], $vc['garden']['assets']);
         }
 

@@ -217,7 +217,10 @@ return new class extends Migration
             }
             $existing = json_decode((string) $row->material_config, true) ?: [];
             foreach ($keys as $key => $value) {
-                if (array_key_exists($key, $existing) && $existing[$key] === $value) {
+                // json_arrays_equal: MySQL JSON columns reorder object keys,
+                // so a decoded nested value can never byte-match the seeded
+                // shape; content equality is the only engine-stable guard.
+                if (array_key_exists($key, $existing) && json_arrays_equal($existing[$key], $value)) {
                     unset($existing[$key]);
                 }
             }
@@ -233,7 +236,7 @@ return new class extends Migration
             }
             $existing = json_decode((string) $row->visual_config, true) ?: [];
             foreach ($keys as $key => $value) {
-                if (array_key_exists($key, $existing) && $existing[$key] === $value) {
+                if (array_key_exists($key, $existing) && json_arrays_equal($existing[$key], $value)) {
                     unset($existing[$key]);
                 }
             }

@@ -56,7 +56,7 @@ class VenueNebulaTest extends TestCase
         $this->assertSame('black', $config['post_fx']['vignette_blend'] ?? null, 'The vignette blends toward TRUE BLACK (the cathedral deploy-review precedent).');
 
         // The colour hierarchy (§11) is DECLARED, venue-owned.
-        $this->assertSame(
+        $this->assertSameJson(
             ['dominant' => '0x5a4ae0', 'secondary' => '0x2e6ac8', 'accent' => '0xd85a9e'],
             $config['nebula'] ?? null,
             'The celestial palette is declared: dominant indigo-violet → secondary cool blue → ONE rare rose accent.'

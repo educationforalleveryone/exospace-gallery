@@ -223,7 +223,7 @@ return new class extends Migration
                 unset($vc[$key]);
             }
         }
-        if (($vc['bays'] ?? null) === [
+        if (json_arrays_equal($vc['bays'] ?? null, [
             'fin_width' => 0.16,
             'fin_depth' => 0.14,
             'fin_top' => 3.12,
@@ -233,22 +233,22 @@ return new class extends Migration
             'step_depth' => 0.36,
             'clerestory_gap' => 0.05,
             'clerestory_height' => 0.24,
-        ]) {
+        ])) {
             unset($vc['bays']);
         }
-        if (($vc['placement'] ?? null) === [
+        if (json_arrays_equal($vc['placement'] ?? null, [
             'density' => 'generous',
             'focal_wall' => 'front',
             'pair_orientation' => true,
-        ]) {
+        ])) {
             unset($vc['placement']);
         }
-        if (($vc['post_fx'] ?? null) === [
+        if (json_arrays_equal($vc['post_fx'] ?? null, [
             'bloom' => false,
             'vignette' => true,
             'vignette_darkness' => 0.3,
             'vignette_offset' => 1.1,
-        ]) {
+        ])) {
             unset($vc['post_fx']);
         }
         if (($vc['frame_override'] ?? null) === 'black') {

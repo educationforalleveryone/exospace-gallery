@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use ZipArchive;
@@ -147,6 +148,12 @@ class RestoreFromBackupTest extends TestCase
 
     public function test_db_restore_is_refused_on_non_mysql_connection(): void
     {
+        // The refusal guard targets non-MySQL connections (the SQLite CI suite
+        // exercises it). On the MySQL job the guard does not apply — skip.
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            $this->markTestSkipped('The db-restore refusal guard only applies to non-MySQL connections.');
+        }
+
         $this->makeDbBackup('2026-01-15-01-00-00.zip');
 
         $this->artisan('exospace:backup:restore', [

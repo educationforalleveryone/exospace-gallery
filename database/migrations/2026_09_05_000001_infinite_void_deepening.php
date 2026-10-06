@@ -124,10 +124,10 @@ return new class extends Migration
         if (($vc['void_depth_gradient'] ?? null) === true) {
             unset($vc['void_depth_gradient']);
         }
-        if (($vc['post_fx'] ?? null) === ['bloom' => false, 'vignette' => true, 'vignette_darkness' => 1.0, 'vignette_offset' => 0.92]) {
+        if (json_arrays_equal($vc['post_fx'] ?? null, ['bloom' => false, 'vignette' => true, 'vignette_darkness' => 1.0, 'vignette_offset' => 0.92])) {
             unset($vc['post_fx']);
         }
-        if (($vc['placement'] ?? null) === ['depth_bands' => 2]) {
+        if (json_arrays_equal($vc['placement'] ?? null, ['depth_bands' => 2])) {
             unset($vc['placement']);
         }
         DB::table('venue_templates')

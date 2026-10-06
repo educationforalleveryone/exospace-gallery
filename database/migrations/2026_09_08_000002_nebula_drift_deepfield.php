@@ -119,7 +119,9 @@ return new class extends Migration
         ];
 
         // Fixtures (N1) — exact-match swap of the seeded v1.0.0 list.
-        if ($fixtures === self::OLD_FIXTURES) {
+        // json_arrays_equal: MySQL JSON columns reorder object keys inside each
+        // fixture, so the decoded list can never byte-match the constant.
+        if (json_arrays_equal($fixtures, self::OLD_FIXTURES)) {
             $update['lighting_fixtures'] = json_encode(self::NEW_FIXTURES);
         }
 
@@ -200,7 +202,7 @@ return new class extends Migration
             'material_config' => json_encode($material),
         ];
 
-        if ($fixtures === self::NEW_FIXTURES) {
+        if (json_arrays_equal($fixtures, self::NEW_FIXTURES)) {
             $update['lighting_fixtures'] = json_encode(self::OLD_FIXTURES);
         }
 

@@ -152,6 +152,13 @@ return new class extends Migration
     private function jsonCanonical($value)
     {
         if (is_array($value)) {
+            // Key-order canonical: MySQL reorders JSON object keys on storage
+            // (shortest first, then alphabetical), so the stored structure can
+            // never match the constant in insertion order. An editor's VALUE
+            // drift is still refused — only key order is normalised here.
+            if (! array_is_list($value)) {
+                ksort($value);
+            }
             $out = [];
             foreach ($value as $key => $item) {
                 $out[$key] = $this->jsonCanonical($item);
@@ -161,8 +168,7 @@ return new class extends Migration
         }
 
         // JSON storage encodes integral floats as ints; normalise numerically
-        // while preserving key order (an editor re-save reorders keys — that
-        // drift is exactly what the exact-match guard must refuse to touch).
+        // so a value-level exact match does not hinge on int/float storage.
         return is_int($value) || is_float($value) ? (float) $value : $value;
     }
 

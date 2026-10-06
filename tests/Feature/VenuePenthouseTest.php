@@ -552,7 +552,7 @@ class VenuePenthouseTest extends TestCase
         $this->assertSame(1.6, $byId['art-wall-light-bar']['size'][0] ?? null,
             'The bronze picture bar spans the statement hang.');
 
-        $this->assertSame(
+        $this->assertSameJson(
             ['bezel' => 'media-bezel', 'screen' => ['w' => 1.5, 'h' => 0.84], 'accent' => '0xd8a35a'],
             $visual['media_wall'] ?? null,
             'The viewer screen declaration ships with the furniture.'

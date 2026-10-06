@@ -192,7 +192,8 @@ class AnalyticsEventTrackingTest extends TestCase
         $stored = AnalyticsEvent::where('event', 'perf')->value('perf_data');
 
         $this->assertIsArray($stored);
-        $this->assertSame([
+        // MySQL JSON columns reorder keys on storage — compare canonically.
+        $this->assertSameJson([
             'tier' => 'high',
             'fps' => 58,
             'fps_min' => 31,

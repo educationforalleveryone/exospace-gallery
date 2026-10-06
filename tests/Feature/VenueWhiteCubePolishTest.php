@@ -67,7 +67,7 @@ class VenueWhiteCubePolishTest extends TestCase
         $this->assertSame('cube', $vc['structure_pass'] ?? null, 'The respect-pass selector is untouched by the polish.');
 
         // Post-processing restraint: bloom OFF (calm identity), softened vignette.
-        $this->assertSame([
+        $this->assertSameJson([
             'bloom' => false,
             'vignette' => true,
             'vignette_darkness' => 0.28,

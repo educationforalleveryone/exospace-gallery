@@ -100,12 +100,13 @@ return new class extends Migration
             }
         }
         // Remove post_fx only while it still equals what up() wrote.
-        if (($vc['post_fx'] ?? null) === [
+        // json_arrays_equal: MySQL JSON columns reorder object keys on storage.
+        if (json_arrays_equal($vc['post_fx'] ?? null, [
             'bloom' => false,
             'vignette' => true,
             'vignette_darkness' => 0.28,
             'vignette_offset' => 1.05,
-        ]) {
+        ])) {
             unset($vc['post_fx']);
         }
         DB::table('venue_templates')

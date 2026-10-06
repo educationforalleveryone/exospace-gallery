@@ -67,9 +67,12 @@ class PasswordUpdateTest extends TestCase
         $user = User::factory()->create();
 
         // A reset link was requested BEFORE the credential change.
-        $resetToken = DB::table('password_reset_tokens')->insertGetId([
+        // password_reset_tokens is keyed by email (no id column) — insert the
+        // row directly and assert the purge by the token value.
+        $pendingToken = hash_hmac('sha256', 'pending-token', config('app.key'));
+        DB::table('password_reset_tokens')->insert([
             'email' => $user->email,
-            'token' => hash_hmac('sha256', 'pending-token', config('app.key')),
+            'token' => $pendingToken,
             'created_at' => now(),
         ]);
 
@@ -83,7 +86,7 @@ class PasswordUpdateTest extends TestCase
             ->assertSessionHas('status', 'password-updated');
 
         // The pending reset link died with the credential it belonged to.
-        $this->assertDatabaseMissing('password_reset_tokens', ['id' => $resetToken]);
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => $user->email]);
 
         // The security notice reached the account's own inbox (queued).
         Mail::assertQueued(PasswordChangedNoticeMail::class, 1);

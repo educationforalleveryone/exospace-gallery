@@ -448,6 +448,12 @@ jobs:
           # the file-backed DB path into the config so BOTH the serve
           # process and the dusk test process resolve the same database
           # (and neutralizes the :memory: value phpunit.dusk.xml exports).
+          # WAL + a 10 s busy timeout keep parallel requests safe: the serve
+          # process runs with PHP_CLI_SERVER_WORKERS (see below) so a single
+          # crashed PHP worker no longer connection-refuses every later
+          # test; concurrent writes to the shared sqlite file then need to
+          # wait for each other instead of erroring.
+          printf '\nDB_BUSY_TIMEOUT=10000\nDB_JOURNAL_MODE=WAL\n' >> .env
           php artisan config:cache
 
       - name: Start ChromeDriver
@@ -477,6 +483,12 @@ jobs:
 
       - name: Start Laravel Server
         run: |
+          # PHP_CLI_SERVER_WORKERS: the built-in server forks N workers that
+          # all accept on the same socket. If one worker dies mid-run (the
+          # 2026-10-06 CI run lost the whole server right after /master-control
+          # and every later test failed with net::ERR_CONNECTION_REFUSED), the
+          # remaining workers keep serving instead of the run cascading down.
+          export PHP_CLI_SERVER_WORKERS=8
           nohup php artisan serve --host=127.0.0.1 --port=8000 > serve.log 2>&1 &
           for i in $(seq 1 30); do
             if curl -s -o /dev/null http://127.0.0.1:8000/up; then
@@ -501,9 +513,11 @@ jobs:
       - name: Dusk diagnostics (on failure)
         if: failure()
         run: |
+          echo "---- serve process ----"
+          ps aux | grep -E '[a]rtisan serve|[p]hp -S' || echo "(artisan serve NOT running — the server died during the run)"
           echo "---- chromedriver.log ----"; cat chromedriver.log || true
-          echo "---- serve.log ----"; tail -n 50 serve.log || true
-          echo "---- laravel.log ----"; tail -n 80 storage/logs/laravel.log || true
+          echo "---- serve.log ----"; tail -n 120 serve.log || true
+          echo "---- laravel.log ----"; tail -n 80 storage/logs/laravel.log 2>/dev/null || echo "(no laravel.log)"
 
   dependency-audit:
     # Fails CI when locked dependencies carry known security advisories or

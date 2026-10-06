@@ -161,7 +161,7 @@ return new class extends Migration
             }
         }
         $seededGarden = ['sky_environment' => true];
-        if (($vc['garden'] ?? null) === $seededGarden) {
+        if (json_arrays_equal($vc['garden'] ?? null, $seededGarden)) {
             unset($vc['garden']);
         }
         $seededPostFx = [
@@ -171,7 +171,7 @@ return new class extends Migration
             'vignette_offset' => 1.15,
             'vignette_blend' => 'black',
         ];
-        if (($vc['post_fx'] ?? null) === $seededPostFx) {
+        if (json_arrays_equal($vc['post_fx'] ?? null, $seededPostFx)) {
             unset($vc['post_fx']);
         }
 

@@ -159,7 +159,7 @@ return new class extends Migration
             'vignette_darkness' => 0.5,
             'vignette_offset' => 1.15,
         ];
-        if (($vc['post_fx'] ?? null) === $seededPostFx) {
+        if (json_arrays_equal($vc['post_fx'] ?? null, $seededPostFx)) {
             unset($vc['post_fx']);
         } elseif (is_array($vc['post_fx'])
             && ($vc['post_fx']['vignette_blend'] ?? null) === 'black'
@@ -176,11 +176,11 @@ return new class extends Migration
                 unset($vc[$key]);
             }
         }
-        if (($vc['placement'] ?? null) === [
+        if (json_arrays_equal($vc['placement'] ?? null, [
             'density' => 'generous',
             'focal_wall' => 'front',
             'pair_orientation' => true,
-        ]) {
+        ])) {
             unset($vc['placement']);
         }
         DB::table('venue_templates')

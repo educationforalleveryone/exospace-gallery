@@ -69,9 +69,10 @@ class VenueAuthoringTest extends TestCase
         $this->assertNull($copy->published_at);
         $this->assertNull($copy->archived_at);
 
-        // Config content copied 1:1.
-        $this->assertSame($venue->visual_config, $copy->visual_config);
-        $this->assertSame($venue->material_config, $copy->material_config);
+        // Config content copied 1:1 (canonical compare: MySQL JSON columns
+        // reorder keys between the two rows' storage round-trips).
+        $this->assertSameJson($venue->visual_config, $copy->visual_config);
+        $this->assertSameJson($venue->material_config, $copy->material_config);
 
         // The original is untouched (still published, still itself).
         $venue->refresh();

@@ -182,8 +182,10 @@ class HttpRequestEfficiencyTest extends TestCase
 
         // The candidate query must carry an explicit LIMIT — an unbounded
         // SELECT of every publicly-viewable gallery is a production hazard.
+        // Quote-agnostic: MySQL wraps identifiers in `backticks`, SQLite in
+        // "double quotes".
         $candidateQuery = collect($queries)->first(function ($q) {
-            return str_contains(strtolower($q['query']), 'from "galleries"');
+            return preg_match('/from ["`]galleries["`]/i', strtolower($q['query'])) === 1;
         });
         $this->assertNotNull($candidateQuery, 'No galleries candidate query ran.');
         $this->assertStringContainsString('limit', strtolower($candidateQuery['query']));
@@ -209,8 +211,10 @@ class HttpRequestEfficiencyTest extends TestCase
 
         // The cover query groups by artist — the bounded latest-per-artist
         // pattern. No query may hydrate every work of every page artist.
+        // Quote-agnostic identifier matching (MySQL backticks vs SQLite
+        // double quotes).
         $groupedCovers = collect($queries)->filter(function ($q) {
-            return str_contains(strtolower($q['query']), 'group by "artist_id"');
+            return preg_match('/group by ["`]artist_id["`]/i', strtolower($q['query'])) === 1;
         })->count();
         $this->assertSame(1, $groupedCovers, 'Artist directory must fetch covers with a single grouped query.');
     }
@@ -287,7 +291,9 @@ class HttpRequestEfficiencyTest extends TestCase
         $rsvpLazyLoads = collect($queries)->filter(function ($q) {
             $sql = strtolower($q['query']);
 
-            return str_contains($sql, 'from "event_rsvps"')
+            // Quote-agnostic identifier matching (MySQL backticks vs SQLite
+            // double quotes).
+            return preg_match('/from ["`]event_rsvps["`]/', $sql) === 1
                 && ! str_contains($sql, 'count(*)');
         })->count();
         $this->assertSame(0, $rsvpLazyLoads, 'Events list must use rsvps_count, not lazy-loaded RSVP collections.');

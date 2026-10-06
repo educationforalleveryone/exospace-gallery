@@ -151,7 +151,14 @@ class MigrateFreshTest extends TestCase
 
     public function test_rollback_and_re_migrate_works(): void
     {
-        DB::statement('PRAGMA foreign_keys = OFF');
+        // PRAGMA is SQLite-only SQL; on MySQL foreign-key toggling uses
+        // SET FOREIGN_KEY_CHECKS, and the rollback must run with FKs intact.
+        $isSqlite = DB::getDriverName() === 'sqlite';
+
+        if ($isSqlite) {
+            DB::statement('PRAGMA foreign_keys = OFF');
+        }
+
         try {
             $exitCode = Artisan::call('migrate:rollback', ['--force' => true]);
             $this->assertEquals(0, $exitCode, 'migrate:rollback failed — a migration has a broken down() method.');
@@ -159,7 +166,9 @@ class MigrateFreshTest extends TestCase
             $exitCode = Artisan::call('migrate', ['--force' => true]);
             $this->assertEquals(0, $exitCode, 'migrate failed after rollback — schema cannot be re-created.');
         } finally {
-            DB::statement('PRAGMA foreign_keys = ON');
+            if ($isSqlite) {
+                DB::statement('PRAGMA foreign_keys = ON');
+            }
         }
     }
 

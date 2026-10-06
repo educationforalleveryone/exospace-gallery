@@ -1,24 +1,25 @@
 # Exospace Production Check: Status Report
 
 **Date:** Tuesday 6 October 2026
-**Run window:** about 00:30–00:40 UTC
+**Run window:** about 00:30–00:40 UTC (phases 1–5), CI log reviews through update 6
 **Where:** Coolify app container (`/app`), production, Laravel 12.69.2, PHP 8.2.27
-**Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 to 5)
-**Not yet covered:** Phase 6 (browser flows), Phase 7 (payments), a passing automated test suite run
+**Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 to 6)
+**Not yet covered:** Phase 6 (browser flows), Phase 7 (payments), a fully green CI run on the update-6 fixes
 
-## Overall verdict: NOT READY. 4 failures, 1 unconfirmed (CI is progressing)
+## Overall verdict: NOT READY, but close. 3 production failures remain; every CI defect now has a fix shipped (update 6)
 
 | Area | Status |
 |---|---|
 | App, DB, migrations, Redis, queue, scheduler | ✅ Healthy |
 | Backups (encryption policy) | ❌ FAILING |
 | robots.txt via smoke test | ❌ FAILING |
-| GitHub CI: install step (F8) | ✅ Fixed and deployed. Jobs now get past `composer install` |
-| GitHub CI: MySQL migration (F9) | ✅ Fixed and deployed. The job now reaches and fails at "Run tests" (F12) |
-| GitHub CI: Dusk ChromeDriver (F10) | ✅ Fixed and deployed. Browser connects; SmokeTest 10/10 pass |
-| GitHub CI: green today | ✅ SQLite suite (2,774 tests, 12,819 assertions), Pint lint, Frontend Build, Preflight, Dependency Audit |
-| GitHub CI: Dusk InteractionSweepTest (F11) | ❌ 13 of 16 failing. Fixes prepared (update 5) |
-| GitHub CI: MySQL phpunit run (F12) | ❌ 10 errors + 193 failures. 133 come from one cause (no frontend build); fix prepared. About 60 real MySQL differences remain |
+| GitHub CI: install, MySQL migrations, Dusk ChromeDriver (F8–F10) | ✅ Fixed and verified by later runs |
+| GitHub CI: SQLite suite, Pint, Frontend Build, Preflight, Dependency Audit | ✅ Green (2,774 tests, 12,819 assertions) |
+| GitHub CI: MySQL suite (F12) | 🔧 6 errors + 55 failures → root causes found, fixes shipped (update 6). Was 10 errors + 193 failures before update 5 |
+| GitHub CI: Dusk (F11) | 🔧 23 failed / 3 passed → root causes found, fixes shipped (update 6). First failure was a test-harness stall; the rest was the dev server dying mid-run |
+| **NEW: audit chain verification on MySQL (F13)** | 🔧 Broken on every fresh MySQL DB; fix shipped. Production unaffected only by schema drift — re-verify after deploy |
+| **NEW: venue JSON migrations on MySQL (F14)** | 🔧 Several `up()` passes silently skipped on MySQL; fix shipped. Production already ran them — see note |
+| **NEW: audit rows for string-key targets (F15)** | 🔧 MySQL rejected the insert outright; fix shipped (code + migration) |
 | Slack and Sentry delivery | ❓ Unconfirmed |
 
 ## Results by command
@@ -111,7 +112,7 @@
 - **Confirm:** if the driver still does not start, the failure will now print the reason (for example a Chrome/ChromeDriver version mismatch). Paste that output.
 - **Expect:** once the browser connects, the real page tests run for the first time, so new failures are likely.
 
-### F11. Dusk `InteractionSweepTest`: 13 of 16 fail (fixes prepared, update 5)
+### F11. Dusk `InteractionSweepTest`: 13 of 16 fail (fixes prepared, update 5 — superseded by update 6, see F16)
 Full log read. These are mostly bugs in the test file, not in the app:
 - **`waitForVisible` does not exist in Dusk** (5 tests: upgrade modal x2, feedback widget, dropdowns, mobile menu). Replaced with `waitFor`, which already waits for the element to be displayed (15 call sites).
 - **`keys('body', ...)` never matches** ("Unable to locate element: body body"; command palette, turbo back/forward). Dusk prefixes every selector with `body`. Replaced with a `pressBody()` macro that sends keys to the real `<body>` element (11 call sites).
@@ -133,6 +134,40 @@ Full log read (2,774 tests, 12,200 assertions). The same suite passes completely
   - 2 tests that only make sense on non-MySQL databases, 1 test using SQLite-only `PRAGMA`, 1 query on `password_reset_tokens.id` (that table has no `id`).
   - About 5 others (OpsCredentialInventory, Analytics perf beacon, registration rollback, digest-recipient concurrency, artist covers query count, webhook ledger).
 - **Recommendation:** push update 5, re-run, and send the new MySQL failure list. The real remaining set will be smaller and exact. Then decide per group whether to fix the app, fix the test, or skip on MySQL. Until then, consider the SQLite job as the merge gate and MySQL as informational.
+
+### F13. CRITICAL, found in update 6: audit chain verification never worked on fresh MySQL databases
+The update-5 MySQL run failed all five `AdminAuditChainTest` tests with "3 is identical to 0" etc. Reading `AdminAuditLog` explains it:
+- The row hash covers the **raw stored `payload` JSON string**. The column is a real MySQL `json` column, and MySQL re-serialises whatever it stores (keys reordered shortest-first, spacing normalised). So the string a row was hashed with at write time is never the string MySQL returns at verify time: **every payload row verifies as tampered** on a fresh MySQL database (SQLite stores the string verbatim, which is why the SQLite job never saw it).
+- Production passed `exospace:verify-data-integrity` 15/15 only because the production `payload` column evidently stores strings verbatim (schema drift from an earlier migration version) — the same luck that explains F9. Any **restore to a freshly migrated MySQL database would make the whole audit chain report broken**.
+- **Fix (update 6):** the hash now covers a canonical (key-sorted) JSON form of the payload, which is stable under MySQL's re-serialisation; `verifyChain()` additionally accepts the legacy raw-string hash so already-stored rows keep verifying. New rows are always written canonically.
+- **After deploy:** run `php artisan exospace:verify-data-integrity` and confirm 0 violations, then re-run it on a fresh MySQL database (CI now covers this automatically).
+
+### F14. HIGH, found in update 6: venue JSON migrations silently skipped on MySQL
+Every venue pass that guards a rewrite with an exact array/string match (`===` on decoded JSON, `array_keys($a) === array_keys($b)`, or a byte-stable `jsonEquals`) can never fire on MySQL, because the JSON column reorders keys before the migration reads it back. Concretely: the salon v2.1 door/side heal (7 doors never became 11), the penthouse v2.1 structure/fixture swap ("the cheap glass still arrives"), the nebula fixture swap, and every venue `down()` that removes what `up()` added (cyber `artwork_reactive`/`post_fx`, dark-museum `post_fx`/`placement`, zen `bays`, industrial-loft, sculpture-garden `garden`/assets, mirror-lake `lake`/`post_fx`, white-cube, rooms, infinite-void).
+- **Production impact:** production already ran these migrations (they are marked Ran), so the guarded rewrites **did not apply there**: production's salon still has the v2 doorcase, the penthouse the v2.0 glass, and rollbacks on production will leave the migration-added keys behind. If those venues look wrong, the fix is a follow-up healing command or re-running the payloads manually — say the word and it gets built.
+- **Fix (update 6):** a shared `json_arrays_equal()` helper (content equality, order-insensitive, list order preserved) in `app/helpers.php`, used by every affected migration guard. Value drift is still refused; only key order stopped mattering, because key order is not something MySQL lets us control.
+
+### F15. HIGH, found in update 6: audit rows for string-key targets were never written on MySQL
+`OpsCredentialInventoryService::markRotated()` audits against the `OpsCredential` model, whose primary key is a string (`'db-password'`, `'coolify-token'`). `admin_audit_logs.target_id` is a BIGINT morph column: MySQL strict mode rejects the insert (`Incorrect integer value`), the service's catch-all swallowed it, and **credential rotations left no audit trail on MySQL** (the three failing `OpsCredentialInventoryTest` tests; SQLite tolerates the type slip, which is why it passed there).
+- **Fix (update 6):** `AdminAuditLog::record()` now puts a non-numeric key into the payload as `_target_key` and stores `target_id` as NULL; a new migration (`2026_10_06_000001_make_admin_audit_logs_target_id_nullable.php`) makes the column nullable. Generic fix — any future string-keyed audit target is covered.
+
+### F16. Dusk run lost its web server mid-run (update 6 diagnosis)
+The update-5 Dusk log shows a clean two-stage collapse: first `InteractionSweepTest > pro user pages` timed out in `settlePage` waiting for two `loading="lazy"` artworks below the fold on `/admin/galleries/1/edit` (lazy images never fetch until scrolled near, so "all images complete" can never become true). From the next test on, every request failed with `net::ERR_CONNECTION_REFUSED` — the single `php artisan serve` process died right after serving `/master-control`, with no fatal logged, and the remaining 22 tests (including all of SmokeTest) failed against a dead port.
+- **Fixes (update 6):**
+  - `settlePage()` now walks the page once (scroll steps + return to top) to trigger lazy loads, then waits for image completion, with the actionable timeout report kept.
+  - The CI server starts with `PHP_CLI_SERVER_WORKERS=8`, so one crashed worker no longer takes the whole run down, and the sqlite connection gained WAL + a 10 s busy timeout (`DB_BUSY_TIMEOUT`/`DB_JOURNAL_MODE` are now env-tunable in `config/database.php`).
+  - The Dusk diagnostics step now prints whether `artisan serve` is still alive plus a longer `serve.log` tail, so a repeat of the worker death comes with evidence instead of a port error.
+
+### F17. MySQL job residuals fixed as test defects (update 6)
+The remaining non-venue MySQL failures, each traced and fixed:
+- `PasswordUpdateTest`: `password_reset_tokens` has no `id` column (`insertGetId` works only on SQLite's rowid). Insert/assert by token + email now.
+- `MigrateFreshTest`: `PRAGMA foreign_keys` is SQLite-only SQL; now driver-guarded.
+- `TeamMembershipLifecycleTest` / `ConcurrentWriteSafetyTest`: the composite membership FK (MySQL-only by design) refuses the deliberately corrupt "stale team pointer" state. The genuine case (owner membership) now attaches the owner row; the deliberately corrupt states are built under `Schema::withoutForeignKeyConstraints()`.
+- `RegistrationTest`: the SQL interceptor matched only SQLite's `insert into "team_user"`; MySQL quotes with backticks, so the simulated failure never fired and registration succeeded (302 instead of 5xx). Now quote-style agnostic.
+- `DigestRecipientManagementTest`: the simulated concurrent duplicate inserted `added_by => 1`, which violates the real FK on MySQL. Now uses the acting admin's id.
+- `HttpRequestEfficiencyTest` + `WebhookLedgerAndReplayTest`: query-log matchers looked for `from "galleries"`-style SQLite quoting; now accept either quoting style.
+- `OpsDiagnosticRunnersTest` / `RestoreFromBackupTest`: both verify **non-MySQL** capability reporting; on the MySQL job the paths cannot occur, so they skip with a note.
+- `AnalyticsEventTrackingTest` (perf beacon) + all venue tests: order-insensitive `assertSameJson()` (added to `Tests\TestCase`) replaces order-sensitive `assertSame` on decoded JSON.
 
 ### How to send CI logs
 - Attach the log file directly in the chat. The GitHub run page does not expose logs without sign-in, even for this public repo.
@@ -166,7 +201,10 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 |---|---|---|
 | P0 | Apply F8 CI fix | Done, verified |
 | P0 | Update-3 zip (F9 migration, F10 ChromeDriver) | Done, verified |
-| P0 | Apply update-5 zip (Dusk test fixes, MySQL frontend build, MySQL-8 query fix), push, send the new MySQL failure list and Dusk output | Open, fix prepared |
+| P0 | Apply update-5 zip (Dusk test fixes, MySQL frontend build, MySQL-8 query fix) | Done — its CI run produced the logs reviewed in update 6 |
+| P0 | Apply update-6 zip (F13 audit chain, F14 venue guards, F15 target_id, F16 Dusk resilience, F17 test defects) and push | **Open, fix shipped in this update** |
+| P0 | After the update-6 deploy: re-run CI (all jobs should pass; 2 legitimate skips on the MySQL job) and run `exospace:verify-data-integrity` in production | Open |
+| P1 | Decide on a healing pass for the venue rewrites that silently skipped on production MySQL (F14): salon v2.1 doors, penthouse v2.1 glass, nebula fixtures | Open |
 | P1 | Check production DB version and sql_mode (`SELECT VERSION(), @@sql_mode;`) | Open |
 | P0 | Rotate all credentials that were pasted into chat | Not confirmed |
 | P0 | Diagnose and fix backup encryption (F1), re-run `backup db` and `backup:verify` until both disks show Encrypted: yes | Open |
@@ -182,7 +220,7 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 
 - Phase 6: browser flows (signup/email, login, MFA, gallery create/upload/publish, maintenance drill, mobile 3D)
 - Phase 7: payments (2Checkout test order, webhook, invoice, refund)
-- A passing run of the full automated suite (`phpunit`) in GitHub Actions or locally. Blocked until F11 and F12 are fixed (SQLite suite already passes)
+- A fully green CI run on the update-6 fixes (expected next run: SQLite green, MySQL green with 2 legitimate skips, Dusk green if the worker death stays patched)
 - Restore drill on a separate staging app
 - Morning digest (08:15 UTC) received
 
@@ -195,3 +233,4 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | 2026-10-06 (update 3) | F8 fix deployed and verified (jobs pass `composer install`). New CI failures found: F9 (MySQL migration, 67-char index name) and F10 (Dusk, ChromeDriver unreachable). Fixes prepared, not yet pushed or verified |
 | 2026-10-06 (update 4) | F9 and F10 fixes verified by CI: MySQL migrations pass, Dusk connects (SmokeTest 10/10). New failures: F11 (Dusk sweep, 13 of 16 failing) and F12 (MySQL phpunit). Root causes not yet known; waiting on log excerpts |
 | 2026-10-06 (update 5) | Read the full log archive. SQLite suite 2,774 tests pass; Pint, Frontend Build, Preflight, Dependency Audit pass. Dusk: 6 root causes found in the test file (waitForVisible, keys('body'), missing return, decryptString vs decrypt, team heading) plus diagnostics for 2 unexplained timeouts. MySQL: 133 failures from missing frontend build, 4 from a real MySQL-8 query bug (fixed), about 60 genuine MySQL differences to triage. Fixes prepared, not yet pushed |
+| 2026-10-06 (update 6) | Read the update-5 CI logs. SQLite 2,774 green; MySQL now 6 errors + 55 failures; Dusk 23 failed / 3 passed. Three production-grade causes found and fixed: **F13** audit-chain hashes broke on MySQL JSON normalisation (canonical hash + legacy fallback), **F14** venue migration guards never matched MySQL's reordered JSON (shared `json_arrays_equal()`), **F15** string-PK audit targets rejected by `target_id` BIGINT (`_target_key` payload + nullable migration). Dusk: `settlePage()` lazy-image deadlock fixed, server resilience via `PHP_CLI_SERVER_WORKERS`, richer diagnostics (F16). All remaining MySQL failures fixed as test defects (F17). Update-6 zip ships only changed files. Not yet pushed or verified |

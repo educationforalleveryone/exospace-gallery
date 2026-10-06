@@ -164,7 +164,7 @@ return new class extends Migration
             'vignette_darkness' => 0.55,
             'vignette_offset' => 1.1,
         ];
-        if (($vc['post_fx'] ?? null) === $seededPostFx) {
+        if (json_arrays_equal($vc['post_fx'] ?? null, $seededPostFx)) {
             unset($vc['post_fx']);
         }
         $seededReactive = [
@@ -178,7 +178,9 @@ return new class extends Migration
         ];
         // JSON storage encodes integral floats as ints; compare the seeded
         // signature through the same representation so the guard is exact.
-        if (($vc['artwork_reactive'] ?? null) === json_decode(json_encode($seededReactive), true)) {
+        // json_arrays_equal: MySQL JSON columns reorder object keys, so the
+        // decoded row can never byte-match the seeded shape.
+        if (json_arrays_equal($vc['artwork_reactive'] ?? null, $seededReactive)) {
             unset($vc['artwork_reactive']);
         }
         foreach ([

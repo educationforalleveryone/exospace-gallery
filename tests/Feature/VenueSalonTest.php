@@ -427,9 +427,9 @@ class VenueSalonTest extends TestCase
         $config = json_decode((string) $venue->visual_config, true);
 
         $this->assertSame('2.0.0', $venue->version);
-        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Structure')), $config['structure'],
+        $this->assertSameJson($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Structure')), $config['structure'],
             'down() restores the exact v2 structure — element order included.');
-        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Placement')), $config['placement'],
+        $this->assertSameJson($this->jsonNormalized($this->migrationPayload(self::MIGRATION, 'v2Placement')), $config['placement'],
             'down() restores the exact v2 placement.');
     }
 
@@ -463,8 +463,8 @@ class VenueSalonTest extends TestCase
         $config = json_decode((string) $venue->visual_config, true);
 
         // the whole payload is the canonical v3 — not a partial heal
-        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION_V3, 'v3Payload')), $config,
-            'the healed row IS the canonical v3 payload, byte-equal.');
+        $this->assertSameJson($this->jsonNormalized($this->migrationPayload(self::MIGRATION_V3, 'v3Payload')), $config,
+            'the healed row IS the canonical v3 payload, content-equal.');
 
         // spot pins: the two-room identity stands
         $byId = collect($config['structure'])->keyBy('id');
@@ -472,7 +472,7 @@ class VenueSalonTest extends TestCase
         $this->assertTrue((bool) $byId['salon-curtain']['collide'], 'the curtain fabric registers collision');
         $this->assertSame(0.92, $byId['door-leaf-l']['size'][0], 'the door leaves are 0.92 m — 1.84 m clear');
         $this->assertArrayHasKey('rose-disc-b', $byId, 'the second room has its rose');
-        $this->assertSame(['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
+        $this->assertSameJson(['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
             $config['placement']['room_divider'], 'the divider plan ships');
         $this->assertArrayNotHasKey('keep_clear', $config['placement'],
             'keep_clear is superseded by the segment plan');
@@ -494,7 +494,7 @@ class VenueSalonTest extends TestCase
 
         $venue = DB::table('venue_templates')->where('slug', 'the-salon')->first();
         $this->assertSame('3.0.0', $venue->version);
-        $this->assertSame($this->jsonNormalized($this->migrationPayload(self::MIGRATION_V3, 'v3Payload')),
+        $this->assertSameJson($this->jsonNormalized($this->migrationPayload(self::MIGRATION_V3, 'v3Payload')),
             json_decode((string) $venue->visual_config, true),
             'drift cannot survive the force heal — the payload is canonical.');
     }
@@ -574,7 +574,7 @@ class VenueSalonTest extends TestCase
             'the room stays domestic at any count (the v1 hall defect is dead).');
         $this->assertSame(2, $placement['salon_rows'] ?? null,
             'the two-line salon hang is the venue read.');
-        $this->assertSame(['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
+        $this->assertSameJson(['at' => 0.5, 'opening' => 2.4, 'keep' => 0.55, 'door_keep' => 1.15, 'spacing' => 2.4],
             $placement['room_divider'] ?? null,
             'the two-room divider plan: the curtain plane at mid-depth, the 2.4 m walk gap, the fabric keep, the door keep, the closer two-room rhythm.');
         $this->assertArrayNotHasKey('keep_clear', $placement,

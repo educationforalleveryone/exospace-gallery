@@ -40,7 +40,7 @@ class VenueCyberSignalRoomTest extends TestCase
 
         $config = $this->visualConfig('cyber-gallery');
 
-        $this->assertSame(
+        $this->assertSameJson(
             $this->jsonNormalized(self::SEEDED_REACTIVE),
             $config['artwork_reactive'] ?? null,
             '[cyber-gallery] must declare the movement-reactive artwork signature with the designed tuning.'
@@ -96,7 +96,7 @@ class VenueCyberSignalRoomTest extends TestCase
         $config = json_decode((string) $row->visual_config, true);
         $material = json_decode((string) $row->material_config, true);
 
-        $this->assertSame($this->jsonNormalized(self::SEEDED_REACTIVE), $config['artwork_reactive'] ?? null, 'up() must add the signature to a legacy row.');
+        $this->assertSameJson($this->jsonNormalized(self::SEEDED_REACTIVE), $config['artwork_reactive'] ?? null, 'up() must add the signature to a legacy row.');
         $this->assertSame('none', $config['environment'] ?? null);
         $this->assertSame('black', $config['frame_override'] ?? null);
         $this->assertSame(0.42, $config['ambient_intensity'] ?? null, 'The guarded rewrite must lift the murk rig (0.18 → 0.42).');
@@ -200,7 +200,7 @@ class VenueCyberSignalRoomTest extends TestCase
         $this->migration()->down();
 
         $config = json_decode((string) DB::table('venue_templates')->where('slug', 'cyber-gallery')->value('visual_config'), true);
-        $this->assertSame(['enabled' => true, 'dead_zone' => 0.4, 'release' => 2.5], $config['artwork_reactive'] ?? null, 'down() must preserve an admin post-pass edit of the signature.');
+        $this->assertSameJson(['enabled' => true, 'dead_zone' => 0.4, 'release' => 2.5], $config['artwork_reactive'] ?? null, 'down() must preserve an admin post-pass edit of the signature.');
     }
 
     public function test_the_reactive_declaration_is_venue_owned(): void
@@ -223,7 +223,7 @@ class VenueCyberSignalRoomTest extends TestCase
         $cyber = \App\Models\VenueTemplate::where('slug', 'cyber-gallery')->firstOrFail();
         $config = $exporter->forVenuePreview($cyber);
 
-        $this->assertSame(
+        $this->assertSameJson(
             $this->jsonNormalized(self::SEEDED_REACTIVE),
             $config['visual_config']['artwork_reactive'] ?? null,
             'The movement-reactive declaration must reach the client payload (preview and public view share the exporter).'

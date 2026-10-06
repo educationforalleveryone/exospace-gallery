@@ -13,6 +13,23 @@ abstract class TestCase extends BaseTestCase
         $this->registerSqliteCompatibilityFunctions();
     }
 
+    /**
+     * Key-order-insensitive strict assertion for decoded JSON values.
+     *
+     * MySQL re-serialises JSON columns (shortest key first, then alphabetical),
+     * so a decoded object rarely has the same key order as the array that was
+     * written. assertSame() on arrays is order-sensitive; this canonicalises
+     * both sides first (list order is still respected).
+     */
+    protected function assertSameJson(mixed $expected, mixed $actual, string $message = ''): void
+    {
+        $this->assertSame(
+            json_canonical($expected),
+            json_canonical($actual),
+            $message
+        );
+    }
+
     private function registerSqliteCompatibilityFunctions(): void
     {
         foreach (['mysql', 'sqlite', 'testing'] as $connectionName) {

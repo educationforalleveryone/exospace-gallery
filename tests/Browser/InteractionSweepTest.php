@@ -790,13 +790,33 @@ class InteractionSweepTest extends DuskTestCase
             // (app.js → Alpine/Turbo) have run on layouts that include them;
             // layouts without app.js (control-center) still reach it.
             $browser->waitUntil('document.readyState === "complete"', 15);
+
+            // loading="lazy" images below the fold never fetch until scrolled
+            // near, so waiting for document.images to settle deadlocks on any
+            // page whose gallery grid sits below the viewport (the exact
+            // /admin/galleries/:id/edit stall in CI). Walk the page once to
+            // trigger the lazy loads, then wait for every image to finish.
+            $browser->script(
+                'window.__sweepScrollStep = 0;'
+                .'(function walk() {'
+                .'  window.__sweepScrollStep += Math.round(window.innerHeight * 0.9);'
+                .'  window.scrollTo(0, window.__sweepScrollStep);'
+                .'  if (!document.body || window.__sweepScrollStep < document.body.scrollHeight) {'
+                .'    setTimeout(walk, 60);'
+                .'  } else {'
+                .'    window.scrollTo(0, 0);'
+                .'  }'
+                .'})();'
+            );
             $browser->waitUntil(
                 'Array.prototype.every.call(document.images, '
-                .'function (i) { return i.complete || (i.loading === "lazy" && !i.currentSrc); })',
-                15
+                .'function (i) { return i.complete; })',
+                20
             );
+            // Land back at the top so later interactions see the header.
+            $browser->script('window.scrollTo(0, 0);');
         } catch (\Facebook\WebDriver\Exception\TimeoutException $e) {
-            // A bare "Waited 15 seconds for callback" says nothing about WHICH
+            // A bare "Waited 20 seconds for callback" says nothing about WHICH
             // page or image stalled. Report it so the CI log is actionable.
             $detail = $browser->driver->executeScript(
                 'return JSON.stringify({url: location.href, ready: document.readyState, '

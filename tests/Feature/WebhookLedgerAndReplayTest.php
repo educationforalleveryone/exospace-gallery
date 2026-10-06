@@ -169,7 +169,9 @@ class WebhookLedgerAndReplayTest extends TestCase
         // The buyer lookup runs before any handler-level error handling.
         $databaseDown = true;
         DB::listen(function ($query) use (&$databaseDown) {
-            if ($databaseDown && str_contains($query->sql, 'from "users"')) {
+            // Quote-agnostic: MySQL wraps identifiers in `backticks`, SQLite
+            // in "double quotes".
+            if ($databaseDown && preg_match('/from ["`]users["`]/i', $query->sql)) {
                 throw new \RuntimeException('simulated database outage');
             }
         });

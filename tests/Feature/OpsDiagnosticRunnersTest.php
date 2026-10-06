@@ -96,6 +96,13 @@ class OpsDiagnosticRunnersTest extends TestCase
 
     public function test_database_connection_health_is_inconclusive_on_non_mysql(): void
     {
+        // This test verifies the non-MySQL capability report. On the MySQL CI
+        // job the probe genuinely runs (and returns healthy), so the refusal
+        // path cannot be exercised there — skip rather than false-fail.
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            $this->markTestSkipped('The connection-health probe is only inconclusive on non-MySQL drivers.');
+        }
+
         $run = $this->runDiagnostic('database.connection-health');
 
         // Honest capability reporting: pool metrics need MySQL.

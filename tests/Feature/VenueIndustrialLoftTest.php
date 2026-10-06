@@ -35,11 +35,13 @@ class VenueIndustrialLoftTest extends TestCase
     private function assertPostFxMatches(array $expected, ?array $actual, string $message): void
     {
         $this->assertIsArray($actual, $message);
-        $this->assertSame(
-            array_keys($expected),
-            array_keys($actual),
-            $message.' (key set)'
-        );
+        // MySQL JSON columns reorder object keys on storage — compare the key
+        // SET, not the storage order.
+        $expectedKeys = array_keys($expected);
+        $actualKeys = array_keys($actual);
+        sort($expectedKeys);
+        sort($actualKeys);
+        $this->assertSame($expectedKeys, $actualKeys, $message.' (key set)');
         foreach ($expected as $k => $v) {
             if (is_bool($v)) {
                 $this->assertSame($v, $actual[$k], $message." ($k)");

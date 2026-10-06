@@ -14,9 +14,12 @@ return [
             'database' => env('DB_DATABASE', database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            'busy_timeout' => null,
-            'journal_mode' => null,
-            'synchronous' => null,
+            // Env-tunable so environments that hit the database through
+            // multiple PHP processes (the Dusk CI server runs with
+            // PHP_CLI_SERVER_WORKERS) can enable WAL and a busy timeout.
+            'busy_timeout' => env('DB_BUSY_TIMEOUT'),
+            'journal_mode' => env('DB_JOURNAL_MODE'),
+            'synchronous' => env('DB_SYNCHRONOUS'),
             'transaction_mode' => 'DEFERRED',
         ],
 

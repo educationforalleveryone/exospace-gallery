@@ -270,13 +270,17 @@ class DigestRecipientManagementTest extends TestCase
 
     public function test_concurrent_dup_add_returns_friendly_error_not_500(): void
     {
-        $admin = $this->actingAsMfaSuperAdmin();
+        $this->actingAsMfaSuperAdmin();
+        $admin = auth()->user();
 
-        BillingDigestRecipient::creating(function ($r) {
-            BillingDigestRecipient::withoutEvents(function () use ($r) {
+        // Simulates the concurrent winner: a row with the same email that was
+        // committed between the controller's dup check and its INSERT. The
+        // duplicate must carry a REAL user id — MySQL enforces the added_by FK.
+        BillingDigestRecipient::creating(function ($r) use ($admin) {
+            BillingDigestRecipient::withoutEvents(function () use ($r, $admin) {
                 BillingDigestRecipient::create([
                     'email' => $r->email,
-                    'added_by' => 1,  // system-actor for the test
+                    'added_by' => $admin->id,
                 ]);
             });
         });

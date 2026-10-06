@@ -85,9 +85,13 @@ return new class extends Migration
 
     private function arraysEqual($a, $b): bool
     {
+        // Content equality (key-order-insensitive). This guard used to be
+        // byte-stable by design, but MySQL reorders JSON object keys on
+        // storage, so a byte match can never fire on a fresh MySQL database —
+        // the v2.0.0 salon silently stayed unhealed there. Value drift is
+        // still refused: only key order is normalised.
         return is_array($a) && is_array($b)
-            && array_keys($a) === array_keys($b)
-            && $a == $b; // loose on values, strict on key ORDER (byte-stable payload)
+            && json_arrays_equal($a, $b);
     }
 
     public function up(): void

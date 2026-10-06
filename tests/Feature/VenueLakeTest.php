@@ -153,8 +153,8 @@ class VenueLakeTest extends TestCase
         $this->assertSame('lake', $config['placement_mode']);
         $this->assertSame('0x0f1726', $config['fog_color']);
         $this->assertSame(1.15, $config['tone_mapping_exposure']);
-        $this->assertSame(self::V3_LAKE, $config['lake']);
-        $this->assertSame(self::V3_POST_FX, $config['post_fx']);
+        $this->assertSameJson(self::V3_LAKE, $config['lake']);
+        $this->assertSameJson(self::V3_POST_FX, $config['post_fx']);
         $this->assertSame([], json_decode((string) $venue->lighting_fixtures, true));
         $this->assertSame(self::V3_DESCRIPTION, $venue->description);
 
@@ -273,7 +273,7 @@ class VenueLakeTest extends TestCase
         $vc = $payload['visual_config'] ?? [];
         $this->assertSame('lake', $vc['structure_pass'] ?? null);
         $this->assertSame('lake', $vc['placement_mode'] ?? null);
-        $this->assertSame(self::V3_LAKE, $vc['lake'] ?? null);
+        $this->assertSameJson(self::V3_LAKE, $vc['lake'] ?? null);
     }
 
     private function visualConfig(string $slug): array

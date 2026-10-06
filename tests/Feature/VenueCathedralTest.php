@@ -221,7 +221,7 @@ class VenueCathedralTest extends TestCase
         $migration->up();
         $migration->down();
         $restored = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first(['visual_config', 'description', 'version', 'tags']);
-        $this->assertSame($pristine->visual_config, $restored->visual_config, 'Untouched rows restore exactly (visual_config).');
+        $this->assertSame($this->canonicalJson($pristine->visual_config), $this->canonicalJson($restored->visual_config), 'Untouched rows restore exactly (visual_config).');
         $this->assertSame($pristine->description, $restored->description, 'Untouched rows restore exactly (description).');
         $this->assertSame($pristine->version, $restored->version, 'Untouched rows restore exactly (version).');
         $this->assertSame($pristine->tags, $restored->tags, 'Untouched rows restore exactly (tags).');
@@ -261,7 +261,7 @@ class VenueCathedralTest extends TestCase
         $migration->up();
         $migration->down();
         $restored = DB::table('venue_templates')->where('slug', 'crystal-cathedral')->first(['visual_config', 'version']);
-        $this->assertSame($pristine->visual_config, $restored->visual_config, 'Untouched rows restore exactly (visual_config).');
+        $this->assertSame($this->canonicalJson($pristine->visual_config), $this->canonicalJson($restored->visual_config), 'Untouched rows restore exactly (visual_config).');
         $this->assertSame($pristine->version, $restored->version, 'Untouched rows restore exactly (version).');
     }
 

@@ -83,13 +83,13 @@ class VenueDarkMuseumTest extends TestCase
             );
         }
 
-        $this->assertSame(
+        $this->assertSameJson(
             self::DEEPENED_POST_FX,
             $vc['post_fx'] ?? null,
             '[dark-museum] must declare its post-fx restraint (bloom off; the black vignette blend — the stock shader added a grey glow to the dark scene).'
         );
 
-        $this->assertSame(
+        $this->assertSameJson(
             self::DEEPENED_PLACEMENT,
             $vc['placement'] ?? null,
             '[dark-museum] must declare its curation (generous density, focal front wall, orientation pairing).'
@@ -168,8 +168,8 @@ class VenueDarkMuseumTest extends TestCase
                 "[migration] visual_config.{$key} rewritten from the v1.0.0 seed."
             );
         }
-        $this->assertSame(self::DEEPENED_POST_FX, $vc['post_fx'] ?? null, '[migration] post_fx added when absent.');
-        $this->assertSame(self::DEEPENED_PLACEMENT, $vc['placement'] ?? null, '[migration] placement added when absent.');
+        $this->assertSameJson(self::DEEPENED_POST_FX, $vc['post_fx'] ?? null, '[migration] post_fx added when absent.');
+        $this->assertSameJson(self::DEEPENED_PLACEMENT, $vc['placement'] ?? null, '[migration] placement added when absent.');
         $mc = $this->materialConfig('dark-museum');
         $this->assertTrue($mc['texture_tint'] ?? false, '[migration] texture_tint added when absent.');
         $this->assertSame('0x7a746c', $mc['wall_color'] ?? null, '[migration] wall tint rewritten.');

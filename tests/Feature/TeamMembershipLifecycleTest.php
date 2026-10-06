@@ -10,6 +10,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class TeamMembershipLifecycleTest extends TestCase
@@ -140,6 +141,9 @@ class TeamMembershipLifecycleTest extends TestCase
         $team = $this->ownedTeam($owner);
         $member = User::factory()->create();
 
+        // The owner holds an owner membership row (MySQL enforces the composite
+        // users(current_team_id, id) -> team_user(team_id, user_id) FK).
+        $team->members()->attach($owner->id, ['role' => 'owner']);
         $team->members()->attach($member->id, ['role' => 'viewer']);
         $owner->forceFill(['current_team_id' => $team->id])->save();
         $member->forceFill(['current_team_id' => $team->id])->save();
@@ -153,7 +157,12 @@ class TeamMembershipLifecycleTest extends TestCase
         $stranger = User::factory()->create();
         $foreignTeam = $this->ownedTeam(User::factory()->create());
 
-        $stranger->forceFill(['current_team_id' => $foreignTeam->id])->save();
+        // A stale pointer is a legacy/corrupt state the database FK (MySQL)
+        // refuses to create; bypass it deliberately so the resolution logic
+        // is exercised against the state it must defend against.
+        Schema::withoutForeignKeyConstraints(function () use ($stranger, $foreignTeam) {
+            $stranger->forceFill(['current_team_id' => $foreignTeam->id])->save();
+        });
 
         $this->assertNull($stranger->currentTeam());
     }
@@ -181,7 +190,10 @@ class TeamMembershipLifecycleTest extends TestCase
         $foreignTeam = $this->ownedTeam($foreignOwner);
 
         $user = User::factory()->create();
-        $user->forceFill(['current_team_id' => $foreignTeam->id])->save();
+        // Stale state on purpose — the FK (MySQL) must be bypassed to build it.
+        Schema::withoutForeignKeyConstraints(function () use ($user, $foreignTeam) {
+            $user->forceFill(['current_team_id' => $foreignTeam->id])->save();
+        });
 
         $response = $this->actingAs($user)->get(route('admin.dashboard'));
 

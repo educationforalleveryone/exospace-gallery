@@ -245,7 +245,11 @@ class ConcurrentWriteSafetyTest extends TestCase
         $team->members()->attach($owner->id, ['role' => 'owner']);
 
         $outsider = User::factory()->create();
-        $outsider->forceFill(['current_team_id' => $team->id])->save();
+        // Stale state on purpose — the composite FK (MySQL) must be bypassed
+        // so the integrity audit can be exercised against the corrupt state.
+        \Illuminate\Support\Facades\Schema::withoutForeignKeyConstraints(function () use ($outsider, $team) {
+            $outsider->forceFill(['current_team_id' => $team->id])->save();
+        });
 
         $this->artisan('exospace:verify-data-integrity')
             ->expectsOutputToContain('users.active_team_without_membership')
