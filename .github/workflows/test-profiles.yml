@@ -120,6 +120,12 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install PHP dependencies
+        # CI FIX (2026-10-06): `composer install` runs `artisan package:discover`, which boots
+        # the app BEFORE .env exists. With no APP_ENV Laravel defaults to 'production' and
+        # AppServiceProvider::assertTrustedProxiesConfigured() aborts the install.
+        # Declaring the environment here keeps the production guard intact.
+        env:
+          APP_ENV: testing
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Prepare environment
