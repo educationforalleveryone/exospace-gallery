@@ -26,7 +26,9 @@ abstract class DuskTestCase extends BaseTestCase
         })->all());
 
         return RemoteWebDriver::create(
-            $_ENV['DUSK_DRIVER_URL'] ?? 'http://localhost:9515',
+            // 127.0.0.1, not localhost: on CI runners `localhost` can resolve to
+            // ::1 (IPv6) while ChromeDriver listens on IPv4 only.
+            $_ENV['DUSK_DRIVER_URL'] ?? (getenv('DUSK_DRIVER_URL') ?: 'http://127.0.0.1:9515'),
             DesiredCapabilities::chrome()->setCapability(
                 ChromeOptions::CAPABILITY,
                 $options

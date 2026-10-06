@@ -435,24 +435,59 @@ jobs:
           php artisan config:cache
 
       - name: Start ChromeDriver
-        # No --url-base flag: DuskTestCase connects to http://localhost:9515
-        # and php-webdriver POSTs to /session on that origin. With
-        # --url-base=/wd/hub chromedriver serves under /wd/hub/session and
-        # every session-creation POST would 404.
+        # CI FIX (2026-10-06): the old `chromedriver & sleep 2` gave no signal
+        # when the driver failed to start, and every Dusk test then died with
+        # "Failed to connect to localhost port 9515". Start it on an explicit
+        # port, log its output, and WAIT until /status answers (fail loudly,
+        # with the log, if it never does).
+        # No --url-base flag: DuskTestCase connects to the origin root and
+        # php-webdriver POSTs to /session there.
         run: |
-          chromedriver &
-          sleep 2
+          google-chrome --version || true
+          chromedriver --version
+          nohup chromedriver --port=9515 > chromedriver.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9515/status > /dev/null; then
+              echo "ChromeDriver ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          if ! curl -sf http://127.0.0.1:9515/status > /dev/null; then
+            echo "::error::ChromeDriver did not become ready on port 9515"
+            cat chromedriver.log
+            exit 1
+          fi
 
       - name: Start Laravel Server
         run: |
-          php artisan serve --port=8000 &
-          sleep 3
+          nohup php artisan serve --host=127.0.0.1 --port=8000 > serve.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://127.0.0.1:8000/up; then
+              echo "Laravel server ready after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          if ! curl -s -o /dev/null http://127.0.0.1:8000/up; then
+            echo "::error::artisan serve did not become ready on port 8000"
+            cat serve.log
+            exit 1
+          fi
 
       - name: Run Dusk tests
         run: php artisan dusk
         env:
           APP_ENV: dusk.testing
           APP_URL: http://127.0.0.1:8000
+          DUSK_DRIVER_URL: http://127.0.0.1:9515
+
+      - name: Dusk diagnostics (on failure)
+        if: failure()
+        run: |
+          echo "---- chromedriver.log ----"; cat chromedriver.log || true
+          echo "---- serve.log ----"; tail -n 50 serve.log || true
+          echo "---- laravel.log ----"; tail -n 80 storage/logs/laravel.log || true
 
   dependency-audit:
     # Fails CI when locked dependencies carry known security advisories or

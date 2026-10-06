@@ -22,10 +22,14 @@ return new class extends Migration
             $table->timestamp('captured_at')->nullable();
 
             // Idempotent weekly writes: one row per (cohort, week, hour).
-            $table->unique(['cohort_week_start', 'week_index', 'captured_at']);
+            // Explicit short names: the auto-generated name for this unique
+            // index is 67 characters, over MySQL's 64-character identifier
+            // limit (error 1059). SQLite has no such limit, so the SQLite
+            // CI job could never catch it.
+            $table->unique(['cohort_week_start', 'week_index', 'captured_at'], 'retention_snap_cohort_week_captured_uq');
 
             // Trend read path: WHERE week_index = ? ORDER BY captured_at.
-            $table->index(['week_index', 'captured_at']);
+            $table->index(['week_index', 'captured_at'], 'retention_snap_week_captured_idx');
         });
     }
 
