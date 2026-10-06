@@ -430,7 +430,7 @@ class InteractionSweepTest extends DuskTestCase
                 .'new MouseEvent("click", {bubbles: true}));'
             );
             $browser->waitUntilMissing('#notif-dropdown-panel', 5)
-                ->assertAttribute('aria-expanded', '#notif-dropdown-trigger', 'false');
+                ->assertAttribute('#notif-dropdown-trigger', 'aria-expanded', 'false');
 
             // …and closes on Escape.
             $browser->click('#notif-dropdown-trigger')->waitFor('#notif-dropdown-panel', 5);
@@ -462,7 +462,7 @@ class InteractionSweepTest extends DuskTestCase
 
             $browser->click('#mobile-nav-toggle')
                 ->waitFor('#mobile-nav', 5)
-                ->assertAttribute('aria-expanded', '#mobile-nav-toggle', 'true');
+                ->assertAttribute('#mobile-nav-toggle', 'aria-expanded', 'true');
 
             // Escape closes (keyboard parity with the desktop dropdowns).
             $browser->pressBody('{escape}')
@@ -673,6 +673,18 @@ class InteractionSweepTest extends DuskTestCase
             $browser->visit("/admin/galleries/{$gallery->id}/edit");
             $this->settlePage($browser);
 
+            // settlePage now lets lazy images the walk never intersected stay
+            // un-requested; force the fallback source to load so the app's
+            // error path is exercised deterministically instead of waiting
+            // for a scroll that may never target it.
+            $browser->script(
+                'Array.prototype.forEach.call(document.images, function (i) {'
+                .'  if (i.hasAttribute("data-fallback-hide") && !i.currentSrc && i.getAttribute("src")) {'
+                .'    i.loading = "eager"; i.src = i.getAttribute("src");'
+                .'  }'
+                .'})'
+            );
+
             // The app's own fallback handler must engage for the 404 source.
             $browser->waitUntil(<<<'JS'
                 Array.prototype.some.call(document.images, function (img) {
@@ -693,7 +705,21 @@ class InteractionSweepTest extends DuskTestCase
     private function loginAs(Browser $browser, User $user): void
     {
         $browser->visit('/login')
-            ->type('#email', $user->email)
+            // Wait for the form itself: if the CI web server hiccuped, Chrome
+            // renders an error page with no #email and type() would throw.
+            // The wait rides out the ~1s supervisor restart instead.
+            ->waitFor('#email', 10);
+
+        // Brand-new users (< 48h) get a first-visit welcome modal on the
+        // dashboard: a fixed inset-0 overlay that scroll-locks the body and
+        // intercepts every click beneath it. Mark the browser as welcomed
+        // before the first dashboard render so the sweep exercises the page
+        // itself, not the modal (exospaceStorage is a localStorage wrapper).
+        $browser->driver->executeScript(
+            'try { localStorage.setItem("exospace_welcomed", "1"); } catch (e) {}'
+        );
+
+        $browser->type('#email', $user->email)
             ->type('#password', 'sweep-password-123')
             ->press('Sign in')
             ->waitForLocation('/admin/dashboard', 10);
@@ -715,17 +741,44 @@ class InteractionSweepTest extends DuskTestCase
         ]);
     }
 
-    /** Complete the real MFA verification flow in the browser session. */
+    /**
+     * Complete the real MFA verification flow in the browser session.
+     *
+     * getCurrentOtp() can straddle a 30-second TOTP window: the code is
+     * valid when typed but expired by the time the POST lands, and the
+     * challenge simply re-renders without redirecting. Detect the stalled
+     * redirect and retry with a freshly computed code.
+     */
     private function verifyMfaInBrowser(Browser $browser, User $admin): void
     {
         $secret = decrypt($admin->google2fa_secret);
-        $code = (new Google2FA)->getCurrentOtp($secret);
 
-        // Successful verification redirects super admins to Master Control.
-        $browser->visit('/mfa/verify')
-            ->type('#code', $code)
-            ->press('Verify')
-            ->waitForLocation('/master-control', 10);
+        $attempts = 3;
+
+        while ($attempts--) {
+            $code = (new Google2FA)->getCurrentOtp($secret);
+
+            // Successful verification redirects super admins to Master Control.
+            $browser->visit('/mfa/verify')
+                ->type('#code', $code)
+                ->press('Verify');
+
+            try {
+                $browser->waitForLocation('/master-control', 5);
+
+                return;
+            } catch (\Facebook\WebDriver\Exception\TimeoutException $e) {
+                // The redirect may have landed slower than the wait — if the
+                // browser is no longer on the challenge page we are through.
+                if (! str_contains((string) $browser->driver->getCurrentURL(), '/mfa/verify')) {
+                    return;
+                }
+
+                if ($attempts === 0) {
+                    throw $e;
+                }
+            }
+        }
     }
 
     private function makeProUserWithGallery(): array
@@ -795,9 +848,13 @@ class InteractionSweepTest extends DuskTestCase
             // near, so waiting for document.images to settle deadlocks on any
             // page whose gallery grid sits below the viewport (the exact
             // /admin/galleries/:id/edit stall in CI). Walk the page once to
-            // trigger the lazy loads, then wait for every image to finish.
+            // trigger the lazy loads. The walk must be awaited, not just the
+            // images: the fire-and-forget steps used to keep scrolling after
+            // the image wait resolved, leaving the header out of view for
+            // the next interaction (the (356, -38) click intercept in CI).
             $browser->script(
                 'window.__sweepScrollStep = 0;'
+                .'window.__sweepWalkDone = false;'
                 .'(function walk() {'
                 .'  window.__sweepScrollStep += Math.round(window.innerHeight * 0.9);'
                 .'  window.scrollTo(0, window.__sweepScrollStep);'
@@ -805,12 +862,21 @@ class InteractionSweepTest extends DuskTestCase
                 .'    setTimeout(walk, 60);'
                 .'  } else {'
                 .'    window.scrollTo(0, 0);'
+                .'    window.__sweepWalkDone = true;'
                 .'  }'
                 .'})();'
             );
+            $browser->waitUntil('window.__sweepWalkDone === true', 15);
+
+            // Images must have finished fetching — except lazy images the
+            // walk never brought near the viewport (inside collapsed panels
+            // or inner scroll containers): per spec they have no selected
+            // source until they intersect, so they would never complete
+            // here. They are not a page defect; the broken-image sweep
+            // already ignores them (same !currentSrc rule).
             $browser->waitUntil(
                 'Array.prototype.every.call(document.images, '
-                .'function (i) { return i.complete; })',
+                .'function (i) { return i.complete || (i.loading === "lazy" && !i.currentSrc); })',
                 20
             );
             // Land back at the top so later interactions see the header.
