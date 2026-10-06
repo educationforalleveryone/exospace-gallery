@@ -55,6 +55,20 @@ if (! function_exists('json_canonical')) {
      */
     function json_canonical(mixed $value): mixed
     {
+        if (is_float($value)) {
+            // JSON storage encodes integral floats as ints: our own
+            // json_encode() writes 1.0 as "1" (no JSON_PRESERVE_ZERO_FRACTION)
+            // and the engines happily store that as an integer, so a value that
+            // started life as float(1.0) reads back as int(1). Without this
+            // normalisation, int(1) === float(1.0) is false in PHP and every
+            // exact-match guard silently refuses to fire on MySQL.
+            if (! is_infinite($value) && ! is_nan($value) && abs($value) <= PHP_INT_MAX && floor($value) === $value) {
+                return (int) $value;
+            }
+
+            return $value;
+        }
+
         if (! is_array($value)) {
             return $value;
         }

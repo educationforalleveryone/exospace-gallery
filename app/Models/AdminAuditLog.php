@@ -71,7 +71,7 @@ class AdminAuditLog extends Model
 
         $payload = static::scrubPii($payload);
 
-        $log = DB::transaction(function () use ($action, $target, $payload, $actorId) {
+        $log = DB::transaction(function () use ($action, $target, $payload, $actorId, $targetKey) {
             // Serialize concurrent audit writers on the chain tail so each row
             // links against the latest committed hash (locking reads always
             // see the newest committed row).

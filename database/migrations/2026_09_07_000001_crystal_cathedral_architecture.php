@@ -171,15 +171,18 @@ return new class extends Migration
         $visual = json_decode((string) $row->visual_config, true) ?: [];
 
         // Reverse replacements — only where the value is still what up() wrote.
+        // json_arrays_equal: nested blocks (post_fx) come back from a MySQL
+        // JSON column with reordered object keys, so `===` can never match —
+        // and scalar/int-float representation is normalised the same way.
         foreach ($this->changedValues() as $key => ['from' => $from, 'to' => $to]) {
-            if (array_key_exists($key, $visual) && $visual[$key] === $to) {
+            if (array_key_exists($key, $visual) && json_arrays_equal($visual[$key], $to)) {
                 $visual[$key] = $from;
             }
         }
 
         // Remove exactly the keys up() added (only where unchanged).
         foreach ($this->addedKeys() as $key => $value) {
-            if (array_key_exists($key, $visual) && $visual[$key] === $value) {
+            if (array_key_exists($key, $visual) && json_arrays_equal($visual[$key], $value)) {
                 unset($visual[$key]);
             }
         }
@@ -192,12 +195,12 @@ return new class extends Migration
         $material = json_decode((string) $row->material_config, true) ?: [];
         $materialChanges = $this->materialChanges();
         foreach ($materialChanges['changed'] as $key => ['from' => $from, 'to' => $to]) {
-            if (array_key_exists($key, $material) && $material[$key] === $to) {
+            if (array_key_exists($key, $material) && json_arrays_equal($material[$key], $to)) {
                 $material[$key] = $from;
             }
         }
         foreach ($materialChanges['added'] as $key => $value) {
-            if (array_key_exists($key, $material) && $material[$key] === $value) {
+            if (array_key_exists($key, $material) && json_arrays_equal($material[$key], $value)) {
                 unset($material[$key]);
             }
         }

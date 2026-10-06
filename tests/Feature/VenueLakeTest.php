@@ -62,8 +62,8 @@ class VenueLakeTest extends TestCase
         $this->assertSame(false, $config['ceiling_fill_light'] ?? null, '[mirror-lake] must opt out of the ceiling-orb point light (no glowing orb in the night).');
         $this->assertSame(0.6, $config['artwork_light_base'] ?? null, '[mirror-lake] every hovering artwork carries its pool light — readable art over dark water.');
         $this->assertSame(['focal_wall' => 'lake-hero'], $config['placement'] ?? null, '[mirror-lake] the Arrival must compose on the plan hero berth (the frame under the moon).');
-        $this->assertSame(self::V3_LAKE, $config['lake'] ?? null, '[mirror-lake] the lake block (sky environment + asset manifest) ships whole.');
-        $this->assertSame(self::V3_POST_FX, $config['post_fx'] ?? null, '[mirror-lake] bloom stays OFF — calm, not spectacle; the vignette is a black blend.');
+        $this->assertSameJson(self::V3_LAKE, $config['lake'] ?? null, '[mirror-lake] the lake block (sky environment + asset manifest) ships whole.');
+        $this->assertSameJson(self::V3_POST_FX, $config['post_fx'] ?? null, '[mirror-lake] bloom stays OFF — calm, not spectacle; the vignette is a black blend.');
         $this->assertSame(1.15, $config['tone_mapping_exposure'] ?? null, '[mirror-lake] readable night, not murk.');
 
         $material = $this->materialConfig('mirror-lake');

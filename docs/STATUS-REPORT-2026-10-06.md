@@ -1,12 +1,12 @@
 # Exospace Production Check: Status Report
 
 **Date:** Tuesday 6 October 2026
-**Run window:** about 00:30–00:40 UTC (phases 1–5), CI log reviews through update 6
+**Run window:** about 00:30–00:40 UTC (phases 1–5), CI log reviews through update 7
 **Where:** Coolify app container (`/app`), production, Laravel 12.69.2, PHP 8.2.27
-**Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 to 6)
-**Not yet covered:** Phase 6 (browser flows), Phase 7 (payments), a fully green CI run on the update-6 fixes
+**Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 to 7)
+**Not yet covered:** Phase 6 (browser flows), Phase 7 (payments), a fully green CI run on the update-7 fixes
 
-## Overall verdict: NOT READY, but close. 3 production failures remain; every CI defect now has a fix shipped (update 6)
+## Overall verdict: NOT READY, but close. 3 production failures remain; update 6 shipped one self-inflicted regression (F18) — fixed in update 7
 
 | Area | Status |
 |---|---|
@@ -14,9 +14,10 @@
 | Backups (encryption policy) | ❌ FAILING |
 | robots.txt via smoke test | ❌ FAILING |
 | GitHub CI: install, MySQL migrations, Dusk ChromeDriver (F8–F10) | ✅ Fixed and verified by later runs |
-| GitHub CI: SQLite suite, Pint, Frontend Build, Preflight, Dependency Audit | ✅ Green (2,774 tests, 12,819 assertions) |
-| GitHub CI: MySQL suite (F12) | 🔧 6 errors + 55 failures → root causes found, fixes shipped (update 6). Was 10 errors + 193 failures before update 5 |
-| GitHub CI: Dusk (F11) | 🔧 23 failed / 3 passed → root causes found, fixes shipped (update 6). First failure was a test-harness stall; the rest was the dev server dying mid-run |
+| GitHub CI: Pint, Frontend Build, Preflight, Dependency Audit | ✅ Green |
+| GitHub CI: SQLite suite | ❌ Was green (2,774 tests) before update 6 → update 6 introduced one bug (F18) that broke 215 tests on BOTH engines; fixed in update 7 |
+| GitHub CI: MySQL suite (F12–F20) | ❌ 29 errors + 192 failures after update 6 (was 6 errors + 55 failures) — but 42 previously-failing tests genuinely fixed, and ~215 of the 221 failures trace to the ONE new F18 bug; fixed in update 7 |
+| GitHub CI: Dusk (F11/F16) | ⚠️ 23 failed / 3 passed — byte-identical failure list before and after update 6; neither better nor worse |
 | **NEW: audit chain verification on MySQL (F13)** | 🔧 Broken on every fresh MySQL DB; fix shipped. Production unaffected only by schema drift — re-verify after deploy |
 | **NEW: venue JSON migrations on MySQL (F14)** | 🔧 Several `up()` passes silently skipped on MySQL; fix shipped. Production already ran them — see note |
 | **NEW: audit rows for string-key targets (F15)** | 🔧 MySQL rejected the insert outright; fix shipped (code + migration) |
@@ -142,7 +143,28 @@ The update-5 MySQL run failed all five `AdminAuditChainTest` tests with "3 is id
 - **Fix (update 6):** the hash now covers a canonical (key-sorted) JSON form of the payload, which is stable under MySQL's re-serialisation; `verifyChain()` additionally accepts the legacy raw-string hash so already-stored rows keep verifying. New rows are always written canonically.
 - **After deploy:** run `php artisan exospace:verify-data-integrity` and confirm 0 violations, then re-run it on a fresh MySQL database (CI now covers this automatically).
 
-### F14. HIGH, found in update 6: venue JSON migrations silently skipped on MySQL
+### F18. CRITICAL, introduced by update 6, found in update 7: `AdminAuditLog::record()` died on every audit write
+Update 6's F15 change computed `$targetKey` outside the `DB::transaction` closure but forgot to add it to the closure's `use (...)` clause. PHP raised `Undefined variable $targetKey` inside every single audit write, the transaction rolled back, and the calling action failed:
+- **MySQL job:** 29 errors + 192 failures (was 6 errors + 55 failures before update 6). ~215 of the 221 problems trace to this one line — directly (ErrorException in the trace) or as cascades (audit row missing → "Failed asserting that null is not null", request 500s, "The response is not a streamed response" on the billing exports, mailables queued 0 times, MFA flows dying mid-write).
+- **SQLite job:** 28 errors + 187 failures (was fully green). The bug is engine-independent, which is why a previously green job went red.
+- **What is genuinely fixed from update 6 (confirmed by this run):** 42 previously-failing tests now pass — the F14 venue-guard fixes, the F17 test defects and the F15 `_target_key` behaviour all work as designed.
+- **Dusk:** the 23-failure list is byte-identical to the pre-update-6 run (same tests, same error classes) — no regression and no improvement there.
+- **Production impact:** the deployed update 6 breaks every audit-logged action — admin actions, MFA changes, credential rotations — with a 500 the moment they write an audit row. Deploy update 7 immediately.
+- **Fix (update 7):** add `$targetKey` to the closure `use` clause — one line in `app/Models/AdminAuditLog.php`.
+
+### F19. MEDIUM, found in update 7: `ops_incidents` down() cannot roll back on MySQL (error 1553)
+With the F17 PRAGMA fix, `MigrateFreshTest::test_rollback_and_re_migrate_works` now gets further on MySQL and exposed the next pre-existing defect: the migration's `down()` ran `dropIndex('ops_incident_id')` **before** dropping the foreign key that needs that index, so MySQL refuses with `General error: 1553 Cannot drop index 'ops_events_ops_incident_id_index': needed in a foreign key constraint`. SQLite has no standalone FK objects, which is why it never surfaced there. `MigrateFreshTest` had already failed on MySQL for a different reason (the F17 PRAGMA bug), so this is NOT a new regression — it is the next layer of the same onion.
+- **Production impact:** none for `migrate` (up() is unaffected); it blocks `migrate:rollback` past this point and any fresh-migrate + rollback cycle (restore drills, CI).
+- **Fix (update 7):** on mysql/mariadb the down() now drops FK → index → column in one statement; SQLite keeps the previous order (its dropColumn emulation relies on the original table shape). Follows the same driver-guard pattern already used by `2026_07_10_000010` and `2026_09_15_000001`.
+
+### F20. HIGH, found in update 7: residual F14 cases — exact-match guards that survived the update-6 helper
+Re-reading the still-failing venue tests against the migrations found four remaining guard defects, all pre-existing (each failed in BOTH the update-5 and update-6 runs):
+1. **Integral floats break exact-match guards everywhere.** PHP's `json_encode()` writes `1.0` as `"1"` (no `JSON_PRESERVE_ZERO_FRACTION`) — the project's own test helper `jsonNormalized()` documents this — so a guard literal holding `float 1.0/3.0/0.0` can never equal the `int 1/3/0` that comes back from the column: `int(1) === float(1.0)` is false in PHP. This silently disabled every salon v2.1 heal on MySQL ("7 door descriptors became 11" — the per-element and door-group guards all refused; the idempotence/reversibility tests only "passed" because the migration was a no-op). `json_canonical()` now normalises integral floats to ints so `json_arrays_equal()` compares values, not representations. Chain-hash safety check: stored payload strings already contain `"1"`-style ints (Laravel's cast encodes them that way), so recomputed audit-chain hashes are unchanged.
+2. **Penthouse `residence` and `evening_light` carried their own private `jsonCanonical()` without key sorting** — the structure written by the previous pass comes back from MySQL with reordered keys, so the v2.1 structure swap never fired ("the cheap glass still arrives"), which then cascaded into the v3 pass (its input state was wrong, so "step-fascia" never arrived) and the full-chain test. Both now ksort (matching `double_volume`'s implementation); `convergence` and `media_wall` already had key-order-insensitive comparators.
+3. **Cathedral `down()` compared nested arrays with `===`** (`post_fx`, `placement`) — MySQL reorders those keys, so the removal guards never fired and a rolled-back row was never equal to its pristine state. Now uses `json_arrays_equal()`.
+4. **`VenueLakeTest` still used order-sensitive `assertSame` on two decoded JSON blocks** (lines 65–66, the lake block and post_fx) — converted to the project's `assertSameJson()` like their siblings at lines 156/157/276.
+
+### F14. HIGH, found in update 6: venue JSON migrations silently skipped on MySQL (update-6 fix confirmed working; residuals fixed in update 7 — see F20)
 Every venue pass that guards a rewrite with an exact array/string match (`===` on decoded JSON, `array_keys($a) === array_keys($b)`, or a byte-stable `jsonEquals`) can never fire on MySQL, because the JSON column reorders keys before the migration reads it back. Concretely: the salon v2.1 door/side heal (7 doors never became 11), the penthouse v2.1 structure/fixture swap ("the cheap glass still arrives"), the nebula fixture swap, and every venue `down()` that removes what `up()` added (cyber `artwork_reactive`/`post_fx`, dark-museum `post_fx`/`placement`, zen `bays`, industrial-loft, sculpture-garden `garden`/assets, mirror-lake `lake`/`post_fx`, white-cube, rooms, infinite-void).
 - **Production impact:** production already ran these migrations (they are marked Ran), so the guarded rewrites **did not apply there**: production's salon still has the v2 doorcase, the penthouse the v2.0 glass, and rollbacks on production will leave the migration-added keys behind. If those venues look wrong, the fix is a follow-up healing command or re-running the payloads manually — say the word and it gets built.
 - **Fix (update 6):** a shared `json_arrays_equal()` helper (content equality, order-insensitive, list order preserved) in `app/helpers.php`, used by every affected migration guard. Value drift is still refused; only key order stopped mattering, because key order is not something MySQL lets us control.
@@ -202,8 +224,9 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | P0 | Apply F8 CI fix | Done, verified |
 | P0 | Update-3 zip (F9 migration, F10 ChromeDriver) | Done, verified |
 | P0 | Apply update-5 zip (Dusk test fixes, MySQL frontend build, MySQL-8 query fix) | Done — its CI run produced the logs reviewed in update 6 |
-| P0 | Apply update-6 zip (F13 audit chain, F14 venue guards, F15 target_id, F16 Dusk resilience, F17 test defects) and push | **Open, fix shipped in this update** |
-| P0 | After the update-6 deploy: re-run CI (all jobs should pass; 2 legitimate skips on the MySQL job) and run `exospace:verify-data-integrity` in production | Open |
+| P0 | Apply update-6 zip (F13 audit chain, F14 venue guards, F15 target_id, F16 Dusk resilience, F17 test defects) | Done — but its CI run exposed F18/F19/F20, see update 7 |
+| P0 | **Apply update-7 zip (F18 audit closure, F19 rollback 1553, F20 residual guards) — production is currently broken for audit-logged actions** | Open |
+| P0 | After the update-7 deploy: re-run CI (expect SQLite green again; MySQL green apart from F20-class items if any remain; Dusk unchanged until its own work) and run `exospace:verify-data-integrity` in production | Open |
 | P1 | Decide on a healing pass for the venue rewrites that silently skipped on production MySQL (F14): salon v2.1 doors, penthouse v2.1 glass, nebula fixtures | Open |
 | P1 | Check production DB version and sql_mode (`SELECT VERSION(), @@sql_mode;`) | Open |
 | P0 | Rotate all credentials that were pasted into chat | Not confirmed |
@@ -220,7 +243,7 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 
 - Phase 6: browser flows (signup/email, login, MFA, gallery create/upload/publish, maintenance drill, mobile 3D)
 - Phase 7: payments (2Checkout test order, webhook, invoice, refund)
-- A fully green CI run on the update-6 fixes (expected next run: SQLite green, MySQL green with 2 legitimate skips, Dusk green if the worker death stays patched)
+- A fully green CI run on the update-7 fixes (expected next run: SQLite green again, MySQL green with 2 legitimate skips, Dusk unchanged at 23/3 until the F11/F16 harness work lands)
 - Restore drill on a separate staging app
 - Morning digest (08:15 UTC) received
 
@@ -234,3 +257,4 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | 2026-10-06 (update 4) | F9 and F10 fixes verified by CI: MySQL migrations pass, Dusk connects (SmokeTest 10/10). New failures: F11 (Dusk sweep, 13 of 16 failing) and F12 (MySQL phpunit). Root causes not yet known; waiting on log excerpts |
 | 2026-10-06 (update 5) | Read the full log archive. SQLite suite 2,774 tests pass; Pint, Frontend Build, Preflight, Dependency Audit pass. Dusk: 6 root causes found in the test file (waitForVisible, keys('body'), missing return, decryptString vs decrypt, team heading) plus diagnostics for 2 unexplained timeouts. MySQL: 133 failures from missing frontend build, 4 from a real MySQL-8 query bug (fixed), about 60 genuine MySQL differences to triage. Fixes prepared, not yet pushed |
 | 2026-10-06 (update 6) | Read the update-5 CI logs. SQLite 2,774 green; MySQL now 6 errors + 55 failures; Dusk 23 failed / 3 passed. Three production-grade causes found and fixed: **F13** audit-chain hashes broke on MySQL JSON normalisation (canonical hash + legacy fallback), **F14** venue migration guards never matched MySQL's reordered JSON (shared `json_arrays_equal()`), **F15** string-PK audit targets rejected by `target_id` BIGINT (`_target_key` payload + nullable migration). Dusk: `settlePage()` lazy-image deadlock fixed, server resilience via `PHP_CLI_SERVER_WORKERS`, richer diagnostics (F16). All remaining MySQL failures fixed as test defects (F17). Update-6 zip ships only changed files. Not yet pushed or verified |
+| 2026-10-06 (update 7) | Read the update-6 CI logs and compared against the update-5 baseline. **The suite got worse in raw numbers — one self-inflicted bug:** MySQL 29 errors + 192 failures, SQLite 28 errors + 187 failures (was green), Dusk byte-identical. Root cause: **F18**, a missing `$targetKey` in the `AdminAuditLog::record()` closure `use` clause (update 6's F15 change) — every audit write died and cascaded into ~215 of the 221 MySQL problems. **42 tests are genuinely fixed** (F14/F15/F17 work confirmed). New findings fixed: **F19** `ops_incidents` down() error 1553 (FK dropped after its index; blocks rollback on MySQL), **F20** residual venue guards — integral-float representation (`1.0` stored as `1`) disabled the salon heal, penthouse `residence`/`evening_light` private canonicals lacked key sorting (cascaded into the v3 pass and full chain), Cathedral `down()` used `===` on nested arrays, Lake test used `assertSame` on decoded JSON. Update-7 zip ships only the 7 changed code files + this report. **Deploy update 7 immediately — deployed update 6 breaks audit-logged actions in production.** |

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -51,13 +52,25 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('ops_events', function (Blueprint $table) {
-            $table->dropIndex(['ops_incident_id']);
-        });
+        // MySQL refuses to drop an index that a foreign key constraint still
+        // needs (error 1553), so the FK must go first on that engine. SQLite
+        // has no standalone FK objects and its dropColumn emulation relies on
+        // the original table shape, so the previous order stays there.
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            Schema::table('ops_events', function (Blueprint $table) {
+                $table->dropForeign(['ops_incident_id']);
+                $table->dropIndex(['ops_incident_id']);
+                $table->dropColumn('ops_incident_id');
+            });
+        } else {
+            Schema::table('ops_events', function (Blueprint $table) {
+                $table->dropIndex(['ops_incident_id']);
+            });
 
-        Schema::table('ops_events', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('ops_incident_id');
-        });
+            Schema::table('ops_events', function (Blueprint $table) {
+                $table->dropConstrainedForeignId('ops_incident_id');
+            });
+        }
 
         Schema::dropIfExists('ops_incidents');
     }
