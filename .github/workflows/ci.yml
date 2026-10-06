@@ -538,7 +538,7 @@ jobs:
           echo "---- OOM / kill evidence ----"
           (sudo dmesg 2>/dev/null || dmesg 2>/dev/null || true) | grep -iE "oom|out of memory|killed process" | tail -n 10 || echo "(no OOM/kill entries visible to this user)"
           echo "---- chromedriver.log ----"; cat chromedriver.log || true
-          echo "---- serve.log ----"; tail -n 120 serve.log || true
+          echo "---- serve.log ----"; tail -n 400 serve.log || true
           echo "---- laravel.log ----"; tail -n 80 storage/logs/laravel.log 2>/dev/null || echo "(no laravel.log)"
 
   dependency-audit:

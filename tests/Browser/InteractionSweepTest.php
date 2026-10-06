@@ -460,6 +460,21 @@ class InteractionSweepTest extends DuskTestCase
             $browser->visit('/admin/dashboard');
             $this->settlePage($browser);
 
+            // The mobile header hides while the walk scrolls down and only
+            // slides back in via a CSS transition after the return-to-top; a
+            // click during that slide hits a target above the viewport (CI
+            // hit (356, -26) in the update-10 run). Wait until the toggle is
+            // actually inside the viewport, nudging the page back to the
+            // top between polls while it is not.
+            $browser->waitUntil(
+                '(() => { const t = document.querySelector("#mobile-nav-toggle");'
+                .'if (!t) return false;'
+                .'const r = t.getBoundingClientRect();'
+                .'if (r.top >= 0 && r.bottom > 0) return true;'
+                .'window.scrollTo(0, 0); return false; })()',
+                10
+            );
+
             $browser->click('#mobile-nav-toggle')
                 ->waitFor('#mobile-nav', 5)
                 ->assertAttribute('#mobile-nav-toggle', 'aria-expanded', 'true');
@@ -673,13 +688,16 @@ class InteractionSweepTest extends DuskTestCase
             $browser->visit("/admin/galleries/{$gallery->id}/edit");
             $this->settlePage($browser);
 
-            // settlePage now lets lazy images the walk never intersected stay
-            // un-requested; force the fallback source to load so the app's
-            // error path is exercised deterministically instead of waiting
-            // for a scroll that may never target it.
+            // settlePage no longer waits for lazy images to finish, so force
+            // the fallback source to load here: re-assign the src on every
+            // fallback image whether or not the walk already selected it —
+            // a fresh assignment restarts the load, which both triggers the
+            // never-requested case and re-kicks a fetch the runtime stalled
+            // during the walk. The app's error path is then exercised
+            // deterministically instead of waiting on scroll timing.
             $browser->script(
                 'Array.prototype.forEach.call(document.images, function (i) {'
-                .'  if (i.hasAttribute("data-fallback-hide") && !i.currentSrc && i.getAttribute("src")) {'
+                .'  if (i.hasAttribute("data-fallback-hide") && i.getAttribute("src")) {'
                 .'    i.loading = "eager"; i.src = i.getAttribute("src");'
                 .'  }'
                 .'})'
@@ -704,10 +722,10 @@ class InteractionSweepTest extends DuskTestCase
 
     private function loginAs(Browser $browser, User $user): void
     {
-        $browser->visit('/login')
-            // Wait for the form itself: if the CI web server hiccuped, Chrome
-            // renders an error page with no #email and type() would throw.
-            // The wait rides out the ~1s supervisor restart instead.
+        // Wait for the form itself: if the CI web server hiccuped, Chrome
+        // renders an error page with no #email and type() would throw.
+        // The wait rides out the ~1s supervisor restart instead.
+        $this->visitWithRetry($browser, '/login')
             ->waitFor('#email', 10);
 
         // Brand-new users (< 48h) get a first-visit welcome modal on the
@@ -744,22 +762,36 @@ class InteractionSweepTest extends DuskTestCase
     /**
      * Complete the real MFA verification flow in the browser session.
      *
-     * getCurrentOtp() can straddle a 30-second TOTP window: the code is
-     * valid when typed but expired by the time the POST lands, and the
-     * challenge simply re-renders without redirecting. Detect the stalled
-     * redirect and retry with a freshly computed code.
+     * The challenge must be left with a code from a fresh 30-second TOTP
+     * window (the server's replay guard rejects already-consumed windows,
+     * and a challenge re-render is otherwise indistinguishable from a slow
+     * redirect), and the failure path reports what the page actually said.
      */
     private function verifyMfaInBrowser(Browser $browser, User $admin): void
     {
         $secret = decrypt($admin->google2fa_secret);
 
         $attempts = 3;
+        $lastWindow = null;
 
         while ($attempts--) {
+            // The server's replay guard (verifyKeyNewer + users.google2fa_ts)
+            // rejects any code from a window it has already consumed, and
+            // both that rejection and a session bounce re-render the bare
+            // challenge. Always present a code from a FRESH 30-second
+            // window: if this attempt would reuse the previous attempt's
+            // window, wait out the remainder of the window first.
+            $window = intdiv(time(), 30);
+            if ($lastWindow !== null && $window <= $lastWindow) {
+                sleep(30 - (time() % 30) + 1);
+                $window = intdiv(time(), 30);
+            }
+            $lastWindow = $window;
+
             $code = (new Google2FA)->getCurrentOtp($secret);
 
             // Successful verification redirects super admins to Master Control.
-            $browser->visit('/mfa/verify')
+            $this->visitWithRetry($browser, '/mfa/verify')
                 ->type('#code', $code)
                 ->press('Verify');
 
@@ -775,8 +807,47 @@ class InteractionSweepTest extends DuskTestCase
                 }
 
                 if ($attempts === 0) {
+                    // "Still on the challenge" hides WHY (invalid code,
+                    // throttle page, session bounce all look identical in a
+                    // stack trace). Surface what the page actually said so
+                    // the next CI log names the failure mode.
+                    $detail = (string) $browser->driver->executeScript(
+                        'return JSON.stringify({url: location.href, '
+                        .'error: (document.querySelector("#code-error") || {}).textContent || null, '
+                        .'info: (document.querySelector("[class*=bg-blue-500]") || {}).textContent || null, '
+                        .'body: document.body.innerText.slice(0, 300)});'
+                    );
+
+                    throw new \RuntimeException(
+                        'MFA verify did not leave the challenge page after 3 fresh-window attempts: '.$detail,
+                        0,
+                        $e
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * The CI web server occasionally dies mid-run (exit code 139 — a process
+     * segfault, no laravel.log, no shutdown message). The serve supervisor
+     * restarts it within about a second, but any visit IN FLIGHT during the
+     * gap dies with net::ERR_CONNECTION_REFUSED and takes its whole test down
+     * (two casualties in the update-10 run: the super-admin MFA visit and the
+     * control-center login visit). Retry such visits across the restart
+     * window before giving up.
+     */
+    private function visitWithRetry(Browser $browser, string $url, int $attempts = 3): Browser
+    {
+        for ($i = 1; ; $i++) {
+            try {
+                return $browser->visit($url);
+            } catch (\Facebook\WebDriver\Exception\UnknownErrorException $e) {
+                if ($i >= $attempts || ! str_contains($e->getMessage(), 'ERR_CONNECTION_REFUSED')) {
                     throw $e;
                 }
+
+                sleep(2);
             }
         }
     }
@@ -868,19 +939,29 @@ class InteractionSweepTest extends DuskTestCase
             );
             $browser->waitUntil('window.__sweepWalkDone === true', 15);
 
-            // Images must have finished fetching — except lazy images the
-            // walk never brought near the viewport (inside collapsed panels
-            // or inner scroll containers): per spec they have no selected
-            // source until they intersect, so they would never complete
-            // here. They are not a page defect; the broken-image sweep
-            // already ignores them (same !currentSrc rule).
+            // Eager images must have finished fetching. Lazy images are
+            // exempt entirely: beyond the never-intersected case (no
+            // selected source yet — inside collapsed panels or inner scroll
+            // containers), the update-10 run exposed lazy images whose
+            // fetch the runtime kept re-rolling for the whole 20-second
+            // window even after the walk selected them (the same three
+            // /storage/ sources re-requested across the window in CI, while
+            // the server logged each attempt as served in ~0.05 ms). That
+            // is a fetch-scheduling quirk, not a page defect: settlePage
+            // only gates interactions, and the sweep collector is what
+            // judges real request failures.
             $browser->waitUntil(
                 'Array.prototype.every.call(document.images, '
-                .'function (i) { return i.complete || (i.loading === "lazy" && !i.currentSrc); })',
+                .'function (i) { return i.complete || i.loading === "lazy"; })',
                 20
             );
             // Land back at the top so later interactions see the header.
             $browser->script('window.scrollTo(0, 0);');
+            // scrollTo above is synchronous, but smooth-scroll CSS and
+            // scroll-restoration can leave the page a few pixels scrolled
+            // when the very next interaction runs. Require the page to
+            // actually sit at the top before handing it back.
+            $browser->waitUntil('window.scrollY === 0', 5);
         } catch (\Facebook\WebDriver\Exception\TimeoutException $e) {
             // A bare "Waited 20 seconds for callback" says nothing about WHICH
             // page or image stalled. Report it so the CI log is actionable.
