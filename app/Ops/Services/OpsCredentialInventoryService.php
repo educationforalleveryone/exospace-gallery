@@ -235,7 +235,7 @@ class OpsCredentialInventoryService
                 || $this->nonEmpty(config('services.operational_alerts.critical_webhook_url'))
                 || $this->nonEmpty(config('services.operational_alerts.escalation_webhook_url')),
             'r2-keys' => $this->nonEmpty(config('filesystems.disks.r2.key')),
-            'backup-password' => $this->nonEmpty(config('backup.backup.password')),
+            'backup-password' => $this->nonEmpty(\App\Services\BackupArchiveCipher::passphrase()),
             'twocheckout-secrets' => $this->nonEmpty(config('services.2checkout.secret_word'))
                 || $this->nonEmpty(config('services.2checkout.buy_link_secret_word')),
             'sentry-dsn' => $this->nonEmpty(config('sentry.dsn')),

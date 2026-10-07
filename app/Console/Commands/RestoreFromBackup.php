@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\AdminAuditLog;
+use App\Services\BackupArchiveCipher;
 use App\Services\BackupArtifactVerifier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -62,8 +63,34 @@ class RestoreFromBackup extends Command
             return self::FAILURE;
         }
 
+        $readablePath = $zipPath;
+
         try {
-            $plan = $this->buildPlan($zipPath);
+            // Whole-file encrypted archives (BackupArchiveCipher) are decrypted
+            // to a temp zip that lives only for the duration of the restore.
+            if (BackupArchiveCipher::isEncrypted($zipPath)) {
+                $passphrase = BackupArchiveCipher::passphrase();
+
+                if ($passphrase === null) {
+                    $this->error('Archive is encrypted but BACKUP_PASSWORD is not configured.');
+
+                    return self::FAILURE;
+                }
+
+                $readablePath = storage_path('app/backup-temp/restore-dec-'.sha1($diskName.'|'.$fileName).'.zip');
+                @mkdir(dirname($readablePath), 0775, true);
+
+                try {
+                    (new BackupArchiveCipher)->decryptFile($zipPath, $readablePath, $passphrase);
+                } catch (\RuntimeException $e) {
+                    $readablePath = $zipPath;
+                    $this->error('Could not decrypt the archive: '.$e->getMessage());
+
+                    return self::FAILURE;
+                }
+            }
+
+            $plan = $this->buildPlan($readablePath);
 
             $this->printPlan($diskName, $fileName, $plan);
 
@@ -80,8 +107,12 @@ class RestoreFromBackup extends Command
                 return self::FAILURE;
             }
 
-            return $this->runRestore($zipPath, $plan);
+            return $this->runRestore($readablePath, $plan);
         } finally {
+            if ($readablePath !== $zipPath) {
+                @unlink($readablePath);
+            }
+
             if (! $this->isLocalArtifact($diskName, $fileName)) {
                 @unlink($zipPath);
             }
@@ -129,7 +160,7 @@ class RestoreFromBackup extends Command
             return ['db' => false, 'files' => false, 'dumpEntry' => null, 'fileEntries' => 0];
         }
 
-        $password = config('backup.backup.password');
+        $password = BackupArchiveCipher::passphrase();
 
         if (is_string($password) && $password !== '') {
             $zip->setPassword($password);
@@ -375,7 +406,7 @@ class RestoreFromBackup extends Command
             return self::FAILURE;
         }
 
-        $password = config('backup.backup.password');
+        $password = BackupArchiveCipher::passphrase();
 
         if (is_string($password) && $password !== '') {
             $zip->setPassword($password);
@@ -488,7 +519,7 @@ class RestoreFromBackup extends Command
             return false;
         }
 
-        $password = config('backup.backup.password');
+        $password = BackupArchiveCipher::passphrase();
 
         if (is_string($password) && $password !== '') {
             $zip->setPassword($password);

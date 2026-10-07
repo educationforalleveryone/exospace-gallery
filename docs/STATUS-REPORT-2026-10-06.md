@@ -11,7 +11,7 @@
 | Area | Status |
 |---|---|
 | App, DB, migrations, Redis, queue, scheduler | ✅ Healthy |
-| Backups (encryption policy) | ❌ FAILING |
+| Backups (encryption policy) | ❌ FAILING until update 13 is deployed and verified (root cause found, fix prepared — see F1) |
 | robots.txt via smoke test | ❌ FAILING |
 | GitHub CI: install, MySQL migrations, Dusk ChromeDriver (F8–F10) | ✅ Fixed and verified by later runs |
 | GitHub CI: Pint, Frontend Build, Preflight, Dependency Audit | ✅ Green |
@@ -57,7 +57,17 @@
 - It contains a full DB dump (users, hashes, MFA data), so it is sitting readable in R2 and on local disk.
 - Preflight raises no "BACKUP_PASSWORD is empty" advisory, so the password appears to reach config. The cause is therefore somewhere between config and the zip step.
 - **Unknown:** whether the older nightly backups are also unencrypted. `backup:verify` only checks the newest per disk.
-- **Next:** see the diagnostic steps below.
+- **ROOT CAUSE (found in update 13):** the production PHP (Nix `php-with-extensions` 8.2.27) has libzip 1.11.1 compiled in **without crypto** (`php --ri zip`: AES-128/192/256 all "No"). `ZipArchive::EM_AES_256` is still *defined*, so spatie's `setEncryptionIndex()` silently does nothing and writes a plaintext zip with no error. Config was correct (29-char password, mode `default`); the archive's `encryption_method` was 0. libzip is built into the PHP binary (no dynamic `libzip`), so it cannot be fixed from `nixpacks.toml`.
+- **Scope:** all 29 archives on R2 and 28 on local appear to be plaintext (only the newest per disk was verified directly). All of them contain DB dumps or media.
+- **FIX PREPARED (update 13, NOT yet verified in production):** the finished archive is now encrypted as a whole in the app, with libsodium (present in prod; no new Nix package):
+  - `app/Services/BackupArchiveCipher.php` — Argon2id + XChaCha20-Poly1305 secretstream, 1 MiB records, truncation/tamper detection. Output keeps the `.zip` name because spatie's cleanup/monitor only recognise `*.zip`.
+  - `app/Listeners/EncryptBackupArchive.php` — runs on spatie's `BackupZipWasCreated`, **fails closed**: spatie dispatches that event inside `rescue()`, which swallows listener exceptions, so on any failure the plaintext zip is deleted first and the run fails instead of uploading plaintext. Also bound over spatie's own `EncryptBackupArchive`, which spatie calls directly when notifications are disabled.
+  - `config/backup.php` — `backup.backup.password` is now `null` (spatie zip encryption off); the passphrase lives in `backup.backup.archive_passphrase` (= `BACKUP_PASSWORD`).
+  - `BackupArtifactVerifier`, `RestoreFromBackup`, `PreflightCheck`, `OpsCredentialInventoryService` updated to use `BackupArchiveCipher::passphrase()`; the verifier decrypts end to end, so `Encrypted: yes` now proves the passphrase and integrity, and plaintext archives still fail.
+  - `scripts/backup-decrypt.php` — standalone decrypter (PHP + sodium only) for disaster recovery without the app; `docs/DISASTER-RECOVERY.md` updated.
+  - `exospace:backup:encrypt-existing` — dry run by default, `--execute` encrypts old plaintext archives in place (encrypt, decrypt-verify, upload, re-verify). Spatie dates archives from the filename, so retention is unaffected.
+- **Tested here:** the cipher (round trips across chunk boundaries incl. empty files, wrong passphrase, truncation, tampering, in-place idempotency) and the standalone script, with real PHP 8.3 + sodium. **Not run here:** the Laravel parts and PHPUnit (no vendor/ in the uploaded zip); `tests/Feature/BackupArchiveEncryptionTest.php` is new and unrun. Spatie's event/listener behaviour was checked against the 9.3.6 source, not executed.
+- **Next:** deploy update 13, then follow the verification steps in the "Update 13" section below.
 
 ### F2. robots.txt smoke failure
 - `qa:smoke` got HTTP 404 on `/robots.txt` even though the body contained a Sitemap line. That combination is odd.
@@ -309,8 +319,10 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | P1 | Decide on a healing pass for the venue rewrites that silently skipped on production MySQL (F14): salon v2.1 doors, penthouse v2.1 glass, nebula fixtures | Open |
 | P1 | Check production DB version and sql_mode (`SELECT VERSION(), @@sql_mode;`) | Open |
 | P0 | Rotate all credentials that were pasted into chat | Not confirmed |
-| P0 | Diagnose and fix backup encryption (F1), re-run `backup db` and `backup:verify` until both disks show Encrypted: yes | Open |
-| P0 | After fix, delete or replace the unencrypted 2026-10-06-00-35-52.zip on R2 and local, and decide what to do about older unencrypted archives | Open |
+| P0 | Diagnose and fix backup encryption (F1), re-run `backup db` and `backup:verify` until both disks show Encrypted: yes | **Diagnosed; fix prepared in update 13 — awaiting deploy and verification** |
+| P0 | After the fix is verified, run `exospace:backup:encrypt-existing --execute` for the old plaintext archives (do not delete them first — they are the only recovery points) | Open |
+| P1 | Store `BACKUP_PASSWORD` in a password manager outside Coolify — without it every archive is unrecoverable | Open |
+| P1 | Treat R2 keys as sensitive until all plaintext archives are replaced; rotate them as already planned | Open |
 | P1 | Fix or explain robots.txt 404 (F2), then re-run `qa:run smoke --target=production` | Open |
 | P1 | Confirm Slack normal, Slack critical and Sentry messages arrived (F3) | Open |
 | P1 | Real 49 MB upload test in the browser (F4) | Open |
@@ -343,3 +355,30 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 
 | 2026-10-06 (update 11) | Read the update-10 CI logs (logs_101704223863.zip; the other archive attached that day, logs_101686666940, was a stale re-upload of the F18-era run and matched that run byte-for-byte — not a new data point). **Best run of the engagement:** SQLite 2,774/0 (1 legitimate skip) and MySQL 2,774/0 (2 legitimate skips) — both fully green for the second consecutive run; Pint (711 files), Frontend Build, Preflight (0 critical / 6 known warnings) and Dependency Audit all green; Dusk **24 passed / 2 failed** with the web server alive end-to-end (serve-supervisor.log: zero restarts — the F25/F30 resilience held, and the F26–F30 fixes cleared 7 of the 9 prior failures). Both remaining failures share one new finding, **F31**: an intermittent server-side 500 on POST `/mfa/verify` — `TypeError` at Carbon's `Units.php:556` (`rawAddUnit(): Argument #1 ($date) must be of type Carbon\\CarbonImmutable, Carbon\\CarbonImmutable given`), escaping the controller's catch-all (so it fires outside the action), newly visible because the F29 retry now captures the error page body; the body was truncated at 300 chars exactly before the vendor caller path, and the full trace sat in the daily log the diagnostics step wasn't reading. Offline reproduction with the exact locked dependency tree over real HTTP on PHP 8.2.32 and 8.4.23 (serve + cached config + file sessions + WAL sqlite + real TOTP flow) returned 302 every time — the defect is state-dependent. Update-11 zip ships the F31 evidence chain: Dusk diagnostics now dump the latest `laravel-*.log` daily files plus the serve PHP/opcache runtime, and the MFA controller catch blocks log the exception class and full stack. Next run should name the exact Carbon caller in the log; the fix follows from that trace. |
 | 2026-10-07 (update 12) | Read the update-11 CI logs (logs_101741670793.zip). Only Dusk failed (2 of 26): both died on a 500 from `/super-admin/system`, trace pinned to `CohortRetentionMetricsService::compute()` → `startOfWeek()` with the self-identical-class Carbon TypeError (**F31**). Dusk diagnostics showed opcache enabled with JIT=1235 under forked `artisan serve` workers; fixed by turning opcache/JIT off for the Dusk job in `.github/workflows/ci.yml`. Also found **F32**: a malformed regex in `RegistrationTest` (line 486) meant the invitation-rollback test passed without simulating the failure; fixed. Noted **F33** (ops_events stderr noise, no failures). Update-12 zip ships two files: `.github/workflows/ci.yml`, `tests/Feature/Auth/RegistrationTest.php`. Owner then reported all GitHub jobs green. Remaining blockers are production-side: F1 backup encryption, credential rotation, F2, F3, Phases 6–7, restore drill |
+
+## Update 13: backup encryption fix (F1) — verification steps
+
+After deploying, in the production container:
+
+```bash
+# 1. Passphrase still reaches the app, spatie's zip encryption is off
+php artisan tinker --execute="var_dump(config('backup.backup.password'), strlen((string)config('backup.backup.archive_passphrase')));"
+#    expect: NULL and int(29)
+
+# 2. Make a new backup and verify it end to end
+php artisan exospace:backup db
+php artisan exospace:backup:verify --disk=local
+php artisan exospace:backup:verify --disk=r2
+#    expect: Encrypted: yes on the NEW file, result OK on both disks
+
+# 3. Prove the standalone recovery path works (use the new file's real name)
+BACKUP_PASSWORD='...' php scripts/backup-decrypt.php "/app/storage/app/private/Exospace Backup/<new>.zip" /tmp/t.zip && unzip -l /tmp/t.zip && rm /tmp/t.zip
+
+# 4. Only then: dry run, then encrypt the old archives
+php artisan exospace:backup:encrypt-existing
+php artisan exospace:backup:encrypt-existing --execute
+php artisan exospace:backup:verify --disk=r2 --file="Exospace Backup/2026-10-05-01-00-18.zip"
+```
+
+If step 2 fails, a failed encryption deletes the plaintext archive and the run reports a failure (check the critical log line "Backup archive encryption failed"). Nothing plaintext is uploaded. Note `--file` takes the path including the `Exospace Backup/` folder.
+

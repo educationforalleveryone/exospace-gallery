@@ -56,16 +56,62 @@ class BackupArtifactVerifier
             );
         }
 
+        $decryptedPath = null;
+
         try {
-            return $this->verifyLocalZip($diskName, $fileName, $localPath, $sizeBytes, $lastModified);
+            $zipPath = $localPath;
+            $envelope = false;
+
+            // Archives are encrypted as a whole by BackupArchiveCipher (the
+            // production libzip has no AES support). Decrypt to a temp zip
+            // first — this also proves the passphrase and integrity end to end.
+            if (BackupArchiveCipher::isEncrypted($localPath)) {
+                $passphrase = BackupArchiveCipher::passphrase();
+
+                if ($passphrase === null) {
+                    return new BackupArtifactReport(
+                        disk: $diskName,
+                        file: $fileName,
+                        errors: ['archive is encrypted but no BACKUP_PASSWORD is configured — the artifact cannot be decrypted'],
+                        sizeBytes: $sizeBytes,
+                        lastModified: $lastModified,
+                        encrypted: true,
+                    );
+                }
+
+                $decryptedPath = storage_path('app/backup-temp/verify-'.sha1($diskName.'|'.$fileName).'.zip');
+                @mkdir(dirname($decryptedPath), 0775, true);
+
+                try {
+                    (new BackupArchiveCipher)->decryptFile($localPath, $decryptedPath, $passphrase);
+                } catch (\RuntimeException $e) {
+                    return new BackupArtifactReport(
+                        disk: $diskName,
+                        file: $fileName,
+                        errors: ['archive could not be decrypted: '.$e->getMessage()],
+                        sizeBytes: $sizeBytes,
+                        lastModified: $lastModified,
+                        encrypted: true,
+                    );
+                }
+
+                $zipPath = $decryptedPath;
+                $envelope = true;
+            }
+
+            return $this->verifyLocalZip($diskName, $fileName, $zipPath, $sizeBytes, $lastModified, $envelope);
         } finally {
+            if ($decryptedPath !== null) {
+                @unlink($decryptedPath);
+            }
+
             if ($localPath !== $this->onDiskPath($diskName, $fileName)) {
                 @unlink($localPath);
             }
         }
     }
 
-    private function verifyLocalZip(string $diskName, string $fileName, string $localPath, int $sizeBytes, int $lastModified): BackupArtifactReport
+    private function verifyLocalZip(string $diskName, string $fileName, string $localPath, int $sizeBytes, int $lastModified, bool $envelope = false): BackupArtifactReport
     {
         $zip = new ZipArchive;
         $resultCode = $zip->open($localPath);
@@ -83,11 +129,14 @@ class BackupArtifactVerifier
         $errors = [];
         $warnings = [];
 
-        $password = config('backup.backup.password');
-        $encrypted = false;
+        $password = BackupArchiveCipher::passphrase();
+        // $envelope: the whole file was decrypted by BackupArchiveCipher, so
+        // the zip inside is plain and the archive counts as encrypted.
+        $encrypted = $envelope;
         $hasFileEntries = false;
 
-        if ($password !== null && $password !== '') {
+        if ($password !== null && ! $envelope) {
+            // Legacy path: zip-level AES archives (only readable where libzip has crypto).
             $zip->setPassword($password);
         }
 
@@ -107,10 +156,10 @@ class BackupArtifactVerifier
                 continue; // directory entry
             }
 
-            if (! $hasFileEntries) {
-                // Encryption is read from the first file entry — spatie's
-                // EncryptBackupArchive encrypts every file entry but never
-                // directory entries, so statIndex(0) is not reliable.
+            if (! $hasFileEntries && ! $envelope) {
+                // Legacy zip-level encryption is read from the first file
+                // entry — directory entries are never encrypted, so
+                // statIndex(0) is not reliable.
                 $encrypted = ($stat['encryption_method'] ?? 0) !== 0;
             }
 
@@ -149,11 +198,11 @@ class BackupArtifactVerifier
                 $warnings[] = "archive contains {$dbDumpEntries} database dump entries (expected at most one)";
             }
 
-            if ($encrypted && ($password === null || $password === '')) {
+            if ($encrypted && $password === null) {
                 $errors[] = 'archive entries are encrypted but no BACKUP_PASSWORD is configured — the artifact cannot be decrypted';
             }
 
-            if (! $encrypted && $password !== null && $password !== '') {
+            if (! $encrypted && $password !== null) {
                 $errors[] = 'archive entries are not encrypted although BACKUP_PASSWORD is configured — the artifact was produced outside the encrypted backup policy';
             }
         }

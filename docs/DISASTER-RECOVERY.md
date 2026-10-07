@@ -16,7 +16,7 @@ as a single app + a MySQL database + a Redis instance (session, cache, queue;
 `/app/storage/logs`. Scheduled commands run through a Coolify scheduled task
 (`php artisan schedule:run >> /app/storage/logs/scheduler.log 2>&1`,
 `BYPASS_SCHEDULER=true` in the app container). Monitored backups
-(`RunMonitoredBackup`) write **encrypted zip archives** to **local +
+(`RunMonitoredBackup`) write **encrypted archives** (`.zip` name, libsodium-encrypted container) to **local +
 Cloudflare R2** (`BACKUP_DISKS=local,r2`, bucket from `R2_BUCKET`), and every
 backup run verifies the stored artifacts before stamping its heartbeat.
 Error tracking is Sentry; ops alerts go to Slack.
@@ -44,10 +44,13 @@ Error tracking is Sentry; ops alerts go to Slack.
 ### 3.2 Restore the database (the real DR drill)
 
 **What exists to restore from:** daily `exospace:backup db` (01:00) produces a
-spatie/laravel-backup archive — **an AES-256-encrypted zip** named
+spatie/laravel-backup archive — a zip that is then **encrypted as a whole with
+libsodium** (Argon2id key from `BACKUP_PASSWORD` + XChaCha20-Poly1305; format
+`EXOBAK01`, see `app/Services/BackupArchiveCipher.php`), named
 `YYYY-MM-DD-HH-MM-SS.zip` — stored on every disk in `BACKUP_DISKS`
 (`local` → `/app/storage/app/private/Exospace Backup/`, `r2` →
-`s3://<R2_BUCKET>/Exospace Backup/`). Inside the zip:
+`s3://<R2_BUCKET>/Exospace Backup/`). (Zip-level AES is NOT used: the production PHP's libzip has no crypto, so it
+would silently write plaintext.) Inside the decrypted zip:
 `db-dumps/mysql-<database>.sql` (plain SQL, produced by `mysqldump`).
 
 **Step 1 — pick a recovery point.**
@@ -84,10 +87,11 @@ it refuses to run. Every database restore is written to the admin audit log
 **Manual alternative** (e.g. mysql client unavailable in the app container):
 ```bash
 php artisan tinker --execute="echo rescue(fn () => app(App\Services\BackupArtifactVerifier::class)->verify('r2', 'Exospace Backup/<file>.zip')->problemSummary() ?: 'OK');"
-7z x -p"$BACKUP_PASSWORD" <file>.zip -o/tmp/restore db-dumps/   # p7zip handles AES-256
+BACKUP_PASSWORD="..." php scripts/backup-decrypt.php <file>.zip /tmp/restore.zip   # needs only PHP + sodium
+unzip /tmp/restore.zip 'db-dumps/*' -d /tmp/restore
 mysql -h $DB_HOST -u $DB_USERNAME -p $DB_DATABASE < /tmp/restore/db-dumps/mysql-<database>.sql
 ```
-(`unzip -P` cannot open AES-256 archives — use `7z` or the artisan command.)
+(The archive is not a normal zip until decrypted: `unzip`/`7z` cannot open it directly. `scripts/backup-decrypt.php` has no Laravel dependency, so copy it to any machine with PHP + sodium if the app is gone. Keep `BACKUP_PASSWORD` in your password manager, not only in Coolify.)
 
 **Step 4 — reconnect + validate.**
 ```bash
@@ -115,7 +119,7 @@ path traversal (`../`) is refused, not extracted. Afterwards re-run
 `php artisan storage:link` (per-container symlink) and spot-check one
 gallery image over HTTPS.
 
-Manual alternative: `7z x -p"$BACKUP_PASSWORD" <file>.zip -o/tmp/media`, then
+Manual alternative: `BACKUP_PASSWORD=... php scripts/backup-decrypt.php <file>.zip /tmp/media.zip && unzip /tmp/media.zip -d /tmp/media`, then
 `rsync -a /tmp/media/app/storage/app/public/ /app/storage/app/public/`
 (trailing slashes matter; `-a` preserves permissions/ownership).
 
@@ -277,7 +281,7 @@ Destination: every disk in `BACKUP_DISKS` — `local`
 (`/app/storage/app/private/Exospace Backup/`, survives container restarts,
 does NOT survive storage-volume loss) and `r2`
 (`s3://<R2_BUCKET>/Exospace Backup/`, the off-site disaster-recovery copy).
-Archives are AES-256 encrypted (`BACKUP_PASSWORD`).
+Archives are encrypted with libsodium (`BACKUP_PASSWORD`); the `exospace:backup:verify` command fails any archive that is plaintext.
 
 ### 4.1 Retention (deterministic)
 

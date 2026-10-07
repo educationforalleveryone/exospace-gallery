@@ -60,7 +60,14 @@ return [
 
         'temporary_directory' => storage_path('app/backup-temp'),
 
-        'password' => env('BACKUP_PASSWORD'),
+        // spatie's own zip-level encryption is deliberately OFF (null): the
+        // production PHP's libzip has no AES support and silently wrote
+        // plaintext archives. The finished archive is instead encrypted as a
+        // whole by App\Listeners\EncryptBackupArchive (libsodium) using
+        // 'archive_passphrase' below. Do not point 'password' at BACKUP_PASSWORD.
+        'password' => null,
+
+        'archive_passphrase' => env('BACKUP_PASSWORD'),
 
         'encryption' => 'default',
 

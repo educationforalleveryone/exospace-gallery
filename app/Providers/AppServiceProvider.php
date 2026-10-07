@@ -4,23 +4,30 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Listeners\EncryptBackupArchive;
 use App\Services\FeatureFlag;
 use App\Services\QueueWorkerHeartbeat;
 use App\Services\TwoCheckoutApiClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password as PasswordRule;
+use Spatie\Backup\Events\BackupZipWasCreated;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // spatie calls its own EncryptBackupArchive directly when notifications
+        // are disabled; route that call to our libsodium implementation too.
+        $this->app->bind(\Spatie\Backup\Listeners\EncryptBackupArchive::class, EncryptBackupArchive::class);
+
         $this->app->singleton(TwoCheckoutApiClient::class, function ($app) {
             return new TwoCheckoutApiClient(
                 merchantCode: (string) config('services.2checkout.account_number', ''),
@@ -33,6 +40,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         PasswordRule::defaults(fn () => PasswordRule::min(8));
+
+        // Encrypt each finished backup archive before it is copied to the
+        // destination disks (spatie's zip-level AES is unavailable in prod).
+        Event::listen(BackupZipWasCreated::class, EncryptBackupArchive::class);
 
         if ($this->app->environment('production')) {
             URL::forceScheme('https');

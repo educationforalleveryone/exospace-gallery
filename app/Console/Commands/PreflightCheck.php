@@ -585,7 +585,7 @@ class PreflightCheck extends Command
             $this->advisory('No off-site backup destination configured — local backups share the same volume as the application and do not survive storage loss. Set BACKUP_DISKS=local,r2.');
         }
 
-        if (! config('backup.backup.password')) {
+        if (\App\Services\BackupArchiveCipher::passphrase() === null) {
             $this->advisory('BACKUP_PASSWORD is empty — backup archives are stored unencrypted.');
         }
 
