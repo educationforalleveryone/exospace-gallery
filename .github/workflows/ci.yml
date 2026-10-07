@@ -539,7 +539,18 @@ jobs:
           (sudo dmesg 2>/dev/null || dmesg 2>/dev/null || true) | grep -iE "oom|out of memory|killed process" | tail -n 10 || echo "(no OOM/kill entries visible to this user)"
           echo "---- chromedriver.log ----"; cat chromedriver.log || true
           echo "---- serve.log ----"; tail -n 400 serve.log || true
-          echo "---- laravel.log ----"; tail -n 80 storage/logs/laravel.log 2>/dev/null || echo "(no laravel.log)"
+          # F31 (update 11): LOG_STACK=daily,ops writes laravel-YYYY-MM-DD.log —
+          # the old step only tailed laravel.log and printed "(no laravel.log)"
+          # while the full MFA-500 Carbon stack trace sat in the daily file.
+          echo "---- laravel daily logs (latest 2) ----"
+          for f in $(ls -t storage/logs/laravel-*.log 2>/dev/null | head -2); do
+            echo ">> storage/logs/$(basename "$f")"
+            tail -n 150 "$f"
+          done
+          if [ -f storage/logs/laravel.log ]; then echo ">> storage/logs/laravel.log"; tail -n 80 storage/logs/laravel.log; fi
+          echo "---- php runtime (serve binary) ----"
+          php -v | head -1
+          php -r "echo 'opcache loaded: '.var_export(extension_loaded('Zend OPcache'), true).', opcache.enable='.ini_get('opcache.enable').', JIT='.ini_get('opcache.jit').PHP_EOL;"
 
   dependency-audit:
     # Fails CI when locked dependencies carry known security advisories or

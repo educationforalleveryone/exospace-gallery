@@ -105,9 +105,14 @@ class MfaController extends Controller
                 ->with('success', 'MFA enabled successfully. Save your backup codes below — you won\'t see them again.');
 
         } catch (\Throwable $e) {
+            // F31 (update 11): log the full exception (class + stack trace) —
+            // getMessage() alone hid the caller of the intermittent Carbon
+            // TypeError that 500s the challenge flow.
             \Illuminate\Support\Facades\Log::error('MfaController::enable failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'exception' => $e,
             ]);
 
             return back()->with('error', 'MFA verification failed. Please try again or contact support if the problem persists.');
@@ -194,9 +199,14 @@ class MfaController extends Controller
                     : 'MFA verified. You can now access billing.');
 
         } catch (\Throwable $e) {
+            // F31 (update 11): log the full exception (class + stack trace) —
+            // getMessage() alone hid the caller of the intermittent Carbon
+            // TypeError that 500s the challenge flow.
             \Illuminate\Support\Facades\Log::error('MfaController::verify failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'exception' => $e,
             ]);
 
             return back()->with('error', 'MFA verification failed. Please try again or contact support if the problem persists.');
