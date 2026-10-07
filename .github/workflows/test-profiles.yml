@@ -147,6 +147,16 @@ jobs:
             echo "QUEUE_CONNECTION=sync"
             echo "SESSION_DRIVER=array"
             echo "MAIL_MAILER=array"
+            # Default connection -> the workflow MySQL service container.
+            # .env.example ships DB_PASSWORD empty, but the service runs with
+            # MYSQL_ROOT_PASSWORD=root, so `migrate --force` below died with
+            # "Access denied for user root (using password: NO)".
+            echo "DB_CONNECTION=mysql"
+            echo "DB_HOST=127.0.0.1"
+            echo "DB_PORT=3306"
+            echo "DB_DATABASE=exospace"
+            echo "DB_USERNAME=root"
+            echo "DB_PASSWORD=root"
           } >> .env
 
       - name: Provision Control Center record store (default connection)
