@@ -385,6 +385,14 @@ jobs:
           php-version: '8.2'
           extensions: mbstring, xml, ctype, json, bcmath, gd, exif, pdo, pdo_sqlite, sqlite3, zip
           coverage: none
+          # CI FIX (2026-10-07): `php artisan serve` runs forked workers
+          # (PHP_CLI_SERVER_WORKERS). With opcache + tracing JIT (setup-php
+          # default JIT=1235) the shared opcode cache corrupts Carbon's trait
+          # type checks: "CarbonImmutable::rawAddUnit(): Argument #1 ($date) must
+          # be of type CarbonImmutable, CarbonImmutable given" — which 500'd
+          # /super-admin/system and failed the MFA-gated Dusk sweeps. Browser
+          # tests don't need opcache/JIT, so turn both off for this job.
+          ini-values: opcache.enable_cli=0, opcache.jit=0, opcache.jit_buffer_size=0
 
       - name: Setup Node
         uses: actions/setup-node@v4

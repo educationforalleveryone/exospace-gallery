@@ -483,7 +483,7 @@ class RegistrationTest extends TestCase
         DB::beforeExecuting(function (string $sql) use (&$failTeamJoin) {
             // Quote-style agnostic: SQLite/Postgres use "team_user", MySQL
             // uses `team_user` — the interceptor must fire on both engines.
-            if ($failTeamJoin && preg_match('/insert into ["`]team_user[`"/i', $sql)) {
+            if ($failTeamJoin && preg_match('/insert into ["`]team_user["`]/i', $sql)) {
                 throw new \RuntimeException('simulated team-join failure');
             }
         });
