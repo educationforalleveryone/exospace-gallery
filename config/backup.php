@@ -78,27 +78,27 @@ return [
         'archive_passphrase' => env('BACKUP_PASSWORD'),
 
         'encryption' => 'default',
+    ],
+
+    'notifications' => [
 
         'notifications' => [
+            BackupHasFailedNotification::class => ['mail'],
+            UnhealthyBackupWasFoundNotification::class => ['mail'],
+            CleanupHasFailedNotification::class => ['mail'],
+            BackupWasSuccessfulNotification::class => [],
+            HealthyBackupWasFoundNotification::class => [],
+            CleanupWasSuccessfulNotification::class => [],
+        ],
 
-            'notifications' => [
-                BackupHasFailedNotification::class => ['mail'],
-                UnhealthyBackupWasFoundNotification::class => ['mail'],
-                CleanupHasFailedNotification::class => ['mail'],
-                BackupWasSuccessfulNotification::class => [],
-                HealthyBackupWasFoundNotification::class => [],
-                CleanupWasSuccessfulNotification::class => [],
-            ],
+        'notifiable' => Notifiable::class,
 
-            'notifiable' => Notifiable::class,
+        'mail' => [
+            'to' => env('BACKUP_NOTIFICATION_EMAIL', 'admin@exospace.gallery'),
 
-            'mail' => [
-                'to' => env('BACKUP_NOTIFICATION_EMAIL', 'admin@exospace.gallery'),
-
-                'from' => [
-                    'address' => env('MAIL_FROM_ADDRESS', 'noreply@exospace.gallery'),
-                    'name' => env('MAIL_FROM_NAME', 'Exospace Gallery'),
-                ],
+            'from' => [
+                'address' => env('MAIL_FROM_ADDRESS', 'noreply@exospace.gallery'),
+                'name' => env('MAIL_FROM_NAME', 'Exospace Gallery'),
             ],
         ],
     ],
