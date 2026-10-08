@@ -88,10 +88,10 @@ it refuses to run. Every database restore is written to the admin audit log
 ```bash
 php artisan tinker --execute="echo rescue(fn () => app(App\Services\BackupArtifactVerifier::class)->verify('r2', 'Exospace Backup/<file>.zip')->problemSummary() ?: 'OK');"
 BACKUP_PASSWORD="..." php scripts/backup-decrypt.php <file>.zip /tmp/restore.zip   # needs only PHP + sodium
-unzip /tmp/restore.zip 'db-dumps/*' -d /tmp/restore
+php -r '$z=new ZipArchive; $z->open("/tmp/restore.zip"); $z->extractTo("/tmp/restore", ["db-dumps/mysql-<database>.sql"]);'   # the app container has no unzip binary
 mysql -h $DB_HOST -u $DB_USERNAME -p $DB_DATABASE < /tmp/restore/db-dumps/mysql-<database>.sql
 ```
-(The archive is not a normal zip until decrypted: `unzip`/`7z` cannot open it directly. `scripts/backup-decrypt.php` has no Laravel dependency, so copy it to any machine with PHP + sodium if the app is gone. Keep `BACKUP_PASSWORD` in your password manager, not only in Coolify.)
+(The archive is not a normal zip until decrypted: `unzip`/`7z` cannot open it directly (and the app container has no `unzip` anyway). `scripts/backup-decrypt.php` has no Laravel dependency, so copy it to any machine with PHP + sodium if the app is gone. Keep `BACKUP_PASSWORD` in your password manager, not only in Coolify.)
 
 **Step 4 — reconnect + validate.**
 ```bash
@@ -119,7 +119,7 @@ path traversal (`../`) is refused, not extracted. Afterwards re-run
 `php artisan storage:link` (per-container symlink) and spot-check one
 gallery image over HTTPS.
 
-Manual alternative: `BACKUP_PASSWORD=... php scripts/backup-decrypt.php <file>.zip /tmp/media.zip && unzip /tmp/media.zip -d /tmp/media`, then
+Manual alternative: `BACKUP_PASSWORD=... php scripts/backup-decrypt.php <file>.zip /tmp/media.zip`, extract it with `php -r '$z=new ZipArchive; $z->open("/tmp/media.zip"); $z->extractTo("/tmp/media");'` (or `unzip` on a machine that has it), then
 `rsync -a /tmp/media/app/storage/app/public/ /app/storage/app/public/`
 (trailing slashes matter; `-a` preserves permissions/ownership).
 

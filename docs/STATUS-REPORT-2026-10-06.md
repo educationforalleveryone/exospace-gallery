@@ -11,7 +11,7 @@
 | Area | Status |
 |---|---|
 | App, DB, migrations, Redis, queue, scheduler | ✅ Healthy |
-| Backups (encryption policy) | ❌ FAILING until update 13 is deployed and verified (root cause found, fix prepared — see F1) |
+| Backups (encryption policy) | ✅ **Fixed and verified in production (2026-10-08, updates 13–14).** All 57 old archives re-encrypted; every archive on both disks verifies `OK (enc:yes)`; the first scheduled 01:00 run was encrypted without intervention. See F1 |
 | robots.txt via smoke test | ❌ FAILING |
 | GitHub CI: install, MySQL migrations, Dusk ChromeDriver (F8–F10) | ✅ Fixed and verified by later runs |
 | GitHub CI: Pint, Frontend Build, Preflight, Dependency Audit | ✅ Green |
@@ -52,7 +52,7 @@
 
 ## Findings
 
-### F1. CRITICAL: backups are unencrypted although BACKUP_PASSWORD is set
+### F1. CRITICAL: backups are unencrypted although BACKUP_PASSWORD is set — ✅ RESOLVED 2026-10-08 (updates 13–14)
 - Newest backup (2026-10-06-00-35-52.zip) exists on local and R2, and the verifier rejects it as not encrypted.
 - It contains a full DB dump (users, hashes, MFA data), so it is sitting readable in R2 and on local disk.
 - Preflight raises no "BACKUP_PASSWORD is empty" advisory, so the password appears to reach config. The cause is therefore somewhere between config and the zip step.
@@ -68,6 +68,7 @@
   - `exospace:backup:encrypt-existing` — dry run by default, `--execute` encrypts old plaintext archives in place (encrypt, decrypt-verify, upload, re-verify). Spatie dates archives from the filename, so retention is unaffected.
 - **Tested here:** the cipher (round trips across chunk boundaries incl. empty files, wrong passphrase, truncation, tampering, in-place idempotency) and the standalone script, with real PHP 8.3 + sodium. **Not run here:** the Laravel parts and PHPUnit (no vendor/ in the uploaded zip); `tests/Feature/BackupArchiveEncryptionTest.php` is new and unrun. Spatie's event/listener behaviour was checked against the 9.3.6 source, not executed.
 - **Next:** deploy update 13, then follow the verification steps in the "Update 13" section below.
+- **RESOLUTION (verified in production, 2026-10-08):** update 14 deployed; `exospace:backup db` verified on both disks (`Encrypted: yes`); the standalone `scripts/backup-decrypt.php` decrypted a real archive to a valid zip containing `db-dumps/mysql-exospace.sql` (408,338 bytes); `exospace:backup:encrypt-existing --execute` encrypted all 57 plaintext archives (28 local, 29 R2) with 0 failures; a per-archive verification loop then showed every archive on both disks `OK (enc:yes)`; and the scheduled 01:00 UTC run (`2026-10-08-01-00-19.zip`) came out encrypted and verified on its own. Still to watch: one more night of scheduled runs, and the items in Open actions (password-manager copy of BACKUP_PASSWORD, R2 key rotation).
 
 ### F2. robots.txt smoke failure
 - `qa:smoke` got HTTP 404 on `/robots.txt` even though the body contained a Sitemap line. That combination is odd.
@@ -319,8 +320,8 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | P1 | Decide on a healing pass for the venue rewrites that silently skipped on production MySQL (F14): salon v2.1 doors, penthouse v2.1 glass, nebula fixtures | Open |
 | P1 | Check production DB version and sql_mode (`SELECT VERSION(), @@sql_mode;`) | Open |
 | P0 | Rotate all credentials that were pasted into chat | Not confirmed |
-| P0 | Diagnose and fix backup encryption (F1), re-run `backup db` and `backup:verify` until both disks show Encrypted: yes | **Diagnosed; fix prepared in update 13 — awaiting deploy and verification** |
-| P0 | After the fix is verified, run `exospace:backup:encrypt-existing --execute` for the old plaintext archives (do not delete them first — they are the only recovery points) | Open |
+| P0 | Diagnose and fix backup encryption (F1), re-run `backup db` and `backup:verify` until both disks show Encrypted: yes | **Done — verified in production 2026-10-08** |
+| P0 | Encrypt the old plaintext archives with `exospace:backup:encrypt-existing --execute` | **Done — 57 archives, 0 failures, all verified `enc:yes` on local and R2** |
 | P1 | Store `BACKUP_PASSWORD` in a password manager outside Coolify — without it every archive is unrecoverable | Open |
 | P1 | Treat R2 keys as sensitive until all plaintext archives are replaced; rotate them as already planned | Open |
 | P1 | Fix or explain robots.txt 404 (F2), then re-run `qa:run smoke --target=production` | Open |
@@ -372,7 +373,7 @@ php artisan exospace:backup:verify --disk=r2
 #    expect: Encrypted: yes on the NEW file, result OK on both disks
 
 # 3. Prove the standalone recovery path works (use the new file's real name)
-BACKUP_PASSWORD='...' php scripts/backup-decrypt.php "/app/storage/app/private/Exospace Backup/<new>.zip" /tmp/t.zip && unzip -l /tmp/t.zip && rm /tmp/t.zip
+php scripts/backup-decrypt.php "/app/storage/app/private/Exospace Backup/<new>.zip" /tmp/t.zip && php -r '$z=new ZipArchive; $z->open("/tmp/t.zip"); for($i=0;$i<$z->numFiles;$i++){echo $z->statIndex($i)["name"],PHP_EOL;}'; rm -f /tmp/t.zip
 
 # 4. Only then: dry run, then encrypt the old archives
 php artisan exospace:backup:encrypt-existing
