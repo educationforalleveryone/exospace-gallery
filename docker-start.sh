@@ -90,6 +90,28 @@ if [ -f "$NGINX_TPL" ] && ! grep -q "exospace-static-cache" "$NGINX_TPL"; then
     echo "Injected static-asset caching + gzip into nginx template."
 fi
 
+# 2b-2. Dynamic robots.txt routing (fixes 404 status on /robots.txt).
+#
+#     The nixpacks-generated template ships:
+#         location = /robots.txt  { access_log off; log_not_found off; }
+#     with no try_files. With no static public/robots.txt (deliberate: the
+#     file is generated per host by RobotsController), nginx finds no file
+#     and answers 404; `error_page 404 /index.php;` then lets Laravel render
+#     the correct body, but nginx KEEPS the 404 status. Crawlers treat a 404
+#     robots.txt as "no rules", so every Disallow is ignored.
+#     (Diagnosed 2026-10-08: Laravel kernel returned 200, nginx returned 404.)
+#     Replace that block in place — adding a second `location = /robots.txt`
+#     would make nginx fail to start with a duplicate-location error.
+#     Idempotent: the marker comment guards against double patching.
+if [ -f "$NGINX_TPL" ] && ! grep -q "exospace-robots-dynamic" "$NGINX_TPL"; then
+    sed -i -E 's@location = /robots\.txt[[:space:]]*\{[^}]*\}@location = /robots.txt { # exospace-robots-dynamic\n            access_log off; log_not_found off;\n            try_files $uri /index.php?$query_string;\n        }@' "$NGINX_TPL"
+    if grep -q "exospace-robots-dynamic" "$NGINX_TPL"; then
+        echo "Patched nginx template: /robots.txt now falls through to Laravel."
+    else
+        echo "WARNING: could not patch /robots.txt location in $NGINX_TPL — pattern not found; robots.txt may return 404." >&2
+    fi
+fi
+
 # 2c. Persistent-storage writability for the FPM worker user.
 #
 #     The php-fpm.conf nixpacks ships runs pool workers as user `nobody`.
