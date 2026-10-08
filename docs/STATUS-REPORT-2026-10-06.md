@@ -6,13 +6,13 @@
 **Scope covered:** Phases 1–5 (baseline, runtime health, scheduler, alert probes, backups), plus GitHub CI log review (updates 2 to 11)
 **Not yet covered:** Phase 6 (browser flows), Phase 7 (payments), restore drill. CI is now fully green on every job (update 12), so the remaining gaps are all production-side
 
-## Overall verdict: NOT READY for production, but the code side is done. As of update 12 every GitHub CI job is green (owner-reported after applying the update-12 zip): both unit suites (SQLite + MySQL, 2,774 tests each), Pint, Frontend Build, Preflight, Dependency Audit and now Dusk. F31 (the intermittent MFA/super-admin 500) is closed: the captured trace named the caller (`CohortRetentionMetricsService::compute()` → `startOfWeek()`, reached through `SuperAdmin\SystemController::index`) and the root cause is the CI web server running opcache + tracing JIT under forked workers. What still blocks shipping is production-side and unchanged by CI: unencrypted backups (F1), unconfirmed credential rotation, the robots.txt smoke failure (F2), unconfirmed Slack/Sentry delivery (F3), and Phases 6–7 (browser flows, payments) never run
+## Overall verdict: NOT READY for production, but the code side is done. As of update 12 every GitHub CI job is green (owner-reported after applying the update-12 zip): both unit suites (SQLite + MySQL, 2,774 tests each), Pint, Frontend Build, Preflight, Dependency Audit and now Dusk. F31 (the intermittent MFA/super-admin 500) is closed: the captured trace named the caller (`CohortRetentionMetricsService::compute()` → `startOfWeek()`, reached through `SuperAdmin\SystemController::index`) and the root cause is the CI web server running opcache + tracing JIT under forked workers. What still blocks shipping is production-side and unchanged by CI: unencrypted backups (F1), unconfirmed credential rotation, the robots.txt smoke failure (F2, since fixed), unconfirmed Slack/Sentry delivery (F3), and Phases 6–7 (browser flows, payments) never run
 
 | Area | Status |
 |---|---|
 | App, DB, migrations, Redis, queue, scheduler | ✅ Healthy |
 | Backups (encryption policy) | ✅ **Fixed and verified in production (2026-10-08, updates 13–14).** All 57 old archives re-encrypted; every archive on both disks verifies `OK (enc:yes)`; the first scheduled 01:00 run was encrypted without intervention. See F1 |
-| robots.txt via smoke test | ❌ FAILING |
+| robots.txt via smoke test | ✅ FIXED and verified 2026-10-08 (F2) |
 | GitHub CI: install, MySQL migrations, Dusk ChromeDriver (F8–F10) | ✅ Fixed and verified by later runs |
 | GitHub CI: Pint, Frontend Build, Preflight, Dependency Audit | ✅ Green |
 | GitHub CI: SQLite suite | ✅ **Fully green, confirmed twice in a row (after updates 9 and 10)** (2,774 tests, 0 failures, 1 legitimate skip; was 1 after update 7, 187 after update 6, 0 at baseline) |
@@ -37,7 +37,7 @@
 | 7 | `exospace:preflight` | ✅ | 0 critical, 4 warnings (see F4) |
 | 8 | `ps aux` (worker) | ✅ | `queue:work redis` running (started 00:05; restarts hourly by design) |
 | 9 | `qa:health` (x2) | ✅ | 7/7 healthy |
-| 10 | `qa:run smoke --target=production` | ❌ | 6/7 passed. `robots.txt` failed: "HTTP 404 sitemap-ref=1" |
+| 10 | `qa:run smoke --target=production` | ❌ | 6/7 passed. `robots.txt` failed: "HTTP 404 sitemap-ref=1" (fixed 2026-10-08, see F2) |
 | 11 | `exospace:verify-data-integrity` | ✅ | 15/15 checks, 0 violations |
 | 12 | `queue:failed` | ✅ | No failed jobs |
 | 13 | Redis queue size (tinker) | ✅ | 0 |
@@ -70,10 +70,15 @@
 - **Next:** deploy update 13, then follow the verification steps in the "Update 13" section below.
 - **RESOLUTION (verified in production, 2026-10-08):** update 14 deployed; `exospace:backup db` verified on both disks (`Encrypted: yes`); the standalone `scripts/backup-decrypt.php` decrypted a real archive to a valid zip containing `db-dumps/mysql-exospace.sql` (408,338 bytes); `exospace:backup:encrypt-existing --execute` encrypted all 57 plaintext archives (28 local, 29 R2) with 0 failures; a per-archive verification loop then showed every archive on both disks `OK (enc:yes)`; and the scheduled 01:00 UTC run (`2026-10-08-01-00-19.zip`) came out encrypted and verified on its own. Still to watch: one more night of scheduled runs, and the items in Open actions (password-manager copy of BACKUP_PASSWORD, R2 key rotation).
 
-### F2. robots.txt smoke failure
-- `qa:smoke` got HTTP 404 on `/robots.txt` even though the body contained a Sitemap line. That combination is odd.
-- nginx is designed to pass `/robots.txt` through to Laravel (`RobotsController`), so the missing static file is expected. The preflight warning about `public/robots.txt` is likely a false alarm.
-- **Next:** `curl -i https://exospace.gallery/robots.txt`, then from inside the container `curl -i http://127.0.0.1/robots.txt -H 'Host: exospace.gallery'`. Compare the two. If the first is 404 and the second 200, the cause is Cloudflare or Coolify's proxy.
+### F2. robots.txt smoke failure — ✅ RESOLVED 2026-10-08
+- **Symptom:** `qa:smoke` got HTTP 404 on `/robots.txt` even though the body was correct and contained the Sitemap line.
+- **Ruled out:** Cloudflare and Coolify's proxy. A request straight to nginx inside the container (`curl -i http://127.0.0.1/robots.txt -H 'Host: exospace.gallery'`) returned the same 404. The Laravel HTTP kernel returned 200 for the same URL, and `/sitemap.xml` returned 200 through nginx.
+- **ROOT CAUSE:** nixpacks generates `/assets/nginx.template.conf` from its own internal template, and that template contains `location = /robots.txt { access_log off; log_not_found off; }` with no `try_files`. There is deliberately no static `public/robots.txt` (the file is generated per host by `RobotsController`), so nginx found no file and set status 404. `error_page 404 /index.php;` then handed the request to Laravel, which rendered the correct body, but nginx kept the 404 status. The repo's `nginx.template.conf` had the correct rule all along, but it is a reference copy that nixpacks never uses.
+- **Impact:** crawlers treat a 404 `robots.txt` as "no rules", so every `Disallow` (admin, billing, login, preview and og-image endpoints) was being ignored.
+- **FIX (`docker-start.sh` §2b-2):** a runtime `sed` replaces that location block with one that has `try_files $uri /index.php?$query_string;`. It replaces rather than adds, because a second `location = /robots.txt` would stop nginx from starting. Marker: `exospace-robots-dynamic`; idempotent; prints a warning to stderr if the pattern is not found.
+- **Verified in production 2026-10-08:** `curl -sI https://exospace.gallery/robots.txt` returns 200; `grep -n -A3 robots /nginx.conf` shows the marker and the `try_files` line; `qa:smoke` passes 7/7 (`robots.txt HTTP 200 sitemap-ref=1`).
+- **Preflight false alarm fixed:** `PreflightCheck::checkRobotsAndSitemap()` no longer warns that `public/robots.txt` is missing. It now confirms the dynamic `robots` route is registered (critical if it is not) and raises an advisory only if a static `public/robots.txt` appears, because that file would shadow the dynamic route.
+- **Watch:** responses carry `Cache-Control: max-age=3600, public`, so clients that fetched the old 404 may keep it for up to an hour. Re-check Google Search Console's robots.txt report in a day or two.
 
 ### F3. Slack and Sentry delivery unconfirmed
 - Need a human check of the normal Slack channel, the critical Slack channel and the Sentry project.
@@ -83,17 +88,19 @@
 - `redis` extension not loaded: expected, the app uses predis. Ignore.
 - `imagick` not loaded: expected, the app uses GD. Ignore.
 - `upload_max_filesize=2M`, `post_max_size=8M` seen from the CLI. The CLI may use different ini values than php-fpm. This must be confirmed with a real 49 MB upload through the browser.
-- `public/robots.txt` missing: see F2.
+- `public/robots.txt` missing: false alarm, fixed in F2 (the file is meant to be absent).
 
 ### F5. Config is CACHED in the running container
 - `about` shows Config CACHED, but `nixpacks.toml` and `docker-start.sh` say config:cache must never run (it freezes .env values).
 - Something is caching config, possibly outside this repo's pipeline. A stale cache means env changes in Coolify may not take effect.
 - **Next:** `ls -la bootstrap/cache/config.php`, and compare its modification time with the last deploy.
 
-### F6. Security header duplication (low)
-- `x-frame-options` appears twice with conflicting values (DENY and SAMEORIGIN) and `x-content-type-options` appears twice. `frame-ancestors 'none'` in the CSP covers it in modern browsers, but the headers should be set in one place.
-- CSP allows `'unsafe-eval'` in script-src. Check whether the 3D engine really requires it.
-- HSTS has no `includeSubDomains`. This is optional.
+### F6. Security header duplication (low) — ✅ headers RESOLVED 2026-10-08; two optional items remain
+- **Was:** `x-frame-options` appeared twice with conflicting values (DENY and SAMEORIGIN) and `x-content-type-options` appeared twice on every PHP-served response. (It was invisible on the old robots.txt because nginx's `add_header` only fires on 2xx/3xx responses and that route was returning 404.)
+- **Cause:** nixpacks' template sets both headers at server level, and `App\Http\Middleware\SecurityHeaders` sets them again.
+- **FIX (`docker-start.sh` §2a):** a runtime `sed` strips the two nixpacks `add_header` lines, so Laravel is the single source for browser-facing headers. It runs before §2b on purpose, because the static-asset locations injected by §2b deliberately re-add these two headers (static files never reach PHP). Marker: `exospace-dedupe-headers`; guarded so a container restart cannot strip the §2b lines. The deploy log prints `Removed N duplicate security header line(s) from nginx template.`
+- **Verified in production 2026-10-08:** `curl -sI https://exospace.gallery/` shows exactly one `x-content-type-options: nosniff` and one `x-frame-options: DENY`.
+- **Still open (optional):** CSP allows `'unsafe-eval'` in script-src; check whether the 3D engine really requires it. HSTS has no `includeSubDomains`.
 
 ### F7. Minor
 - Sentry Release is NOT SET, so errors cannot be tied to a deploy.
@@ -324,11 +331,11 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 | P0 | Encrypt the old plaintext archives with `exospace:backup:encrypt-existing --execute` | **Done — 57 archives, 0 failures, all verified `enc:yes` on local and R2** |
 | P1 | Store `BACKUP_PASSWORD` in a password manager outside Coolify — without it every archive is unrecoverable | Open |
 | P1 | Treat R2 keys as sensitive until all plaintext archives are replaced; rotate them as already planned | Open |
-| P1 | Fix or explain robots.txt 404 (F2), then re-run `qa:run smoke --target=production` | Open |
+| P1 | Fix or explain robots.txt 404 (F2), then re-run smoke | **Done — fixed, `qa:smoke` 7/7 on 2026-10-08** |
 | P1 | Confirm Slack normal, Slack critical and Sentry messages arrived (F3) | Open |
 | P1 | Real 49 MB upload test in the browser (F4) | Open |
 | P2 | Investigate cached config (F5) | Open |
-| P2 | Clean up duplicate security headers (F6) | Open |
+| P2 | Clean up duplicate security headers (F6) | **Done — verified 2026-10-08** (optional `unsafe-eval` / HSTS review remains) |
 | P2 | Set Sentry release; re-test `/metrics` with the real token | Open |
 
 ## Not yet done
@@ -356,6 +363,7 @@ Expected timing: the scheduled `exospace:backup db` runs at 01:00 UTC and will l
 
 | 2026-10-06 (update 11) | Read the update-10 CI logs (logs_101704223863.zip; the other archive attached that day, logs_101686666940, was a stale re-upload of the F18-era run and matched that run byte-for-byte — not a new data point). **Best run of the engagement:** SQLite 2,774/0 (1 legitimate skip) and MySQL 2,774/0 (2 legitimate skips) — both fully green for the second consecutive run; Pint (711 files), Frontend Build, Preflight (0 critical / 6 known warnings) and Dependency Audit all green; Dusk **24 passed / 2 failed** with the web server alive end-to-end (serve-supervisor.log: zero restarts — the F25/F30 resilience held, and the F26–F30 fixes cleared 7 of the 9 prior failures). Both remaining failures share one new finding, **F31**: an intermittent server-side 500 on POST `/mfa/verify` — `TypeError` at Carbon's `Units.php:556` (`rawAddUnit(): Argument #1 ($date) must be of type Carbon\\CarbonImmutable, Carbon\\CarbonImmutable given`), escaping the controller's catch-all (so it fires outside the action), newly visible because the F29 retry now captures the error page body; the body was truncated at 300 chars exactly before the vendor caller path, and the full trace sat in the daily log the diagnostics step wasn't reading. Offline reproduction with the exact locked dependency tree over real HTTP on PHP 8.2.32 and 8.4.23 (serve + cached config + file sessions + WAL sqlite + real TOTP flow) returned 302 every time — the defect is state-dependent. Update-11 zip ships the F31 evidence chain: Dusk diagnostics now dump the latest `laravel-*.log` daily files plus the serve PHP/opcache runtime, and the MFA controller catch blocks log the exception class and full stack. Next run should name the exact Carbon caller in the log; the fix follows from that trace. |
 | 2026-10-07 (update 12) | Read the update-11 CI logs (logs_101741670793.zip). Only Dusk failed (2 of 26): both died on a 500 from `/super-admin/system`, trace pinned to `CohortRetentionMetricsService::compute()` → `startOfWeek()` with the self-identical-class Carbon TypeError (**F31**). Dusk diagnostics showed opcache enabled with JIT=1235 under forked `artisan serve` workers; fixed by turning opcache/JIT off for the Dusk job in `.github/workflows/ci.yml`. Also found **F32**: a malformed regex in `RegistrationTest` (line 486) meant the invitation-rollback test passed without simulating the failure; fixed. Noted **F33** (ops_events stderr noise, no failures). Update-12 zip ships two files: `.github/workflows/ci.yml`, `tests/Feature/Auth/RegistrationTest.php`. Owner then reported all GitHub jobs green. Remaining blockers are production-side: F1 backup encryption, credential rotation, F2, F3, Phases 6–7, restore drill |
+| 2026-10-08 (update 15) | **F2 resolved.** Root cause: nixpacks' generated nginx template had no `try_files` on `location = /robots.txt`, so nginx answered 404 while Laravel still rendered the right body; the repo's `nginx.template.conf` is a reference copy nixpacks never loads. Fixed with a runtime patch in `docker-start.sh` (§2b-2). **F6 resolved** (duplicate `X-Frame-Options` / `X-Content-Type-Options`): stripped from the nixpacks template at runtime (§2a). Preflight false alarm about `public/robots.txt` removed. All verified in production: robots.txt 200, one copy of each header, preflight 0 critical, `qa:smoke` 7/7. Files: `docker-start.sh`, `app/Console/Commands/PreflightCheck.php`, `nginx.template.conf` (comments), docs |
 
 ## Update 13: backup encryption fix (F1) — verification steps
 

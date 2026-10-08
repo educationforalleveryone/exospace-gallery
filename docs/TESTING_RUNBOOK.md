@@ -364,12 +364,17 @@ Failure → next action, per signal:
 | queue:failed growing | worker stuck / jobs erroring | check Logs tab for the worker supervisor restart lines; inspect `php artisan queue:failed` ids; `queue:retry <id>` only after diagnosis |
 | verify-data-integrity exit 1 | hard invariant violated | treat as data incident — DR §5 |
 | backup:verify "❌" per disk | no usable recovery point | DR §3.2 step 1 |
-| smoke sitemap/robots failures | SEO surface broken | `php artisan exospace:seo-audit` + docs/SEO_MANUAL_OPERATIONS.md §5 |
+| smoke sitemap/robots failures | SEO surface broken | `php artisan exospace:seo-audit` + docs/SEO_MANUAL_OPERATIONS.md §5. A robots.txt **404 with the right body** is the nginx patch (docker-start.sh §2b-2) not applying — compare `curl -i http://127.0.0.1/robots.txt -H 'Host: exospace.gallery'` inside the container with `grep -n -A3 robots /nginx.conf` |
 
 Also confirm the two persistent-volume contracts from the deploy logs: ownership
 adjustment lines for `/app/storage/app/public`, `/app/storage/app/private`,
 `/app/storage/logs` (docker-start.sh fixes mount writability for the FPM user) and the
-"Injected static-asset caching + gzip into nginx template." line.
+"Injected static-asset caching + gzip into nginx template." line, plus the two newer patch lines:
+"Removed N duplicate security header line(s) from nginx template." and
+"Patched nginx template: /robots.txt now falls through to Laravel." A stderr line starting
+`WARNING: could not patch /robots.txt location` means nixpacks changed its template and
+robots.txt will 404 again. Quick proof: `curl -sI https://exospace.gallery/robots.txt` is 200 and
+`curl -sI https://exospace.gallery/` shows one `x-frame-options` and one `x-content-type-options`.
 
 ---
 

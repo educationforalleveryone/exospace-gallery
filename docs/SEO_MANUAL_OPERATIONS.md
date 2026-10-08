@@ -253,6 +253,8 @@ Related sections are **never** arbitrary: everything is publiclyViewable + non-e
 - **If you ever roll back the dynamic robots route**, restore `docs/robots-legacy.txt` → `public/robots.txt`.
 - Primary host: rules from `config/seo.php → seo.robots`.
 - Custom domains: allow-all + host-local sitemap reference.
+- **nginx must fall through to Laravel for this URL.** nixpacks' generated template ships `location = /robots.txt` without `try_files`, which makes nginx return **404 status with the correct body** (found 2026-10-08; crawlers then ignore every rule). `docker-start.sh` §2b-2 patches it at runtime (marker `exospace-robots-dynamic`). Verify after any deploy: `grep -n -A3 robots /nginx.conf` shows the `try_files` line, and `curl -sI https://exospace.gallery/robots.txt` returns 200.
+- Never add a static `public/robots.txt`; `exospace:preflight` warns if one appears.
 
 ### Managed redirects
 - Table `seo_redirects`; middleware runs pre-routing on GET/HEAD.
@@ -270,7 +272,7 @@ Related sections are **never** arbitrary: everything is publiclyViewable + non-e
 3. Deploy (Coolify rebuild picks the change up — but note nginx header/limit
    changes must go through docker-start.sh's runtime patches; nixpacks does
    not consume the repo's nginx.template.conf)
-4. Verify: `curl https://exospace.gallery/robots.txt` (dynamic rules), `curl https://exospace.gallery/sitemap.xml` (grouped index)
+4. Verify: `curl -sI https://exospace.gallery/robots.txt` must be **HTTP 200** (not just the right body — check the status line), then `curl https://exospace.gallery/robots.txt` (dynamic rules), `curl https://exospace.gallery/sitemap.xml` (grouped index)
 5. In Search Console: the old `/sitemap-1.xml` reference now 301s — resubmit `/sitemap.xml` once
 
 ---
