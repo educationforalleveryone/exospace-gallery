@@ -93,6 +93,16 @@ mysql -h $DB_HOST -u $DB_USERNAME -p $DB_DATABASE < /tmp/restore/db-dumps/mysql-
 ```
 (The archive is not a normal zip until decrypted: `unzip`/`7z` cannot open it directly (and the app container has no `unzip` anyway). `scripts/backup-decrypt.php` has no Laravel dependency, so copy it to any machine with PHP + sodium if the app is gone. Keep `BACKUP_PASSWORD` in your password manager, not only in Coolify.)
 
+**`BACKUP_PASSWORD` gotcha (found 2026-10-08):** the password that decrypts archives is the value *inside the running container*, not what you typed into Coolify. A `$` followed by letters (e.g. `ab$Ka8cd`) is treated as a variable reference and silently expanded to nothing, so the container's copy was 4 characters shorter than the typed one and `backup-decrypt.php` failed with "wrong BACKUP_PASSWORD" when the typed value was used. Keep the **effective** value in the password manager, and prefer passwords of letters and digits only. Prove a stored copy without printing it:
+```bash
+read -rs BACKUP_PASSWORD
+REAL="$(tr '\0' '\n' < /proc/1/environ | sed -n 's/^BACKUP_PASSWORD=//p')"
+echo "typed: ${#BACKUP_PASSWORD}  real: ${#REAL}"
+[ "$BACKUP_PASSWORD" = "$REAL" ] && echo MATCH || echo DIFFERENT
+unset BACKUP_PASSWORD REAL
+```
+Archives made before a password change need the *old* password; keep every old one in the manager until all archives made with it are past retention (local disk and R2).
+
 **Step 4 — reconnect + validate.**
 ```bash
 php artisan config:clear && php artisan cache:clear
