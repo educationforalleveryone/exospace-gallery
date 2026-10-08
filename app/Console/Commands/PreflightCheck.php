@@ -517,17 +517,19 @@ class PreflightCheck extends Command
     {
         $this->section('SEO endpoints');
 
+        // robots.txt is generated per host by RobotsController. A static
+        // public/robots.txt must NOT exist: nginx would serve it directly
+        // and shadow the dynamic, host-aware route.
         $robotsPath = public_path('robots.txt');
         if (file_exists($robotsPath)) {
-            $this->ok('public/robots.txt exists');
-            $contents = file_get_contents($robotsPath);
-            if (Str::contains($contents, 'Sitemap:')) {
-                $this->ok('robots.txt references a sitemap');
-            } else {
-                $this->advisory('robots.txt does not reference a sitemap — add "Sitemap: https://exospace.gallery/sitemap.xml" for SEO.');
-            }
+            $this->advisory('public/robots.txt exists and shadows the dynamic /robots.txt route (host-aware rules, custom-domain sitemaps) — delete it. See docs/SEO_MANUAL_OPERATIONS.md §11.');
         } else {
-            $this->advisory('public/robots.txt missing — see COOLIFY_SETUP.md for the recommended contents.');
+            try {
+                $url = route('robots');
+                $this->ok("Dynamic robots.txt route registered: {$url} (no static public/robots.txt, as intended)");
+            } catch (\Throwable $e) {
+                $this->critical('Dynamic robots.txt route not registered and no static public/robots.txt exists — check routes/web.php');
+            }
         }
 
         try {

@@ -56,6 +56,25 @@ else
     sed -i 's/server {/server {\n    client_max_body_size 64M;/g' /assets/nginx.template.conf
 fi
 
+# 2a. De-duplicate security headers on Laravel-served responses.
+#
+#     nixpacks' template sets X-Frame-Options and X-Content-Type-Options at
+#     server level, and App\Http\Middleware\SecurityHeaders sets them again.
+#     Every PHP response therefore carried both (seen 2026-10-08: nosniff
+#     twice, X-Frame-Options DENY + SAMEORIGIN). Laravel is the single
+#     source of truth for browser-facing headers, so strip the nixpacks
+#     copies. MUST run before 2b: 2b injects static-asset locations that
+#     deliberately re-add these two headers (static files never reach PHP),
+#     and those must survive. Guarded by both markers so a restart of the
+#     same container can never strip the 2b lines.
+NGINX_TPL_DEDUPE="/assets/nginx.template.conf"
+if [ -f "$NGINX_TPL_DEDUPE" ] && ! grep -q "exospace-dedupe-headers" "$NGINX_TPL_DEDUPE" && ! grep -q "exospace-static-cache" "$NGINX_TPL_DEDUPE"; then
+    DEDUPE_BEFORE=$(grep -ciE '^[[:space:]]*add_header[[:space:]]+(X-Frame-Options|X-Content-Type-Options)[[:space:]]' "$NGINX_TPL_DEDUPE" || true)
+    sed -i -E '/^[[:space:]]*add_header[[:space:]]+(X-Frame-Options|X-Content-Type-Options)[[:space:]]/Id' "$NGINX_TPL_DEDUPE"
+    sed -i '1i # exospace-dedupe-headers: Laravel SecurityHeaders owns X-Frame-Options / X-Content-Type-Options' "$NGINX_TPL_DEDUPE"
+    echo "Removed ${DEDUPE_BEFORE:-0} duplicate security header line(s) from nginx template."
+fi
+
 # 2b. Static-asset caching + gzip.
 #
 #     WHY THIS RUNS HERE (and not in nginx.template.conf): nixpacks
