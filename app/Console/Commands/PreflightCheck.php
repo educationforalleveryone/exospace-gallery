@@ -4,10 +4,14 @@ namespace App\Console\Commands;
 
 use App\Models\Gallery;
 use App\Ops\Support\LogRedactor;
+use App\Services\BackupArchiveCipher;
+use App\Services\BackupArtifactVerifier;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class PreflightCheck extends Command
@@ -450,7 +454,7 @@ class PreflightCheck extends Command
     {
         try {
             $url = rtrim($baseUrl, '/')."/api/v1/applications/{$appUuid}";
-            $resp = \Illuminate\Support\Facades\Http::withToken($token)
+            $resp = Http::withToken($token)
                 ->timeout(10)
                 ->get($url);
 
@@ -473,7 +477,7 @@ class PreflightCheck extends Command
                 'error' => null,
                 'domain_count' => count($list),
             ];
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             return ['ok' => false, 'error' => 'Connection error — COOLIFY_API_BASE_URL may be wrong or Coolify is unreachable. '.$e->getMessage()];
         } catch (\Throwable $e) {
             return ['ok' => false, 'error' => $e->getMessage()];
@@ -558,7 +562,7 @@ class PreflightCheck extends Command
     {
         $this->section('Backups');
 
-        $diskNames = \App\Services\BackupArtifactVerifier::destinationDiskNames();
+        $diskNames = BackupArtifactVerifier::destinationDiskNames();
 
         if ($diskNames === []) {
             $this->critical('BACKUP_DISKS resolves to an empty list — no backups will be stored.');
@@ -585,7 +589,7 @@ class PreflightCheck extends Command
             $this->advisory('No off-site backup destination configured — local backups share the same volume as the application and do not survive storage loss. Set BACKUP_DISKS=local,r2.');
         }
 
-        if (\App\Services\BackupArchiveCipher::passphrase() === null) {
+        if (BackupArchiveCipher::passphrase() === null) {
             $this->advisory('BACKUP_PASSWORD is empty — backup archives are stored unencrypted.');
         }
 

@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\AdminAuditLog;
+use App\Models\Transaction;
 use App\Services\BackupArchiveCipher;
 use App\Services\BackupArtifactVerifier;
 use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\Local\LocalFilesystemAdapter;
+use Spatie\Backup\Helpers\Format;
 use ZipArchive;
 
 class RestoreFromBackup extends Command
@@ -139,8 +143,8 @@ class RestoreFromBackup extends Command
             $rows[] = [
                 $file === $backups[0] ? 'newest' : '',
                 basename($file),
-                \Spatie\Backup\Helpers\Format::humanReadableSize((int) $disk->size($file)),
-                \Illuminate\Support\Carbon::createFromTimestamp($disk->lastModified($file))->format('Y-m-d H:i:s T'),
+                Format::humanReadableSize((int) $disk->size($file)),
+                Carbon::createFromTimestamp($disk->lastModified($file))->format('Y-m-d H:i:s T'),
             ];
         }
 
@@ -383,7 +387,7 @@ class RestoreFromBackup extends Command
     private function recordRestoreAudit(string $connection, string $database): void
     {
         try {
-            $target = \App\Models\Transaction::orderByDesc('id')->first();
+            $target = Transaction::orderByDesc('id')->first();
 
             if ($target !== null) {
                 AdminAuditLog::record('backup.restored', $target, [
@@ -633,7 +637,7 @@ class RestoreFromBackup extends Command
     {
         $adapter = Storage::disk($diskName)->getAdapter();
 
-        return $adapter instanceof \League\Flysystem\Local\LocalFilesystemAdapter;
+        return $adapter instanceof LocalFilesystemAdapter;
     }
 
     private function resolveDisk(): string

@@ -79,6 +79,33 @@ class BackupArchiveEncryptionTest extends TestCase
         }
     }
 
+    public function test_cipher_refuses_to_write_over_its_own_source(): void
+    {
+        $plain = $this->scratch.'/plain.bin';
+        file_put_contents($plain, 'secret-contents');
+        $cipher = new BackupArchiveCipher;
+        $cipher->encryptFile($plain, $this->scratch.'/enc.bin', self::PASS);
+
+        try {
+            $cipher->decryptFile($this->scratch.'/enc.bin', $this->scratch.'/enc.bin', self::PASS);
+            $this->fail('expected a refusal');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('different files', $e->getMessage());
+        }
+
+        $this->assertGreaterThan(0, filesize($this->scratch.'/enc.bin'), 'the source must be left intact');
+        $cipher->decryptFile($this->scratch.'/enc.bin', $this->scratch.'/out.bin', self::PASS);
+        $this->assertSame('secret-contents', file_get_contents($this->scratch.'/out.bin'));
+    }
+
+    public function test_verifier_decrypted_temp_path_differs_from_the_downloaded_copy(): void
+    {
+        $source = file_get_contents(base_path('app/Services/BackupArtifactVerifier.php'));
+
+        $this->assertStringContainsString('backup-temp/verify-dec-', $source);
+        $this->assertSame(1, substr_count($source, "backup-temp/verify-'"), 'only materialize() may use the plain verify- prefix');
+    }
+
     public function test_wrong_passphrase_is_rejected_and_leaves_no_output(): void
     {
         $plain = $this->scratch.'/plain.bin';

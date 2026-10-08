@@ -5,6 +5,14 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Listeners\EncryptBackupArchive;
+use App\Models\Artist;
+use App\Models\Gallery;
+use App\Models\GalleryImage;
+use App\Models\GalleryScheduleEvent;
+use App\Models\SeoPage;
+use App\Models\VenueTemplate;
+use App\Observers\SitemapCacheObserver;
+use App\Services\ABTest;
 use App\Services\FeatureFlag;
 use App\Services\QueueWorkerHeartbeat;
 use App\Services\TwoCheckoutApiClient;
@@ -69,13 +77,13 @@ class AppServiceProvider extends ServiceProvider
         // web/console processes never do.
         Queue::looping(fn () => QueueWorkerHeartbeat::stamp());
 
-        $sitemapObserver = \App\Observers\SitemapCacheObserver::class;
-        \App\Models\Gallery::observe($sitemapObserver);
-        \App\Models\Artist::observe($sitemapObserver);
-        \App\Models\GalleryImage::observe($sitemapObserver);
-        \App\Models\SeoPage::observe($sitemapObserver);
-        \App\Models\GalleryScheduleEvent::observe($sitemapObserver);
-        \App\Models\VenueTemplate::observe($sitemapObserver);
+        $sitemapObserver = SitemapCacheObserver::class;
+        Gallery::observe($sitemapObserver);
+        Artist::observe($sitemapObserver);
+        GalleryImage::observe($sitemapObserver);
+        SeoPage::observe($sitemapObserver);
+        GalleryScheduleEvent::observe($sitemapObserver);
+        VenueTemplate::observe($sitemapObserver);
 
         $trustedProxies = env('TRUSTED_PROXIES');
 
@@ -95,7 +103,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Blade::if('abVariant', function (string $experiment, string $variant) {
-            return \App\Services\ABTest::isVariant($experiment, $variant);
+            return ABTest::isVariant($experiment, $variant);
         });
 
         Blade::directive('nonce', function () {

@@ -9,6 +9,7 @@ use App\Services\BackupArtifactVerifier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use RuntimeException;
 use Throwable;
 
@@ -146,13 +147,13 @@ class EncryptExistingBackups extends Command
     }
 
     /**
-     * @return array{0: string, 1: bool}|null  [path, isTemporaryCopy]
+     * @return array{0: string, 1: bool}|null [path, isTemporaryCopy]
      */
     private function localCopy(string $diskName, string $file): ?array
     {
         $disk = Storage::disk($diskName);
 
-        if ($disk->getAdapter() instanceof \League\Flysystem\Local\LocalFilesystemAdapter) {
+        if ($disk->getAdapter() instanceof LocalFilesystemAdapter) {
             $path = $disk->path($file);
 
             return is_file($path) ? [$path, false] : null;

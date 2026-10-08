@@ -2,6 +2,14 @@
 
 declare(strict_types=1);
 
+use Spatie\Backup\Notifications\Notifiable;
+use Spatie\Backup\Notifications\Notifications\BackupHasFailedNotification;
+use Spatie\Backup\Notifications\Notifications\BackupWasSuccessfulNotification;
+use Spatie\Backup\Notifications\Notifications\CleanupHasFailedNotification;
+use Spatie\Backup\Notifications\Notifications\CleanupWasSuccessfulNotification;
+use Spatie\Backup\Notifications\Notifications\HealthyBackupWasFoundNotification;
+use Spatie\Backup\Notifications\Notifications\UnhealthyBackupWasFoundNotification;
+use Spatie\Backup\Tasks\Cleanup\Strategies\DefaultStrategy;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumAgeInDays;
 use Spatie\Backup\Tasks\Monitor\HealthChecks\MaximumStorageInMegabytes;
 
@@ -74,15 +82,15 @@ return [
         'notifications' => [
 
             'notifications' => [
-                \Spatie\Backup\Notifications\Notifications\BackupHasFailedNotification::class => ['mail'],
-                \Spatie\Backup\Notifications\Notifications\UnhealthyBackupWasFoundNotification::class => ['mail'],
-                \Spatie\Backup\Notifications\Notifications\CleanupHasFailedNotification::class => ['mail'],
-                \Spatie\Backup\Notifications\Notifications\BackupWasSuccessfulNotification::class => [],
-                \Spatie\Backup\Notifications\Notifications\HealthyBackupWasFoundNotification::class => [],
-                \Spatie\Backup\Notifications\Notifications\CleanupWasSuccessfulNotification::class => [],
+                BackupHasFailedNotification::class => ['mail'],
+                UnhealthyBackupWasFoundNotification::class => ['mail'],
+                CleanupHasFailedNotification::class => ['mail'],
+                BackupWasSuccessfulNotification::class => [],
+                HealthyBackupWasFoundNotification::class => [],
+                CleanupWasSuccessfulNotification::class => [],
             ],
 
-            'notifiable' => \Spatie\Backup\Notifications\Notifiable::class,
+            'notifiable' => Notifiable::class,
 
             'mail' => [
                 'to' => env('BACKUP_NOTIFICATION_EMAIL', 'admin@exospace.gallery'),
@@ -107,7 +115,7 @@ return [
     ],
 
     'cleanup' => [
-        'strategy' => \Spatie\Backup\Tasks\Cleanup\Strategies\DefaultStrategy::class,
+        'strategy' => DefaultStrategy::class,
 
         'default_strategy' => [
             'keep_all_backups_for_days' => 7,

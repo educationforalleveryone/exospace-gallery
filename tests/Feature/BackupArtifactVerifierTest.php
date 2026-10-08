@@ -150,7 +150,7 @@ class BackupArtifactVerifierTest extends TestCase
 
     public function test_unencrypted_archive_passes_when_no_password_configured(): void
     {
-        config(['backup.backup.password' => null]);
+        config(['backup.backup.password' => null, 'backup.backup.archive_passphrase' => null]);
 
         $this->makeBackupZip('2026-01-15-01-00-00.zip', [
             'db-dumps/mysql-exospace.sql' => "CREATE TABLE users (id INT);\n",

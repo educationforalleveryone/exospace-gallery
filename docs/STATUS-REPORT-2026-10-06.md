@@ -382,3 +382,13 @@ php artisan exospace:backup:verify --disk=r2 --file="Exospace Backup/2026-10-05-
 
 If step 2 fails, a failed encryption deletes the plaintext archive and the run reports a failure (check the critical log line "Backup archive encryption failed"). Nothing plaintext is uploaded. Note `--file` takes the path including the `Exospace Backup/` folder.
 
+### Update 14: two defects found in update 13 (both mine)
+
+First production run of update 13 and its CI run exposed:
+
+1. **Verify of remote (R2) archives failed with "archive is truncated".** The verifier downloaded the encrypted R2 copy to `backup-temp/verify-<hash>.zip` and then decrypted into the *same* path, truncating its own source. Local passed because it reads the real file in place. Fixed: decrypted copy now uses `verify-dec-<hash>.zip`, and `BackupArchiveCipher` refuses any source == target pair. The 'did the encryption itself work' question is separate: the new local archive verified, so encryption works; only the R2 verification step was wrong. The R2 upload itself was probably fine, but confirm with `backup:verify --disk=r2` after update 14.
+2. **CI: `test_unencrypted_archive_passes_when_no_password_configured` failed** because `phpunit.xml` sets `BACKUP_PASSWORD`, so the new `archive_passphrase` was populated. An explicit non-empty `backup.backup.password` now takes precedence, and that test clears both keys.
+3. **CI: Pint** flagged `EncryptExistingBackups.php` (inline class name, docblock spacing); Pint run over all changed files, now clean.
+
+Why local tests missed (1): the tests use the fake *local* disk, which never goes through `materialize()`'s download path. Production verification on R2 is the real test for that path.
+

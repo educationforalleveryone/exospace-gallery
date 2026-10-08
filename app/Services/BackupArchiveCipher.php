@@ -51,12 +51,13 @@ final class BackupArchiveCipher
      *
      * backup.backup.password is deliberately null in config/backup.php so that
      * spatie does not attempt its own (unsupported) zip encryption; the value
-     * lives in backup.backup.archive_passphrase. The fallback keeps older
-     * callers and tests that set backup.backup.password working.
+     * lives in backup.backup.archive_passphrase. An explicit non-empty
+     * backup.backup.password still wins, which keeps older callers and tests
+     * that override it working.
      */
     public static function passphrase(): ?string
     {
-        foreach (['backup.backup.archive_passphrase', 'backup.backup.password'] as $key) {
+        foreach (['backup.backup.password', 'backup.backup.archive_passphrase'] as $key) {
             $value = config($key);
 
             if (is_string($value) && $value !== '') {
@@ -110,6 +111,7 @@ final class BackupArchiveCipher
     public function encryptFile(string $source, string $target, string $passphrase): void
     {
         $this->assertSodium();
+        $this->assertDistinctFiles($source, $target);
 
         $in = @fopen($source, 'rb');
 
@@ -178,6 +180,10 @@ final class BackupArchiveCipher
     public function decryptFile(string $source, ?string $target, string $passphrase): void
     {
         $this->assertSodium();
+
+        if ($target !== null) {
+            $this->assertDistinctFiles($source, $target);
+        }
 
         $in = @fopen($source, 'rb');
 
@@ -286,6 +292,20 @@ final class BackupArchiveCipher
             if (is_resource($out)) {
                 fclose($out);
             }
+        }
+    }
+
+    /**
+     * Opening the target for writing truncates it, so it must never be the
+     * file being read (this once emptied a downloaded R2 copy mid-verify).
+     */
+    private function assertDistinctFiles(string $source, string $target): void
+    {
+        $a = realpath($source);
+        $b = realpath($target);
+
+        if ($source === $target || ($a !== false && $a === $b)) {
+            throw new RuntimeException('source and target must be different files');
         }
     }
 

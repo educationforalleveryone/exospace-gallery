@@ -7,8 +7,11 @@ namespace App\Ops\Services;
 use App\Models\AdminAuditLog;
 use App\Models\User;
 use App\Ops\Models\OpsCredential;
+use App\Services\BackupArchiveCipher;
 use App\Services\OperationalAlertService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class OpsCredentialInventoryService
@@ -148,7 +151,7 @@ class OpsCredentialInventoryService
         } catch (Throwable $e) {
             // The ledger must never take the flow down - but the loss must
             // leave a trace.
-            \Illuminate\Support\Facades\Log::warning('AdminAuditLog: ops.credential.rotated write failed', ['error' => $e->getMessage()]);
+            Log::warning('AdminAuditLog: ops.credential.rotated write failed', ['error' => $e->getMessage()]);
         }
 
         try {
@@ -190,7 +193,7 @@ class OpsCredentialInventoryService
         }
     }
 
-    private function statusFor(array $entry, ?\Illuminate\Support\Carbon $lastRotated, ?float $daysSince): string
+    private function statusFor(array $entry, ?Carbon $lastRotated, ?float $daysSince): string
     {
         if ($lastRotated === null) {
             // Never rotated: alarming only for kickoff-exposed values.
@@ -235,7 +238,7 @@ class OpsCredentialInventoryService
                 || $this->nonEmpty(config('services.operational_alerts.critical_webhook_url'))
                 || $this->nonEmpty(config('services.operational_alerts.escalation_webhook_url')),
             'r2-keys' => $this->nonEmpty(config('filesystems.disks.r2.key')),
-            'backup-password' => $this->nonEmpty(\App\Services\BackupArchiveCipher::passphrase()),
+            'backup-password' => $this->nonEmpty(BackupArchiveCipher::passphrase()),
             'twocheckout-secrets' => $this->nonEmpty(config('services.2checkout.secret_word'))
                 || $this->nonEmpty(config('services.2checkout.buy_link_secret_word')),
             'sentry-dsn' => $this->nonEmpty(config('sentry.dsn')),

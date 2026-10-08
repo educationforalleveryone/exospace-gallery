@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use ZipArchive;
 
 class BackupArtifactVerifier
@@ -79,7 +80,9 @@ class BackupArtifactVerifier
                     );
                 }
 
-                $decryptedPath = storage_path('app/backup-temp/verify-'.sha1($diskName.'|'.$fileName).'.zip');
+                // Must differ from materialize()'s 'verify-<hash>.zip' (the downloaded
+                // encrypted copy for remote disks), or decrypting would truncate its own source.
+                $decryptedPath = storage_path('app/backup-temp/verify-dec-'.sha1($diskName.'|'.$fileName).'.zip');
                 @mkdir(dirname($decryptedPath), 0775, true);
 
                 try {
@@ -325,7 +328,7 @@ class BackupArtifactVerifier
         $disk = Storage::disk($diskName);
         $adapter = $disk->getAdapter();
 
-        if (! $adapter instanceof \League\Flysystem\Local\LocalFilesystemAdapter) {
+        if (! $adapter instanceof LocalFilesystemAdapter) {
             return null;
         }
 
