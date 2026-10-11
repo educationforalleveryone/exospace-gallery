@@ -12,7 +12,7 @@ class FeaturedExhibitionsController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = Gallery::with(['venueTemplate', 'user', 'coverImage'])
+        $query = Gallery::with(['venueTemplate', 'user', 'coverImage.media'])
             ->withCount('images')
             ->where('is_active', true)
             ->has('images', '>=', 1);

@@ -91,7 +91,7 @@ class AnalyticsController extends Controller
                     ->select('image_id', DB::raw('COUNT(*) as focus_count'))
                     ->groupBy('image_id')
                     ->orderByDesc('focus_count')
-                    ->with('image')
+                    ->with('image.media')
                     ->limit(10)
                     ->get();
             }

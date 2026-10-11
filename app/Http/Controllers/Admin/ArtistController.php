@@ -119,7 +119,7 @@ class ArtistController extends Controller
 
     public function show(Artist $artist): View
     {
-        $artist->load(['images.gallery.venueTemplate']);
+        $artist->load(['images.gallery.venueTemplate', 'images.media']);
 
         // Group images by gallery
         $galleries = $artist->images

@@ -390,7 +390,7 @@ class SystemController extends Controller
     {
         $galleries = $user->galleries()
             ->withCount('images')
-            ->with(['images' => fn ($q) => $q->orderBy('position_order')->limit(10)])
+            ->with(['images' => fn ($q) => $q->orderBy('position_order')->limit(10), 'images.media'])
             ->latest()
             ->paginate(15);
 
