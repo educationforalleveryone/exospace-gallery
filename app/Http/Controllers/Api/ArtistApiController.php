@@ -59,7 +59,7 @@ class ArtistApiController extends Controller
 
         $galleries = $artist->galleries()
             ->publiclyListable()
-            ->with(['coverImage', 'venueTemplate'])
+            ->with(['coverImage.media', 'venueTemplate'])
             ->has('images', '>=', 1)
             ->paginate($perPage);
 

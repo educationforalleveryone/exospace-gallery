@@ -252,7 +252,7 @@ class SitemapController extends Controller
         $includeImages = (bool) config('seo.sitemap.include_images', true);
 
         $galleries = $this->gallerySitemapQuery()
-            ->with($includeImages ? ['coverImage'] : [])
+            ->with($includeImages ? ['coverImage.media'] : [])
             ->orderBy('id')
             ->skip(($page - 1) * $perPage)
             ->take($perPage)
@@ -267,7 +267,7 @@ class SitemapController extends Controller
             ];
             if ($gallery->coverImage) {
                 $entry['image'] = [
-                    'loc' => asset($gallery->coverImage->path),
+                    'loc' => $gallery->coverImage->public_url,
                     'title' => $gallery->title,
                 ];
             }

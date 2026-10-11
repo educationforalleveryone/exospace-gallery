@@ -143,7 +143,7 @@ class GalleryImage extends Model implements HasMedia
             return empty($srcset) ? $this->public_url.' 2048w' : implode(', ', $srcset);
         } catch (\Throwable $e) {
             // Any Spatie error — fall back to legacy path
-            return asset($this->path).' 2048w';
+            return $this->public_url.' 2048w';
         }
     }
 

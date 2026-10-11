@@ -173,7 +173,7 @@ class SchemaBuilder
                 $schema['description'] = Str::limit($image->description, 500);
             }
             $schema['isAccessibleForFree'] = true;
-            $schema['image'] = asset($image->path);
+            $schema['image'] = $image->public_url;
         }
 
         if ($image->artist) {

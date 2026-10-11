@@ -15,7 +15,7 @@ class GalleryApiController extends Controller
         $sort = $request->query('sort', 'featured');
 
         $query = Gallery::publiclyViewable()
-            ->with(['coverImage', 'venueTemplate', 'user'])
+            ->with(['coverImage.media', 'venueTemplate', 'user'])
             ->withCount('images')
             ->has('images', '>=', 1)
             ->whereDoesntHave('user', fn ($q) => $q->whereNotNull('banned_at'));
@@ -88,7 +88,7 @@ class GalleryApiController extends Controller
     public function myGalleries(Request $request): JsonResponse
     {
         $galleries = $request->user()->galleries()
-            ->with(['coverImage', 'venueTemplate'])
+            ->with(['coverImage.media', 'venueTemplate'])
             ->withCount('images')
             ->latest()
             ->paginate(20);
@@ -120,7 +120,7 @@ class GalleryApiController extends Controller
             'is_featured' => $g->is_featured ?? false,
             'public_url' => $g->public_url,
             'cover_image' => $g->coverImage ? [
-                'url' => asset($g->coverImage->path),
+                'url' => $g->coverImage->public_url,
                 'width' => $g->coverImage->width,
                 'height' => $g->coverImage->height,
             ] : null,
@@ -149,14 +149,14 @@ class GalleryApiController extends Controller
             $thumbUrl = null;
         }
         if (! $thumbUrl) {
-            $thumbUrl = asset($img->path);
+            $thumbUrl = $img->public_url;
         }
 
         return [
             'id' => $img->id,
             'title' => $img->title,
             'description' => $img->description,
-            'url' => asset($img->path),
+            'url' => $img->public_url,
             'thumbnail_url' => $thumbUrl,
             'original_name' => $img->original_name,
             'width' => $img->width,

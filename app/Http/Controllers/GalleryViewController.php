@@ -78,7 +78,7 @@ class GalleryViewController extends Controller
             'venueConfig' => $venueConfig,
             'images' => $gallery->images->map(fn ($img) => array_filter([
                 'id' => $img->id,
-                'url' => asset($img->path),
+                'url' => $img->public_url,
                 'textures' => [
                     'thumb' => $img->conversionUrl('thumb'),
                     'small' => $img->conversionUrl('small'),

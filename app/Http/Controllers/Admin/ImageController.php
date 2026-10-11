@@ -105,7 +105,7 @@ class ImageController extends Controller
 
             $this->imageService->registerMedia($image, $file);
 
-            return response()->json(['success' => true, 'id' => $image->id, 'path' => asset($image->path)]);
+            return response()->json(['success' => true, 'id' => $image->id, 'path' => $image->public_url]);
 
         } catch (\App\Exceptions\ImageTooLargeException $e) {
             return response()->json([
