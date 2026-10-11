@@ -24,7 +24,7 @@
                 ]]>
             </description>
             @if($gallery->coverImage)
-            <enclosure url="{{ asset($gallery->coverImage->path) }}" type="{{ $gallery->coverImage->mime_type ?? 'image/jpeg' }}"/>
+            <enclosure url="{{ $gallery->coverImage->public_url }}" type="{{ $gallery->coverImage->mime_type ?? 'image/jpeg' }}"/>
             @endif
         </item>
         @endforeach

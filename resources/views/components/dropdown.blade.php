@@ -49,7 +49,11 @@ $dropdownId = 'dd-' . uniqid();
      @close.stop="open = false"
      @keydown.escape.window="open = false">
 
-    {{-- Real <button> trigger with ARIA state + keyboard support --}}
+    {{-- Real <button> trigger with ARIA state + keyboard support.
+         WARNING: the trigger slot must NOT contain a <button> — nested buttons
+         are invalid HTML and the parser splits them apart, leaving the Alpine
+         @click handler on an empty element (dropdown appears dead). Use a
+         <span> (or any non-interactive element) for the visible trigger. --}}
     <button type="button"
             id="{{ $dropdownId }}-trigger"
             aria-haspopup="true"

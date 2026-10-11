@@ -189,7 +189,10 @@ class Gallery extends Model
     {
         $img = $this->coverImage;
 
-        return $img ? asset($img->path) : null;
+        // public_url prefers the Spatie media URL and falls back to the legacy
+        // path, so every surface resolves covers the same way the Galleries
+        // index does.
+        return $img ? $img->public_url : null;
     }
 
     public function hasPinProtection(): bool

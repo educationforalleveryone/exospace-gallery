@@ -33,9 +33,12 @@ class DashboardController extends Controller
             : 0;
 
         // ── Recent galleries (with image count eager-loaded) ────────────────
+        // coverImage.media: getFirstMedia() uses the loaded relation instead of
+        // one query per row — same pattern as GalleryController@index, whose
+        // covers render via public_url.
         $recentGalleries = (clone $galleriesScope)
             ->withCount('images')
-            ->with('coverImage')
+            ->with('coverImage.media')
             ->latest()
             ->take(6)
             ->get();
@@ -44,7 +47,7 @@ class DashboardController extends Controller
             ->where('view_count', '>', 0)
             ->orderByDesc('view_count')
             ->withCount('images')
-            ->with('coverImage')
+            ->with('coverImage.media')
             ->first();
 
         $galleryIds = (clone $galleriesScope)->pluck('id');

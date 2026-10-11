@@ -85,7 +85,7 @@
                 <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
                     @foreach($entry['images'] as $img)
                         <div class="aspect-square bg-gray-900 rounded-lg overflow-hidden border border-gray-700 group relative">
-                            <img src="{{ asset($img->path) }}" alt="{{ $img->title ?: $img->original_name }}" data-fallback-hide class="w-full h-full object-cover">
+                            <img src="{{ $img->public_url }}" alt="{{ $img->title ?: $img->original_name }}" data-fallback-hide class="w-full h-full object-cover">
                             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/60 group-focus-within:bg-black/60 transition flex items-end p-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
                                 <p class="text-white text-xs truncate">{{ $img->title ?: $img->original_name }}</p>
                             </div>

@@ -4,9 +4,12 @@
 ])
 
 @php
-// Cover is eagerly loaded as 'coverImage' if available, else we skip thumbnail
-$coverPath = $gallery->relationLoaded('coverImage') && $gallery->coverImage
-    ? $gallery->coverImage->path
+// Cover is eagerly loaded as 'coverImage' (with .media) if available, else we
+// skip the thumbnail. public_url serves the Spatie media copy when it exists
+// and only falls back to the legacy path when it doesn't — same source as the
+// galleries index, which is immune to legacy-file gaps on the volume.
+$coverUrl = $gallery->relationLoaded('coverImage') && $gallery->coverImage
+    ? $gallery->coverImage->conversionUrl('thumb')
     : null;
 $isEmpty = ($gallery->images_count ?? 0) === 0;
 @endphp
@@ -15,8 +18,8 @@ $isEmpty = ($gallery->images_count ?? 0) === 0;
 
     {{-- Thumbnail --}}
     <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-700/80 border border-gray-700">
-        @if($coverPath)
-            <img src="{{ asset($coverPath) }}" alt="{{ $gallery->title ?: 'Gallery cover' }}" data-fallback-hide class="w-full h-full object-cover">
+        @if($coverUrl)
+            <img src="{{ $coverUrl }}" alt="{{ $gallery->title ?: 'Gallery cover' }}" data-fallback-hide class="w-full h-full object-cover">
         @else
             <div class="w-full h-full flex items-center justify-center">
                 <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
