@@ -25,6 +25,26 @@ import * as Turbo from '@hotwired/turbo';
 // Make Turbo available globally for debugging + opt-out in views.
 window.Turbo = Turbo;
 
+// Turbo caches a snapshot of the page AFTER Alpine has rendered it. Alpine's
+// <template x-for> output (e.g. the command palette's rows) is then restored as
+// plain HTML outside its loop scope, and Alpine re-initialises it, throwing
+// "item / group / groupIdx is not defined" (Sentry, Sep 29 - Oct 6 2026).
+// Strip the generated x-for nodes before the snapshot is taken; Alpine
+// re-renders them when the restored page boots. Uses only the "has own scope
+// but no x-data" signal, which is stable across Alpine 3.13 - 3.15.
+document.addEventListener('turbo:before-cache', () => {
+    document.querySelectorAll('template[x-for]').forEach((tpl) => {
+        let node = tpl.nextElementSibling;
+        while (node && node.tagName !== 'TEMPLATE') {
+            const next = node.nextElementSibling;
+            if (node._x_dataStack && !node.hasAttribute('x-data')) {
+                node.remove();
+            }
+            node = next;
+        }
+    });
+});
+
 window.exospaceConfirm = function(event, message) {
     // If event is a real Event, prevent the default submission/navigation.
     if (event && event.preventDefault) {
