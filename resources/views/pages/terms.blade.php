@@ -7,7 +7,7 @@
 
 <main class="max-w-4xl mx-auto px-4 py-12">
     <h1 class="text-4xl font-bold mb-8">Terms of Service</h1>
-    <p class="text-gray-400 mb-8">Last Updated: October 4, 2026</p>
+    <p class="text-gray-400 mb-8">Last Updated: October 12, 2026</p>
 
     <div class="legal-prose">
         <section class="mb-8">
@@ -67,7 +67,7 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">6. Subscription and Payment</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
-                Some features of the Service require a paid upgrade. Plans are available either as a one-time purchase (lifetime access) or as an optional monthly subscription. By purchasing a plan, you agree to pay all applicable fees. One-time purchases are a single payment and remain active for the lifetime of your account. Monthly subscriptions renew automatically at the end of each billing cycle until cancelled; you can cancel at any time from your billing page and will keep access until the end of the current billing cycle. All fees are non-refundable except as explicitly stated in our <a href="/refund-policy" class="text-brand-400 hover:text-brand-300">Refund Policy</a>, which includes a 14-day money-back guarantee.
+                Some features of the Service require a paid upgrade. Plans are available either as a one-time purchase (lifetime access) or as an optional monthly subscription. By purchasing a plan, you agree to pay all applicable fees. One-time purchases are a single payment with no renewal. "Lifetime access" means access to the purchased plan for as long as your account remains in good standing and we continue to operate the Service; if we ever decide to discontinue the Service we will give you at least 30 days' notice by email and a way to export your content. Monthly subscriptions renew automatically at the end of each monthly billing cycle, at the price shown at checkout, until you cancel; you can cancel at any time from your billing page and will keep access until the end of the billing cycle you have already paid for. We will give you at least 30 days' notice by email before changing the price of an active subscription, and you may cancel before the change takes effect. Prices are shown in US dollars, and any applicable taxes are shown at checkout. All fees are non-refundable except as explicitly stated in our <a href="/refund-policy" class="text-brand-400 hover:text-brand-300">Refund Policy</a>, which includes a 14-day money-back guarantee.
             </p>
             <p class="text-gray-300 leading-relaxed mb-4">
                 All payments are processed on our behalf by <strong>2Checkout (a Verifone company)</strong>. We do not store your full payment card details; card data is collected and handled by the payment processor.
@@ -77,7 +77,7 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">7. Cancellation and Termination</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
-                One-time purchases remain active for the lifetime of your account — there is nothing to cancel. Monthly subscriptions can be cancelled at any time from your billing page; cancellation stops future charges, and your plan stays active until the end of the current billing cycle, after which your account reverts to the Free plan. We reserve the right to suspend or terminate your account if you violate these Terms of Service or engage in fraudulent activity.
+                One-time purchases have no renewal, so there is nothing to cancel. Monthly subscriptions can be cancelled at any time from your billing page; cancellation stops future charges, and your plan stays active until the end of the current billing cycle, after which your account reverts to the Free plan. We reserve the right to suspend or terminate your account if you violate these Terms of Service or engage in fraudulent activity.
             </p>
         </section>
 
@@ -119,14 +119,14 @@
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">13. Governing Law</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
-                These Terms shall be governed by and construed in accordance with applicable laws, without regard to conflict of law provisions.
+                These Terms are governed by {{ config('app.governing_law') }}, without regard to its conflict-of-law rules. Any dispute arising from these Terms or the Service will be brought before {{ config('app.governing_venue') }}. Nothing in this section limits any mandatory consumer-protection rights you may have under the law of the country where you live. Before starting any formal proceeding, please contact us at support@exospace.gallery so that we can try to resolve the matter informally.
             </p>
         </section>
 
         <section class="mb-8">
             <h2 class="text-2xl font-semibold mb-4">14. Contact Information</h2>
             <p class="text-gray-300 leading-relaxed mb-4">
-                This Service is operated by <strong>Exospace Gallery Ltd.</strong> If you have any questions about these Terms of Service, please contact us at:
+                This Service is operated by <strong>{{ config('app.legal_name') }}</strong>. If you have any questions about these Terms of Service, please contact us at:
             </p>
             <p class="text-brand-400">
                 Email: <a href="mailto:support@exospace.gallery" class="hover:text-brand-300">support@exospace.gallery</a>

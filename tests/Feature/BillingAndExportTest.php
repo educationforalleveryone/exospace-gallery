@@ -124,7 +124,7 @@ class BillingAndExportTest extends TestCase
         config(['services.2checkout.account_number' => 'ACC-001']);
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
 
-        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['accept_terms' => '1']);
 
         $response->assertRedirect();
         $this->assertStringContainsString('2checkout.com', $response->headers->get('Location'));
@@ -148,7 +148,7 @@ class BillingAndExportTest extends TestCase
         $user = User::factory()->create();
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
 
-        $this->actingAs($user)->post('/billing/upgrade/pro');
+        $this->actingAs($user)->post('/billing/upgrade/pro', ['accept_terms' => '1']);
 
         $this->assertDatabaseHas('pending_upgrades', [
             'user_id' => $user->id,
@@ -162,7 +162,7 @@ class BillingAndExportTest extends TestCase
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->studio()->create();
 
-        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['accept_terms' => '1']);
 
         $response->assertRedirect('/billing');
         $response->assertSessionHas('warning');
@@ -184,7 +184,7 @@ class BillingAndExportTest extends TestCase
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->pro()->create();
 
-        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['accept_terms' => '1']);
 
         $this->assertStringContainsString(
             '2checkout.com',
@@ -199,7 +199,7 @@ class BillingAndExportTest extends TestCase
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         config(['services.2checkout.coupon_allowlist' => 'LAUNCH20,WELCOME10']);
 
-        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['coupon' => 'LAUNCH20']);
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['accept_terms' => '1', 'coupon' => 'LAUNCH20']);
 
         $location = $response->headers->get('Location');
         $this->assertStringContainsString('coupon=LAUNCH20', $location);
@@ -212,7 +212,7 @@ class BillingAndExportTest extends TestCase
         // affiliate refs are validated against an allowlist too.
         config(['services.2checkout.affiliate_allowlist' => 'AFF123,PARTNER7']);
 
-        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['ref' => 'AFF123']);
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['accept_terms' => '1', 'ref' => 'AFF123']);
 
         $location = $response->headers->get('Location');
         $this->assertStringContainsString('affiliate=AFF123', $location);
@@ -357,5 +357,45 @@ class BillingAndExportTest extends TestCase
             'id' => $gallery->id,
             'custom_domain_verified_at' => $gallery->custom_domain_verified_at,
         ]);
+    }
+
+    public function test_upgrade_requires_terms_acceptance_before_leaving_for_2checkout(): void
+    {
+        $user = User::factory()->create();
+        config(['services.2checkout.account_number' => 'ACC-001']);
+        config(['services.2checkout.product_id_pro' => 'PRO-001']);
+
+        $response = $this->actingAs($user)->from('/billing/upgrade/pro')->post('/billing/upgrade/pro');
+
+        $response->assertRedirect('/billing/upgrade/pro');
+        $response->assertSessionHasErrors('accept_terms');
+        $this->assertDatabaseCount('pending_upgrades', 0);
+    }
+
+    public function test_upgrade_confirmation_shows_terms_checkbox_and_one_time_disclosure(): void
+    {
+        $user = User::factory()->create();
+        config(['services.2checkout.product_id_pro' => 'PRO-001']);
+
+        $this->actingAs($user)->get('/billing/upgrade/pro')
+            ->assertOk()
+            ->assertSee('name="accept_terms"', false)
+            ->assertSee('one-time payment')
+            ->assertSee('Refund Policy');
+    }
+
+    public function test_recurring_confirmation_discloses_auto_renewal_and_cancellation(): void
+    {
+        $user = User::factory()->create();
+        config([
+            'services.2checkout.recurring_product_id_pro' => 'REC-PRO',
+            'services.2checkout.recurring_price_pro_monthly' => '4.99',
+        ]);
+
+        $this->actingAs($user)->get('/billing/upgrade/pro?recurring=1')
+            ->assertOk()
+            ->assertSee('name="accept_terms"', false)
+            ->assertSee('renews automatically every month')
+            ->assertSee('$4.99/month');
     }
 }

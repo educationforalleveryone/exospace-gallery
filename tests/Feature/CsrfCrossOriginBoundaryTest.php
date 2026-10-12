@@ -127,7 +127,7 @@ class CsrfCrossOriginBoundaryTest extends TestCase
         config(['services.2checkout.product_id_pro' => 'PRO-001']);
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/billing/upgrade/pro');
+        $response = $this->actingAs($user)->post('/billing/upgrade/pro', ['accept_terms' => '1']);
 
         $response->assertStatus(419);
         $this->assertDatabaseCount('pending_upgrades', 0);

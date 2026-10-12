@@ -84,6 +84,14 @@ class BillingController extends Controller
     {
         $user = $request->user();
 
+        // Explicit consent to the Terms, Refund Policy and Privacy Policy is
+        // required before anyone is sent to the payment provider.
+        $request->validate([
+            'accept_terms' => ['accepted'],
+        ], [
+            'accept_terms.accepted' => 'Please accept the Terms of Service, Refund Policy and Privacy Policy to continue.',
+        ]);
+
         $isRecurring = $request->boolean('recurring');
 
         // Validate plan + product ID is configured

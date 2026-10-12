@@ -23,7 +23,7 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         $user = User::factory()->create(['plan' => 'free']);
 
         $response = $this->actingAs($user)
-            ->post(route('billing.upgrade', ['plan' => 'pro']));
+            ->post(route('billing.upgrade', ['plan' => 'pro']), ['accept_terms' => '1']);
 
         $response->assertRedirect();
         $location = $response->headers->get('Location');
@@ -47,7 +47,7 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         $user = User::factory()->create(['plan' => 'free']);
 
         $response = $this->actingAs($user)
-            ->post(route('billing.upgrade', ['plan' => 'pro']));
+            ->post(route('billing.upgrade', ['plan' => 'pro']), ['accept_terms' => '1']);
 
         $response->assertRedirect();
         $location = $response->headers->get('Location');
@@ -71,7 +71,7 @@ class SignedBuyLinkAndTrialFraudTest extends TestCase
         $user = User::factory()->create(['plan' => 'free']);
 
         $response = $this->actingAs($user)
-            ->post(route('billing.upgrade', ['plan' => 'pro']));
+            ->post(route('billing.upgrade', ['plan' => 'pro']), ['accept_terms' => '1']);
 
         $location = $response->headers->get('Location');
 

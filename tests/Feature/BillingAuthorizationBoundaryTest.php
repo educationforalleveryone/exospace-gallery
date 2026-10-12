@@ -323,6 +323,7 @@ class BillingAuthorizationBoundaryTest extends TestCase
         $bob = User::factory()->create(); // free
 
         $response = $this->actingAs($bob)->post('/billing/upgrade/pro', [
+            'accept_terms' => '1',
             'user_id' => (string) $alice->id,
             'plan' => 'studio',
             'recurring' => '0',

@@ -28,7 +28,13 @@ class LegalPagesAccuracyTest extends TestCase
         $response = $this->get('/terms');
 
         $response->assertOk();
-        $response->assertSee('Exospace Gallery Ltd.');
+        $response->assertSee('Exospace Gallery');
+        // Never imply an incorporated company that does not exist.
+        $response->assertDontSee('Ltd.');
+        $response->assertSee('Islamic Republic of Pakistan');
+        $response->assertDontSee('in accordance with applicable laws');
+        $response->assertSee('Lifetime access');
+        $response->assertSee('renew automatically');
         $response->assertSee('2Checkout (a Verifone company)', false);
         $response->assertSee('14-day money-back guarantee');
         $response->assertSee('27 Innovation Drive, Suite 4B');
@@ -83,11 +89,9 @@ class LegalPagesAccuracyTest extends TestCase
     {
         // All three pages must show the revision date of the content, not a
         // date('F d, Y') stamp that silently claims to be updated every day.
-        foreach (['/terms', '/privacy'] as $uri) {
-            $this->get($uri)->assertOk()->assertSee('Last Updated: October 4, 2026');
-        }
-
-        $this->get('/refund-policy')->assertOk()->assertSee('Last updated: October 4, 2026');
+        $this->get('/terms')->assertOk()->assertSee('Last Updated: October 12, 2026');
+        $this->get('/privacy')->assertOk()->assertSee('Last Updated: October 4, 2026');
+        $this->get('/refund-policy')->assertOk()->assertSee('Last updated: October 12, 2026');
     }
 
     // ── address is rendered from EXOSPACE_BUSINESS_ADDRESS, not hardcoded ──
@@ -103,15 +107,47 @@ class LegalPagesAccuracyTest extends TestCase
 
     public function test_footer_renders_the_configured_address_and_a_matching_tel_link(): void
     {
+        config()->set('app.support_phone', '+92 300 000 0000');
+
         $response = $this->get('/pricing');
 
         $response->assertOk();
-        $response->assertSee('Registered Address: Exospace Gallery, 27 Innovation Drive, Suite 4B', false);
+        $response->assertSee('Address: Exospace Gallery, 27 Innovation Drive, Suite 4B', false);
+        $response->assertDontSee('Registered Address');
 
-        // The tel: href must match the displayed digits (it used to contain
-        // two stray digits).
-        $content = $response->getContent();
-        $this->assertStringContainsString('href="tel:+923112345678"', $content);
-        $this->assertStringNotContainsString('tel:+92311234567890', $content);
+        // The tel: href must match the displayed digits.
+        $this->assertStringContainsString('href="tel:+923000000000"', $response->getContent());
+    }
+
+    public function test_phone_and_address_are_hidden_when_not_configured(): void
+    {
+        config()->set('app.support_phone', null);
+        config()->set('app.business_address', null);
+
+        foreach (['/pricing', '/refund-policy', '/about'] as $uri) {
+            $content = $this->get($uri)->assertOk()->getContent();
+            $this->assertStringNotContainsString('tel:', $content, $uri);
+            $this->assertStringNotContainsString('Phone:', $content, $uri);
+            $this->assertStringNotContainsString('Registered Address', $content, $uri);
+        }
+    }
+
+    public function test_legal_name_and_governing_law_follow_configuration(): void
+    {
+        config()->set('app.legal_name', 'Exospace Gallery LLC');
+        config()->set('app.governing_law', 'the laws of the State of Delaware, USA');
+        config()->set('app.governing_venue', 'the state and federal courts located in Delaware');
+
+        $this->get('/terms')->assertOk()
+            ->assertSee('Exospace Gallery LLC')
+            ->assertSee('State of Delaware');
+    }
+
+    public function test_refund_policy_explains_subscription_cancellation_and_renewals(): void
+    {
+        $this->get('/refund-policy')->assertOk()
+            ->assertSee('Monthly subscriptions')
+            ->assertSee('Later monthly renewals are not refunded')
+            ->assertSee('Cancelling a subscription');
     }
 }

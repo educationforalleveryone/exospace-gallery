@@ -75,8 +75,10 @@
     <section class="py-12">
         <h2 class="text-2xl font-semibold text-gray-100 mb-4">Where We Are</h2>
         <div class="text-gray-300 leading-relaxed">
-            <p>Exospace Gallery Ltd. is registered and headquartered in <strong class="text-gray-100">Islamabad, Pakistan</strong>. We are a remote-first company with team members contributing from across the globe.</p>
-            <p class="mt-3 text-gray-500 text-sm">Registered Address: {{ str_replace("\n", ', ', config('app.business_address') ?? 'Islamabad, Pakistan') }}</p>
+            <p>{{ config('app.legal_name') }} is operated from <strong class="text-gray-100">Islamabad, Pakistan</strong> and serves artists, galleries and curators worldwide. Questions about your account or a purchase? Write to <a href="mailto:support@exospace.gallery" class="text-brand-400 hover:text-brand-300">support@exospace.gallery</a>.</p>
+            @if ($businessAddress = config('app.business_address'))
+                <p class="mt-3 text-gray-500 text-sm">Address: {{ str_replace("\n", ', ', $businessAddress) }}</p>
+            @endif
         </div>
     </section>
 </main>

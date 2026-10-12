@@ -133,53 +133,20 @@
                     </div>
                     @endif
                     {{-- Offer both one-time + recurring (subscription) options --}}
-                    <form action="{{ route('billing.upgrade.start', 'pro') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="btn btn-primary w-full">
-                            Pro — ${{ $proPrice }} one-time
-                        </button>
-                    </form>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'pro']) }}" class="btn btn-primary w-full text-center">Pro — ${{ $proPrice }} one-time</a>
                     @if($hasRecurringPro)
-                    <form action="{{ route('billing.upgrade.start', 'pro') }}" method="POST">
-                        @csrf
-                        <input type="hidden" name="recurring" value="1">
-                        <button type="submit" class="btn btn-secondary w-full">
-                            Pro — ${{ $recurringProPrice }}/month
-                        </button>
-                    </form>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'pro', 'recurring' => 1]) }}" class="btn btn-secondary w-full text-center">Pro — ${{ $recurringProPrice }}/month</a>
                     @endif
-                    <form action="{{ route('billing.upgrade.start', 'studio') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="btn btn-primary w-full">
-                            Studio — ${{ $studioPrice }} one-time
-                        </button>
-                    </form>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-primary w-full text-center">Studio — ${{ $studioPrice }} one-time</a>
                     @if($hasRecurringStudio)
-                    <form action="{{ route('billing.upgrade.start', 'studio') }}" method="POST">
-                        @csrf
-                        <input type="hidden" name="recurring" value="1">
-                        <button type="submit" class="btn btn-secondary w-full">
-                            Studio — ${{ $recurringStudioPrice }}/month
-                        </button>
-                    </form>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio', 'recurring' => 1]) }}" class="btn btn-secondary w-full text-center">Studio — ${{ $recurringStudioPrice }}/month</a>
                     @endif
                 </div>
                 @elseif($user->plan === 'pro')
                 <div class="mt-6 space-y-2">
-                    <form action="{{ route('billing.upgrade.start', 'studio') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="btn btn-primary w-full">
-                            Upgrade to Studio — ${{ $studioPrice }}
-                        </button>
-                    </form>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-primary w-full text-center">Upgrade to Studio — ${{ $studioPrice }}</a>
                     @if($hasRecurringStudio)
-                    <form action="{{ route('billing.upgrade.start', 'studio') }}" method="POST">
-                        @csrf
-                        <input type="hidden" name="recurring" value="1">
-                        <button type="submit" class="btn btn-secondary w-full">
-                            Studio — ${{ $recurringStudioPrice }}/month
-                        </button>
-                    </form>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio', 'recurring' => 1]) }}" class="btn btn-secondary w-full text-center">Studio — ${{ $recurringStudioPrice }}/month</a>
                     @endif
                 </div>
                 @endif
