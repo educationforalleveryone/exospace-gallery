@@ -10,7 +10,7 @@ You started upgrading to {{ ucfirst($pendingUpgrade->plan) }} but didn't finish 
 
     $priceLine = $isRecurringCheckout
         ? '$' . config('services.2checkout.recurring_price_' . $pendingUpgrade->plan . '_monthly', $pendingUpgrade->plan === 'studio' ? '14.99' : '4.99') . '/month'
-        : ($pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time');
+        : (config('plans.display.'.($pendingUpgrade->plan === 'studio' ? 'studio' : 'pro').'.price_label').' one-time');
     $billingNote = $isRecurringCheckout
         ? 'Monthly subscription — cancel anytime'
         : 'Lifetime access — one-time purchase';

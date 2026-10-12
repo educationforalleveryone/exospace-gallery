@@ -363,7 +363,7 @@ $venueAtmospheres = [
                                     <p class="text-sm text-gray-400">Add ambient audio to your gallery — ambient soundscapes, custom tracks, anything MP3.</p>
                                 </div>
                                 <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
-                                    Pro — $29
+                                    Pro — {{ config('plans.display.pro.price_label') }}
                                 </a>
                             </div>
                         @endif
@@ -402,7 +402,7 @@ $venueAtmospheres = [
                                     <p class="text-sm text-gray-400">Set an opening date — visitors see a live countdown. Close it automatically after the run ends.</p>
                                 </div>
                                 <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
-                                    Pro — $29
+                                    Pro — {{ config('plans.display.pro.price_label') }}
                                 </a>
                             </div>
                         @endif

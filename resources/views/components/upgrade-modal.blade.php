@@ -31,7 +31,7 @@
         @endphp
         <div class="space-y-2">
             <a href="{{ route('billing.upgrade', 'pro') }}" class="btn btn-primary w-full">
-                Upgrade to Pro — $29
+                Upgrade to Pro — {{ config('plans.display.pro.price_label') }}
             </a>
             @if($hasRecurringPro)
             <a href="{{ route('billing.upgrade', 'pro') }}?recurring=1" class="btn btn-secondary w-full">

@@ -270,11 +270,16 @@
         <div class="card-tier">Studio</div>
         <div class="card-price">
             <span class="dollar">$</span>
-            <span class="amount">{{ $studioPrice + 0 }}</span>
-            <span class="period">/ one-time</span>
+            @if($hasRecurringStudio)
+                <span class="amount">{{ $recurringStudioPrice + 0 }}</span>
+                <span class="period">/ month</span>
+            @else
+                <span class="amount">{{ $studioPrice + 0 }}</span>
+                <span class="period">/ one-time</span>
+            @endif
         </div>
         @if($hasRecurringStudio)
-        <p class="card-cycle">or ${{ $recurringStudioPrice }}/mo — cancel anytime</p>
+        <p class="card-cycle">Cancel anytime · or ${{ $studioPrice + 0 }} one-time for lifetime access</p>
         @endif
         <p class="card-desc">For agencies and professionals. Every venue, custom domains, white-label branding.</p>
         <ul class="features">
@@ -315,7 +320,7 @@
         @if($currentPlan === 'studio')
         <button type="button" class="btn btn-secondary w-full" disabled>Your Current Plan ✓</button>
         @else
-        <button type="button" class="btn btn-secondary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — ${{ $studioPrice + 0 }}</button>
+        <button type="button" class="btn btn-secondary w-full" data-click="openModalAnchor" data-arg="upgrade-modal-studio">Upgrade to Studio — @if($hasRecurringStudio)${{ $recurringStudioPrice }}/month @else${{ $studioPrice + 0 }}@endif</button>
         @endif
     </div>
 </div>
@@ -520,8 +525,8 @@
 <div id="upgrade-modal-studio" role="dialog" aria-modal="true" aria-labelledby="modal-studio-title" style="display:none;" class="fixed inset-0 z-[60] items-center justify-center overflow-y-auto p-4 bg-black/75 backdrop-blur-sm">
     <div class="bg-ink-900 border border-gray-700/60 rounded-2xl p-8 sm:p-10 max-w-[440px] w-[90%] text-center">
 
-        <h3 id="modal-studio-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Studio — ${{ $studioPrice + 0 }}</h3>
-        <p class="text-sm text-gray-500 mb-2 leading-relaxed">One-time payment. Lifetime access.</p>
+        <h3 id="modal-studio-title" class="text-xl font-bold text-gray-100 mb-2">Upgrade to Studio — @if($hasRecurringStudio)${{ $recurringStudioPrice }}/month @else${{ $studioPrice + 0 }}@endif</h3>
+        <p class="text-sm text-gray-500 mb-2 leading-relaxed">@if($hasRecurringStudio)Monthly subscription — cancel anytime. Or pay once for lifetime access.@else One-time payment. Lifetime access.@endif</p>
         <ul class="text-left text-[13px] text-gray-400 my-5 ps-5 leading-8 list-disc">
             <li>Unlimited galleries · 500 images total</li>
             <li>All 12 venues including The Salon, Penthouse, Cyber Gallery, Sculpture Garden, Mirror Lake</li>
@@ -531,13 +536,17 @@
             <li>Dedicated account manager</li>
         </ul>
         @auth
+        @if($hasRecurringStudio)
+        {{-- Studio leads with the monthly plan; one-time lifetime is the alternative. --}}
+        <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1" class="btn btn-primary w-full mb-3">
+            Subscribe — ${{ $recurringStudioPrice }}/month →
+        </a>
+        <a href="{{ route('billing.upgrade', 'studio') }}" class="btn btn-secondary w-full mb-3">
+            or ${{ $studioPrice + 0 }} one-time — lifetime access
+        </a>
+        @else
         <a href="{{ route('billing.upgrade', 'studio') }}" class="btn btn-primary w-full mb-3">
             Pay Securely with 2Checkout →
-        </a>
-        @if($hasRecurringStudio)
-        {{-- Same monthly alternative the billing portal offers. --}}
-        <a href="{{ route('billing.upgrade', 'studio') }}?recurring=1" class="btn btn-secondary w-full mb-3">
-            or ${{ $recurringStudioPrice }}/month — cancel anytime
         </a>
         @endif
         @else

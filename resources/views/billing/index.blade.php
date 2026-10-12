@@ -137,16 +137,20 @@
                     @if($hasRecurringPro)
                     <a href="{{ route('billing.upgrade', ['plan' => 'pro', 'recurring' => 1]) }}" class="btn btn-secondary w-full text-center">Pro — ${{ $recurringProPrice }}/month</a>
                     @endif
-                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-primary w-full text-center">Studio — ${{ $studioPrice }} one-time</a>
                     @if($hasRecurringStudio)
-                    <a href="{{ route('billing.upgrade', ['plan' => 'studio', 'recurring' => 1]) }}" class="btn btn-secondary w-full text-center">Studio — ${{ $recurringStudioPrice }}/month</a>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio', 'recurring' => 1]) }}" class="btn btn-primary w-full text-center">Studio — ${{ $recurringStudioPrice }}/month</a>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-secondary w-full text-center">Studio — ${{ $studioPrice }} one-time</a>
+                    @else
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-primary w-full text-center">Studio — ${{ $studioPrice }} one-time</a>
                     @endif
                 </div>
                 @elseif($user->plan === 'pro')
                 <div class="mt-6 space-y-2">
-                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-primary w-full text-center">Upgrade to Studio — ${{ $studioPrice }}</a>
                     @if($hasRecurringStudio)
-                    <a href="{{ route('billing.upgrade', ['plan' => 'studio', 'recurring' => 1]) }}" class="btn btn-secondary w-full text-center">Studio — ${{ $recurringStudioPrice }}/month</a>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio', 'recurring' => 1]) }}" class="btn btn-primary w-full text-center">Studio — ${{ $recurringStudioPrice }}/month</a>
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-secondary w-full text-center">Studio — ${{ $studioPrice }} one-time</a>
+                    @else
+                    <a href="{{ route('billing.upgrade', ['plan' => 'studio']) }}" class="btn btn-primary w-full text-center">Upgrade to Studio — ${{ $studioPrice }}</a>
                     @endif
                 </div>
                 @endif

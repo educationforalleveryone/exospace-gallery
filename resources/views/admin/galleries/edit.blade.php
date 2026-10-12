@@ -559,7 +559,7 @@
                                     <p class="text-sm text-gray-400">Add ambient audio to your gallery — ambient soundscapes, custom tracks, anything MP3.</p>
                                 </div>
                                 <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
-                                    Pro — $29
+                                    Pro — {{ config('plans.display.pro.price_label') }}
                                 </a>
                             </div>
                         @endif
@@ -710,7 +710,7 @@
                                     <p class="text-sm text-gray-400">Set an opening date — visitors see a live countdown. Close it automatically after the run ends.</p>
                                 </div>
                                 <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
-                                    Pro — $29
+                                    Pro — {{ config('plans.display.pro.price_label') }}
                                 </a>
                             </div>
                         @endif
@@ -800,7 +800,7 @@
                                     <p class="text-sm text-gray-400">Custom domain + branded entrance curtain are Studio-plan features.</p>
                                 </div>
                                 <a href="/pricing" class="btn btn-sm btn-brand-tint flex-shrink-0 whitespace-nowrap">
-                                    Studio — $99
+                                    Studio — {{ config('plans.display.studio.price_label') }}
                                 </a>
                             </div>
                         </div>

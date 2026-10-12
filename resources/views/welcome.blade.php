@@ -311,8 +311,13 @@ $testimonials = [
             {{-- Studio --}}
             <div class="bg-ink-800 rounded-2xl p-6 border border-gray-700">
                 <div class="text-sm text-amber-400 mb-1">{{ $studioPlanDisplay['name'] }}</div>
+                @if($hasRecurringStudio)
+                <div class="text-3xl font-bold mb-1">${{ $recurringStudioPrice }}/mo</div>
+                <div class="text-xs text-gray-500 mb-4">or ${{ $studioPlanDisplay['price'] + 0 }} one-time</div>
+                @else
                 <div class="text-3xl font-bold mb-1">${{ $studioPlanDisplay['price'] + 0 }}</div>
-                <div class="text-xs text-gray-500 mb-4">one-time @if($hasRecurringStudio)· or ${{ $recurringStudioPrice }}/mo @endif</div>
+                <div class="text-xs text-gray-500 mb-4">one-time</div>
+                @endif
                 <ul class="text-sm text-gray-400 space-y-2 mb-6">
                     <li class="flex items-start gap-2"><svg class="w-4 h-4 text-amber-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"/></svg>Unlimited galleries</li>
                     <li class="flex items-start gap-2"><svg class="w-4 h-4 text-amber-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"/></svg>500 artworks per gallery</li>

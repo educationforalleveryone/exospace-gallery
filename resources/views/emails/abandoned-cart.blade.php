@@ -40,7 +40,7 @@
                 @if($isRecurringCheckout)
                     ${{ config('services.2checkout.recurring_price_' . $pendingUpgrade->plan . '_monthly', $pendingUpgrade->plan === 'studio' ? '14.99' : '4.99') }}/month
                 @else
-                    {{ $pendingUpgrade->plan === 'studio' ? '$99 one-time' : '$29 one-time' }}
+                    {{ config('plans.display.'.($pendingUpgrade->plan === 'studio' ? 'studio' : 'pro').'.price_label') }} one-time
                 @endif
             </div>
             <div style="font-size: 0.875rem; color: #6b7280; margin-top: 4px;">
